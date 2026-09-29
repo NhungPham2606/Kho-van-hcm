@@ -554,3 +554,6 @@ table.ledger tbody tr:hover { background: #eff6ff; }
 .nv-del { background: #e02424; color: #fff; border: 0; border-radius: 6px; font: inherit; font-size: 12px; padding: 4px 10px; cursor: pointer; }
 .nv-del:hover { background: #b91c1c; }
 button.primary:disabled { opacity: .5; cursor: default; }
+
+/* Dau dong cua danh sach huong dan: dung cham tron, KHONG dung o vuong (nguoi dung tuong la o tick) */
+.checklist li::before { content: '•'; color: #1a56db; font-size: 18px; line-height: 1; margin-top: 1px; }

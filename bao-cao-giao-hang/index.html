@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Báo Cáo Giao Hàng</title>
 <link rel="icon" href="../assets/logo.png">
-<link rel="stylesheet" href="../assets/theme.css?v=20260929h">
+<link rel="stylesheet" href="../assets/theme.css?v=20260929i">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 </head>
 <body>
@@ -179,24 +179,6 @@
         </div>
       </section>
 
-      <section id="luu-tru" data-title="Lưu trữ &amp; tra cứu" hidden>
-        <div class="sec-head"><div class="sec-no">5</div><div>
-          <h2>Lưu trữ &amp; tra cứu</h2>
-          <p>Mọi phiên bản file và chính sách đều được giữ lại, xem hoặc khôi phục bất cứ lúc nào.</p>
-        </div></div>
-        <div class="card">
-          <ul class="checklist">
-            <li><span>Tải file đã tính: mục <b>Kết quả tính</b> → <b>Tải file kết quả</b>, hoặc mục Cập nhật dữ liệu → danh sách file → <b>Tải về</b></span></li>
-            <li><span>Xem phiên bản cũ của file hoặc chính sách: nút <b>Lịch sử thay đổi</b> bên dưới</span></li>
-            <li><span>File tháng cũ để lại làm lưu trữ — hệ thống luôn dùng file được tải lên gần nhất</span></li>
-          </ul>
-          <div class="btn-row">
-            <a class="btn" href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/tree/main/data" target="_blank" rel="noopener">Mở kho file ↗</a>
-            <a class="btn" href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/commits/main" target="_blank" rel="noopener">Lịch sử thay đổi ↗</a>
-          </div>
-        </div>
-      </section>
-
       <section id="nhan-vien" data-title="Nhân viên &amp; mail" hidden>
         <div class="sec-head"><div class="sec-no">NV</div><div>
           <h2>Nhân viên &amp; người nhận mail</h2>
@@ -234,6 +216,34 @@
           </div>
           <div class="up-status" id="nvSaveMsg" hidden role="status"></div>
           <p class="note" style="margin-top:12px">Lưu ý: nhân viên mới cũng phải có trong sheet <code>MNV</code> của file Excel tháng thì mới được tính điểm và có dashboard để gửi. Hệ thống tìm nhân viên theo <b>Mã NV</b> trước, rồi mới theo họ tên.</p>
+        </div>
+      </section>
+
+      <section id="luu-tru" data-title="Lưu trữ &amp; tra cứu" hidden>
+        <div class="sec-head"><div class="sec-no">5</div><div>
+          <h2>Lưu trữ &amp; tra cứu</h2>
+          <p>Tải về file đã tính của từng tháng. Mọi phiên bản cũ của file và chính sách đều được giữ lại.</p>
+        </div></div>
+        <div class="need-connect" data-need-connect hidden>Chưa kết nối hệ thống — <a href="#cap-nhat">sang mục Cập nhật dữ liệu để kết nối</a> (làm 1 lần trên mỗi máy).</div>
+        <div class="card" id="ltCard" hidden>
+          <div class="up-head">
+            <h2><span class="step-no">⤓</span> File trên hệ thống</h2>
+            <button type="button" class="linkbtn" id="ltRefresh">Làm mới</button>
+          </div>
+          <div class="table-wrap" style="margin-top:10px"><table class="plain nv-table">
+            <thead><tr><th>Tên file</th><th style="width:110px">Dung lượng</th><th style="width:120px"></th></tr></thead>
+            <tbody id="ltList"></tbody>
+          </table></div>
+          <div class="download-row">
+            <button class="primary" type="button" id="ltLatest">Tải file tháng đang dùng</button>
+            <a class="btn" href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/commits/main/data" target="_blank" rel="noopener">Lịch sử thay đổi file ↗</a>
+            <a class="btn" href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/commits/main/config/chinh_sach.json" target="_blank" rel="noopener">Lịch sử chính sách ↗</a>
+          </div>
+          <ul class="checklist" style="margin-top:14px">
+            <li><span>File tải về là bản <b>đã tính lại</b> (có 3 sheet Đơn giao, Chi tiết theo ngày, TH Tỷ lệ tính công).</span></li>
+            <li><span>Cần bản cũ hơn: bấm <b>Lịch sử thay đổi file</b> → chọn lần cập nhật → mở file → <b>Download</b>.</span></li>
+            <li><span>File tháng cũ để lại làm lưu trữ — hệ thống luôn dùng file được tải lên gần nhất.</span></li>
+          </ul>
         </div>
       </section>
 
@@ -288,9 +298,9 @@
     <footer class="site-foot">Kho vận HCM · Trang nội bộ. Dữ liệu chỉ lưu trong kho riêng tư của Kho vận HCM trên GitHub.</footer>
   </div>
 </div>
-<script src="../assets/flows.js?v=20260929h"></script>
-<script src="../assets/layout.js?v=20260929h"></script>
-<script src="app.js?v=20260929h"></script>
+<script src="../assets/flows.js?v=20260929i"></script>
+<script src="../assets/layout.js?v=20260929i"></script>
+<script src="app.js?v=20260929i"></script>
 <script>
 // Moi dau muc la 1 man hinh rieng, chon qua menu trai (#hash).
 (function () {

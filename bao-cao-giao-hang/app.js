@@ -90,6 +90,7 @@
     $('kqCard').hidden = !connected;
     $('polForm').hidden = !connected;
     $('nvCard').hidden = !connected;
+    $('ltCard').hidden = !connected;
   }
   async function connect(t) {
     token = t;
@@ -145,6 +146,10 @@
           <td><button type="button" class="linkbtn" data-dl="${esc(f.name)}">Tải về</button></td></tr>`).join('')
         : '<tr><td colspan="3" class="note">Chưa có file nào.</td></tr>';
       fillFilePicker();
+      $('ltList').innerHTML = files.length ? files.map(f => `<tr>
+          <td>${esc(f.name)}${f.name === latestName ? ' <span class="pill good">đang dùng</span>' : ''}</td><td>${kb(f.size)}</td>
+          <td><button type="button" class="primary nv-btn" data-dl="${esc(f.name)}">Tải về</button></td></tr>`).join('')
+        : '<tr><td colspan="3" class="note">Chưa có file nào.</td></tr>';
     } catch (e) {
       body.innerHTML = `<tr><td colspan="3" class="note">Không đọc được danh sách: ${esc(e.message)}</td></tr>`;
     }
@@ -158,6 +163,9 @@
   }
   $('upList').addEventListener('click', e => { const n = e.target.dataset && e.target.dataset.dl; if (n) downloadFile(n, e.target); });
   $('upRefresh').addEventListener('click', refreshList);
+  $('ltRefresh').addEventListener('click', refreshList);
+  $('ltList').addEventListener('click', e => { const n = e.target.dataset && e.target.dataset.dl; if (n) downloadFile(n, e.target); });
+  $('ltLatest').addEventListener('click', e => { if (latestName) downloadFile(latestName, e.currentTarget); else alert('Chưa có file nào trên hệ thống.'); });
 
   // ------------------------------------------------------------ kiểm tra 4 sheet
   function checkWorkbook(wb) {
@@ -492,6 +500,7 @@
     if (id === 'ket-qua' && kqLoadedFor !== ($('kqFile').value || latestName)) loadResults($('kqFile').value || latestName);
     if (id === 'quy-tac' && !polLoaded) loadPolicy();
     if (id === 'nhan-vien' && !nvLoaded) loadNhanVien();
+    if (id === 'luu-tru' && !files.length) refreshList();
   }
   document.addEventListener('kvh:section', e => loadSectionData(e.detail));
 
