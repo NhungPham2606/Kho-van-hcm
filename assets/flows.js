@@ -1,13 +1,33 @@
-// Danh sach cac dong cong viec hien tren trang chu Kho van HCM.
-// Them dong cong viec moi: them 1 muc vao mang ben duoi va tao thu muc
-// cung ten (vd "nhap-kho/index.html", copy tu "bao-cao-giao-hang/index.html").
-window.KVH_FLOWS = [
+// ====================================================================
+// MENU TRAI CUA TOAN BO TRANG KHO VAN HCM
+// Them dong cong viec moi: them 1 nhom { ten, icon, moTa, trangThai, muc: [...] }
+// vao mang ben duoi, va tao trang tuong ung (copy thu muc bao-cao-giao-hang/).
+// Moi "muc" la 1 dau muc trong menu con; href tinh tu thu muc goc cua trang.
+// ====================================================================
+window.KVH_ICONS = {
+  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+  truck: '<path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/>',
+  box: '<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4"/><path d="M12 11v10"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+};
+
+window.KVH_MENU = [
+  { ten: 'Trang chủ', icon: 'home', href: '' },
   {
-    href: 'bao-cao-giao-hang/',
-    ten: 'Báo cáo giao hàng',
+    ten: 'Báo cáo giao hàng', icon: 'truck', trangThai: 'Đang chạy',
     moTa: 'Tính điểm giao hàng, định mức và hệ số lương theo tháng; tự gửi dashboard cho từng nhân viên.',
-    trangThai: 'Đang chạy',
-    icon: '<path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/>',
-    buoc: ['Chuẩn bị dữ liệu', 'Cập nhật', 'Tính lại', 'Gửi báo cáo', 'Lưu trữ'],
+    muc: [
+      { ten: 'Tổng quan', href: 'bao-cao-giao-hang/#tong-quan' },
+      { ten: 'Chuẩn bị dữ liệu', href: 'bao-cao-giao-hang/#chuan-bi' },
+      { ten: 'Cập nhật dữ liệu', href: 'bao-cao-giao-hang/#cap-nhat' },
+      { ten: 'Tính lại & kiểm tra', href: 'bao-cao-giao-hang/#tinh-lai' },
+      { ten: 'Gửi báo cáo', href: 'bao-cao-giao-hang/#gui-bao-cao' },
+      { ten: 'Lưu trữ & tra cứu', href: 'bao-cao-giao-hang/#luu-tru' },
+      { ten: 'Quy tắc tính', href: 'bao-cao-giao-hang/#quy-tac' },
+    ],
   },
+  // Vi du dong cong viec tiep theo (bo "//" khi co trang):
+  // { ten: 'Nhập kho', icon: 'box', trangThai: 'Đang chạy', moTa: '...', muc: [
+  //   { ten: 'Tổng quan', href: 'nhap-kho/#tong-quan' },
+  // ] },
 ];

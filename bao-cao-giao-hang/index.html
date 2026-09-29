@@ -1,49 +1,34 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" data-base="../">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Báo Cáo Giao Hàng</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23a8461f'/%3E%3Ctext x='16' y='21' font-family='monospace' font-size='12' fill='white' text-anchor='middle'%3EKV%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="../assets/logo.png">
 <link rel="stylesheet" href="../assets/theme.css">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 </head>
 <body>
-<header class="topbar"><div class="topbar-in">
-  <a class="brand" href="../"><img class="brand-logo" src="../assets/logo.png" alt="CPC1HN" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="brand-mark" hidden>KV</span><span>Kho vận HCM<small>CPC1 Hà Nội · Chi nhánh HCM</small></span></a>
-</div></header>
+<div class="app">
+  <aside class="sidebar" id="sidebar" aria-label="Menu"></aside>
+  <div class="sb-overlay"></div>
+  <div class="main">
+    <div class="main-bar">
+      <button class="menu-btn" type="button" aria-label="Mở menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <nav class="crumbs" aria-label="Đường dẫn"><a href="../">Trang chủ</a><span>›</span><a href="#tong-quan">Báo cáo giao hàng</a><span>›</span><span aria-current="page" id="crumbHere">Tổng quan</span></nav>
+    </div>
+    <main class="content">
 
-<main class="page">
-  <nav class="crumbs" aria-label="Đường dẫn"><a href="../">Kho vận HCM</a><span>›</span><span aria-current="page">Báo cáo giao hàng</span></nav>
-  <div class="page-head" style="margin-top:14px">
-    <div class="eyebrow">Dòng công việc · Hằng tháng</div>
-    <h1>Báo cáo giao hàng</h1>
-    <p class="lede">Tính điểm giao hàng, định mức và hệ số lương cho nhân viên giao hàng HCM, rồi gửi báo cáo cho từng người và cho quản lý. Làm lần lượt theo 5 đầu mục bên dưới.</p>
-  </div>
+      <div class="flow-main">
 
-  <div class="flow-layout">
-    <nav class="flow-nav" aria-label="Đầu mục">
-      <ol>
-        <li><a href="#tong-quan"><span class="n">0</span>Tổng quan</a></li>
-        <li><a href="#chuan-bi"><span class="n">1</span>Chuẩn bị dữ liệu</a></li>
-        <li><a href="#cap-nhat"><span class="n">2</span>Cập nhật lên hệ thống</a></li>
-        <li><a href="#tinh-lai"><span class="n">3</span>Tính lại &amp; kiểm tra</a></li>
-        <li><a href="#gui-bao-cao"><span class="n">4</span>Gửi báo cáo</a></li>
-        <li><a href="#luu-tru"><span class="n">5</span>Lưu trữ &amp; tra cứu</a></li>
-        <li><a href="#quy-tac"><span class="n">i</span>Quy tắc tính</a></li>
-      </ol>
-    </nav>
-
-    <div class="flow-main">
-
-      <section id="tong-quan">
+      <section id="tong-quan" data-title="Tổng quan">
         <div class="sec-head"><div class="sec-no">0</div><div>
           <h2>Tổng quan quy trình</h2>
-          <p>Việc màu cam do người làm, việc màu xanh hệ thống tự chạy.</p>
+          <p>Việc màu cam do người làm, việc màu xanh hệ thống tự chạy. Bấm vào từng bước để xem chi tiết.</p>
         </div></div>
         <ol class="pipeline">
           <li><a href="#chuan-bi"><span class="k">01 · người làm</span><b>Chuẩn bị dữ liệu</b>File Excel tháng đủ 4 sheet</a></li>
-          <li><a href="#cap-nhat"><span class="k">02 · người làm</span><b>Cập nhật</b>Tải file lên GitHub</a></li>
+          <li><a href="#cap-nhat"><span class="k">02 · người làm</span><b>Cập nhật</b>Tải file lên kho lưu trữ</a></li>
           <li><a href="#tinh-lai"><span class="k">03 · tự động</span><b>Tính lại</b>~1 phút sau khi tải lên</a></li>
           <li><a href="#gui-bao-cao"><span class="k">04 · tự động</span><b>Gửi báo cáo</b>9h hằng ngày · ngày 5</a></li>
           <li><a href="#luu-tru"><span class="k">05 · tra cứu</span><b>Lưu trữ</b>Mọi phiên bản đều giữ lại</a></li>
@@ -62,7 +47,7 @@
         </div>
       </section>
 
-      <section id="chuan-bi">
+      <section id="chuan-bi" data-title="Chuẩn bị dữ liệu" hidden>
         <div class="sec-head"><div class="sec-no">1</div><div>
           <h2>Chuẩn bị dữ liệu <span class="who manual">Người làm</span></h2>
           <p>Kiểm tra file Excel tháng trước khi đưa lên.</p>
@@ -78,29 +63,29 @@
         </div>
       </section>
 
-      <section id="cap-nhat">
+      <section id="cap-nhat" data-title="Cập nhật dữ liệu" hidden>
         <div class="sec-head"><div class="sec-no">2</div><div>
-          <h2>Cập nhật lên hệ thống <span class="who manual">Người làm</span></h2>
+          <h2>Cập nhật dữ liệu <span class="who manual">Người làm</span></h2>
           <p>Tải file vào thư mục <code>data</code> của kho lưu trữ. Làm được từ máy tính hay điện thoại.</p>
         </div></div>
         <div class="card">
           <ul class="checklist">
-            <li><span>Mở thư mục <b>data</b> → <b>Add file</b> → <b>Upload files</b></span></li>
+            <li><span>Bấm <b>Tải file lên thư mục data</b> bên dưới</span></li>
             <li><span>Kéo file vào. Cập nhật trong tháng: <b>giữ nguyên tên</b> để ghi đè. Tháng mới: <b>tên mới</b></span></li>
-            <li><span>Bấm <b>Commit changes</b></span></li>
+            <li><span>Bấm <b>Commit changes</b> — khoảng 1 phút sau hệ thống tự tính lại</span></li>
           </ul>
           <div class="btn-row">
             <a class="btn primary" href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/upload/main/data" target="_blank" rel="noopener">Tải file lên thư mục data ↗</a>
             <a class="btn" href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/tree/main/data" target="_blank" rel="noopener">Xem thư mục data ↗</a>
           </div>
-          <p class="note">Kho lưu trữ là riêng tư — chỉ tài khoản quản trị (NhungPham2606) mở được các nút này.</p>
+          <p class="note">Kho lưu trữ là riêng tư — chỉ tài khoản quản trị mở được các nút này.</p>
         </div>
       </section>
 
-      <section id="tinh-lai">
+      <section id="tinh-lai" data-title="Tính lại & kiểm tra" hidden>
         <div class="sec-head"><div class="sec-no">3</div><div>
           <h2>Tính lại &amp; kiểm tra <span class="who auto">Tự động</span></h2>
-          <p>Hệ thống tự tính lại khoảng 1 phút sau khi tải file lên. Muốn xem trước kết quả, hoặc tính trên file bất kỳ, dùng công cụ ngay dưới đây.</p>
+          <p>Hệ thống tự tính lại sau khi tải file lên. Muốn xem trước kết quả, hoặc tính trên file bất kỳ, dùng công cụ dưới đây.</p>
         </div></div>
   <div class="card">
     <h2><span class="step-no">3a</span> Chọn file Excel</h2>
@@ -154,7 +139,7 @@
         </div>
       </section>
 
-      <section id="gui-bao-cao">
+      <section id="gui-bao-cao" data-title="Gửi báo cáo" hidden>
         <div class="sec-head"><div class="sec-no">4</div><div>
           <h2>Gửi báo cáo <span class="who auto">Tự động</span></h2>
           <p>Mail đi từ hệ thống, không cần mở máy tính nào.</p>
@@ -176,7 +161,7 @@
         </div>
       </section>
 
-      <section id="luu-tru">
+      <section id="luu-tru" data-title="Lưu trữ & tra cứu" hidden>
         <div class="sec-head"><div class="sec-no">5</div><div>
           <h2>Lưu trữ &amp; tra cứu</h2>
           <p>Mọi phiên bản file đều được giữ lại, xem hoặc khôi phục bất cứ lúc nào.</p>
@@ -194,7 +179,7 @@
         </div>
       </section>
 
-      <section id="quy-tac">
+      <section id="quy-tac" data-title="Quy tắc tính" hidden>
         <div class="sec-head"><div class="sec-no">i</div><div>
           <h2>Quy tắc tính đang áp dụng</h2>
           <p>Đổi quy tắc cần sửa cả script tự động lẫn công cụ trên trang này để kết quả khớp nhau.</p>
@@ -210,10 +195,14 @@
         </div>
       </section>
 
-    </div>
+      <nav class="pager" id="pager" aria-label="Chuyển đầu mục"></nav>
+      </div>
+    </main>
+    <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel chỉ được xử lý trong trình duyệt của bạn, không gửi lên máy chủ nào.</footer>
   </div>
-</main>
-<footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel chỉ được xử lý trong trình duyệt của bạn, không gửi lên máy chủ nào.</footer>
+</div>
+<script src="../assets/flows.js"></script>
+<script src="../assets/layout.js"></script>
 <script>
 (function () {
   "use strict";
@@ -882,20 +871,27 @@
 })();
 </script>
 <script>
-// To dam dau muc dang xem trong menu ben
+// Moi dau muc la 1 man hinh rieng, chon qua menu trai (#hash).
 (function () {
-  const links = [...document.querySelectorAll('.flow-nav a')];
-  const byId = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
-  const obs = new IntersectionObserver(entries => {
-    entries.forEach(e => {
-      if (e.isIntersecting) {
-        links.forEach(a => a.classList.remove('active'));
-        const a = byId.get(e.target.id);
-        if (a) a.classList.add('active');
-      }
-    });
-  }, { rootMargin: '-20% 0px -70% 0px' });
-  document.querySelectorAll('.flow-main > section').forEach(s => obs.observe(s));
+  const sections = [...document.querySelectorAll('.flow-main > section')];
+  const crumb = document.getElementById('crumbHere');
+  const pager = document.getElementById('pager');
+  function show() {
+    const id = location.hash.slice(1);
+    let idx = sections.findIndex(s => s.id === id);
+    if (idx < 0) idx = 0;
+    sections.forEach((s, i) => { s.hidden = i !== idx; });
+    crumb.textContent = sections[idx].dataset.title;
+    document.title = sections[idx].dataset.title + ' · Báo cáo giao hàng';
+    const prev = sections[idx - 1], next = sections[idx + 1];
+    pager.innerHTML =
+      (prev ? `<a class="prev" href="#${prev.id}"><small>← Trước</small>${prev.dataset.title}</a>` : '') +
+      (next ? `<a class="next" href="#${next.id}"><small>Tiếp theo →</small>${next.dataset.title}</a>` : '');
+    // trinh duyet tu nhay toi #id truoc; dua ve dau trang sau do
+    requestAnimationFrame(() => window.scrollTo(0, 0));
+  }
+  window.addEventListener('hashchange', show);
+  show();
 })();
 </script>
 </body>

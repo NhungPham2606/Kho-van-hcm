@@ -1,53 +1,56 @@
 <!doctype html>
-<html lang="vi">
+<html lang="vi" data-base="">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Kho vận HCM</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23a8461f'/%3E%3Ctext x='16' y='21' font-family='monospace' font-size='12' fill='white' text-anchor='middle'%3EKV%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="assets/logo.png">
 <link rel="stylesheet" href="assets/theme.css">
 </head>
 <body>
-<header class="topbar"><div class="topbar-in">
-  <a class="brand" href=""><img class="brand-logo" src="assets/logo.png" alt="CPC1HN" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="brand-mark" hidden>KV</span><span>Kho vận HCM<small>CPC1 Hà Nội · Chi nhánh HCM</small></span></a>
-</div></header>
+<div class="app">
+  <aside class="sidebar" id="sidebar" aria-label="Menu"></aside>
+  <div class="sb-overlay"></div>
+  <div class="main">
+    <div class="main-bar">
+      <button class="menu-btn" type="button" aria-label="Mở menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <nav class="crumbs" aria-label="Đường dẫn"><span aria-current="page">Trang chủ</span></nav>
+    </div>
+    <main class="content">
 
-<main class="page">
   <div class="page-head">
-    <div class="eyebrow">CPC1 HCM · Cổng công việc</div>
+    <div class="eyebrow">CPC1HN · Chi nhánh HCM</div>
     <h1>Kho vận HCM</h1>
-    <p class="lede">Mỗi dòng công việc có một trang riêng, chia theo từng đầu mục từ chuẩn bị dữ liệu đến lưu trữ. Chọn dòng công việc để bắt đầu.</p>
+    <p class="lede">Chọn dòng công việc ở menu bên trái hoặc bên dưới. Mỗi dòng công việc chia theo các đầu mục, từ chuẩn bị dữ liệu đến lưu trữ.</p>
   </div>
-
   <div class="section-label">Dòng công việc</div>
   <div class="flow-grid" id="flowGrid"></div>
-</main>
-<footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel chỉ được xử lý trong trình duyệt của bạn, không gửi lên máy chủ nào.</footer>
-
+    </main>
+    <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel chỉ được xử lý trong trình duyệt của bạn, không gửi lên máy chủ nào.</footer>
+  </div>
+</div>
 <script src="assets/flows.js"></script>
+<script src="assets/layout.js"></script>
 <script>
 (function () {
   const grid = document.getElementById('flowGrid');
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  (window.KVH_FLOWS || []).forEach(f => {
+  const icon = n => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${(window.KVH_ICONS || {})[n] || ''}</svg>`;
+  (window.KVH_MENU || []).filter(g => g.muc).forEach(g => {
     const a = document.createElement('a');
     a.className = 'flow-card';
-    a.href = f.href;
+    a.href = g.muc[0].href;
     a.innerHTML = `
-      <div class="flow-top">
-        <div class="flow-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${f.icon}</svg></div>
-        <span class="pill good">${esc(f.trangThai)}</span>
-      </div>
-      <h3>${esc(f.ten)}</h3>
-      <p>${esc(f.moTa)}</p>
-      <ol class="flow-steps">${f.buoc.map((b, i) => `<li>${i + 1}. ${esc(b)}</li>`).join('')}</ol>
+      <div class="flow-top"><div class="flow-icon">${icon(g.icon)}</div><span class="pill good">${esc(g.trangThai || '')}</span></div>
+      <h3>${esc(g.ten)}</h3>
+      <p>${esc(g.moTa || '')}</p>
+      <ol class="flow-steps">${g.muc.map(m => `<li>${esc(m.ten)}</li>`).join('')}</ol>
       <span class="flow-go">Mở dòng công việc →</span>`;
     grid.appendChild(a);
   });
   const ph = document.createElement('div');
   ph.className = 'flow-card placeholder';
-  ph.innerHTML = `
-    <div class="flow-top"><div class="flow-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div></div>
+  ph.innerHTML = `<div class="flow-top"><div class="flow-icon">${icon('plus')}</div></div>
     <h3>Dòng công việc mới</h3>
     <p>Chỗ dành cho quy trình tiếp theo (nhập kho, kiểm kê, xuất hàng…). Sẽ có cùng khung đầu mục như Báo cáo giao hàng.</p>`;
   grid.appendChild(ph);
