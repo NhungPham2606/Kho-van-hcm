@@ -542,3 +542,15 @@ table.ledger tbody tr:hover { background: #eff6ff; }
 .flow-icon { background: #eff6ff; color: #1a56db; }
 .flow-go { color: #1a56db; }
 @media (max-width: 900px) { .app { grid-template-columns: minmax(0, 1fr); } .sidebar { width: 240px; } }
+
+/* ---- Nhan vien & mail (hang o nhap giong form "Dong cap" cua app cu) ---- */
+.nv-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-top: 12px; padding: 12px; background: #f9fafb; border-radius: 8px; }
+.nv-form .f { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #6b7280; min-width: 140px; }
+.nv-form .f.grow { flex: 1; min-width: 200px; }
+.nv-form input { font: inherit; font-size: 12px; padding: 7px 8px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; outline: none; }
+.nv-form input:focus { border-color: #1a56db; box-shadow: 0 0 0 2px #1a56db22; }
+.nv-form .nv-btn { font-size: 12px; padding: 7px 12px; }
+.nv-table td { padding: 8px 12px; }
+.nv-del { background: #e02424; color: #fff; border: 0; border-radius: 6px; font: inherit; font-size: 12px; padding: 4px 10px; cursor: pointer; }
+.nv-del:hover { background: #b91c1c; }
+button.primary:disabled { opacity: .5; cursor: default; }

@@ -89,6 +89,7 @@
     document.querySelectorAll('[data-need-connect]').forEach(el => { el.hidden = connected; });
     $('kqCard').hidden = !connected;
     $('polForm').hidden = !connected;
+    $('nvCard').hidden = !connected;
   }
   async function connect(t) {
     token = t;
@@ -116,7 +117,7 @@
   $('upLogout').addEventListener('click', () => {
     try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
     token = ''; connected = false; $('upToken').value = '';
-    kqLoadedFor = null; polLoaded = false;
+    kqLoadedFor = null; polLoaded = false; nvLoaded = false;
     renderConnection();
   });
 
@@ -403,11 +404,94 @@
     btn.disabled = false;
   });
 
+  // ------------------------------------------------------------ nhân viên & mail (auto_mail/config.json)
+  const CFG_PATH = 'auto_mail/config.json';
+  let nvLoaded = false, nvSha = null, nvCfg = null, nvList = [], ccList = [], nvDirty = false;
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  function nvMsg(el, html, kind) { setStatus(el, html, kind); }
+  function markDirty(v) {
+    nvDirty = v;
+    $('nvSave').disabled = !v;
+    $('nvDirty').textContent = v ? 'Có thay đổi chưa lưu' : '';
+  }
+  function renderNv() {
+    $('nvList').innerHTML = nvList.length ? nvList.map((n, i) => `<tr><td>${esc(n.maNV || '')}</td><td>${esc(n.hoTen)}</td><td>${esc(n.email)}</td>
+      <td><button type="button" class="nv-del" data-nvdel="${i}">Xóa</button></td></tr>`).join('')
+      : '<tr><td colspan="4" class="note" style="text-align:center;padding:18px">Chưa có nhân viên nào</td></tr>';
+    $('ccList').innerHTML = ccList.length ? ccList.map((m, i) => `<tr><td>${esc(m)}</td><td><button type="button" class="nv-del" data-ccdel="${i}">Xóa</button></td></tr>`).join('')
+      : '<tr><td colspan="2" class="note" style="text-align:center;padding:18px">Không CC ai</td></tr>';
+  }
+  async function loadNhanVien() {
+    nvMsg($('nvSaveMsg'), 'Đang tải danh sách…');
+    try {
+      const meta = await gh(`/contents/${CFG_PATH}?ref=main&t=${Date.now()}`);
+      nvSha = meta.sha;
+      nvCfg = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(meta.content.replace(/\n/g, '')), c => c.charCodeAt(0))));
+      nvList = nvCfg.nhan_vien ? nvCfg.nhan_vien.map(n => ({ ...n }))
+        : Object.entries(nvCfg.employee_emails || {}).map(([hoTen, email]) => ({ maNV: '', hoTen, email }));
+      ccList = [...(nvCfg.cc_list || [])];
+      nvLoaded = true; markDirty(false); renderNv();
+      nvMsg($('nvSaveMsg'), '');
+    } catch (e) {
+      nvMsg($('nvSaveMsg'), 'Không tải được danh sách: ' + esc(e.message), 'bad');
+    }
+  }
+  $('nvAdd').addEventListener('click', () => {
+    const maNV = $('nvMa').value.trim(), hoTen = $('nvTen').value.trim().replace(/\s+/g, ' '), email = $('nvMail').value.trim();
+    if (!maNV || !hoTen || !email) { nvMsg($('nvMsg'), 'Nhập đủ Mã NV, Họ và tên, Email.', 'bad'); return; }
+    if (!EMAIL_RE.test(email)) { nvMsg($('nvMsg'), 'Email chưa đúng dạng.', 'bad'); return; }
+    if (nvList.some(n => (n.maNV || '') === maNV)) { nvMsg($('nvMsg'), `Mã NV ${esc(maNV)} đã có trong danh sách.`, 'bad'); return; }
+    if (nvList.some(n => n.hoTen.toLowerCase() === hoTen.toLowerCase())) { nvMsg($('nvMsg'), `Tên "${esc(hoTen)}" đã có trong danh sách.`, 'bad'); return; }
+    nvList.push({ maNV, hoTen, email });
+    ['nvMa', 'nvTen', 'nvMail'].forEach(id => { $(id).value = ''; });
+    nvMsg($('nvMsg'), `Đã thêm ${esc(hoTen)} — bấm <b>Lưu danh sách</b> để áp dụng.`, 'good');
+    markDirty(true); renderNv();
+  });
+  $('ccAdd').addEventListener('click', () => {
+    const m = $('ccMail').value.trim();
+    if (!EMAIL_RE.test(m)) { nvMsg($('nvMsg'), 'Email CC chưa đúng dạng.', 'bad'); return; }
+    if (ccList.some(x => x.toLowerCase() === m.toLowerCase())) { nvMsg($('nvMsg'), 'Email này đã có trong danh sách CC.', 'bad'); return; }
+    ccList.push(m); $('ccMail').value = '';
+    nvMsg($('nvMsg'), '');
+    markDirty(true); renderNv();
+  });
+  document.getElementById('nvCard').addEventListener('click', e => {
+    const d = e.target.dataset || {};
+    if (d.nvdel !== undefined) {
+      const n = nvList[+d.nvdel];
+      if (!confirm(`Xoá ${n.hoTen} (${n.maNV || 'không mã'}) khỏi danh sách nhận mail?`)) return;
+      nvList.splice(+d.nvdel, 1); markDirty(true); renderNv();
+      nvMsg($('nvMsg'), `Đã xoá ${esc(n.hoTen)} — bấm <b>Lưu danh sách</b> để áp dụng.`, 'good');
+    } else if (d.ccdel !== undefined) {
+      ccList.splice(+d.ccdel, 1); markDirty(true); renderNv();
+    }
+  });
+  $('nvReload').addEventListener('click', () => { nvMsg($('nvMsg'), ''); loadNhanVien(); });
+  $('nvSave').addEventListener('click', async () => {
+    const btn = $('nvSave'); btn.disabled = true;
+    nvMsg($('nvSaveMsg'), '⏳ Đang lưu…');
+    try {
+      const next = Object.assign({}, nvCfg, { cc_list: ccList, nhan_vien: nvList });
+      delete next.employee_emails;
+      const text = JSON.stringify(next, null, 2) + '\n';
+      const res = await gh(`/contents/${CFG_PATH}`, { method: 'PUT', body: JSON.stringify({
+        message: 'Cap nhat danh sach nhan vien nhan mail (tu web)', content: toBase64(new TextEncoder().encode(text)), sha: nvSha, branch: 'main' }) });
+      nvSha = res.content.sha; nvCfg = next; markDirty(false);
+      nvMsg($('nvSaveMsg'), `✅ Đã lưu: ${nvList.length} nhân viên, ${ccList.length} CC. Áp dụng từ lần gửi mail kế tiếp.`, 'good');
+      nvMsg($('nvMsg'), '');
+    } catch (err) {
+      nvMsg($('nvSaveMsg'), err.status === 409 ? '❌ Danh sách vừa bị sửa ở nơi khác — bấm "Bỏ thay đổi" để tải bản mới rồi làm lại.' : '❌ Lưu thất bại: ' + esc(err.message), 'bad');
+      btn.disabled = false;
+    }
+  });
+  window.addEventListener('beforeunload', e => { if (nvDirty) { e.preventDefault(); e.returnValue = ''; } });
+
   // ------------------------------------------------------------ nạp dữ liệu theo mục đang xem
   function loadSectionData(id) {
     if (!connected) return;
     if (id === 'ket-qua' && kqLoadedFor !== ($('kqFile').value || latestName)) loadResults($('kqFile').value || latestName);
     if (id === 'quy-tac' && !polLoaded) loadPolicy();
+    if (id === 'nhan-vien' && !nvLoaded) loadNhanVien();
   }
   document.addEventListener('kvh:section', e => loadSectionData(e.detail));
 

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Báo Cáo Giao Hàng</title>
 <link rel="icon" href="../assets/logo.png">
-<link rel="stylesheet" href="../assets/theme.css?v=20260929g">
+<link rel="stylesheet" href="../assets/theme.css?v=20260929h">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 </head>
 <body>
@@ -173,7 +173,7 @@
           <div class="btn-row">
             <a class="btn primary" href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/actions/workflows/gui-mail-hang-ngay.yml" target="_blank" rel="noopener">Gửi thử / gửi lại mail hằng ngày ↗</a>
             <a class="btn" href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/actions/workflows/gui-mail-tong-hop-thang.yml" target="_blank" rel="noopener">Mail tổng hợp tháng ↗</a>
-            <a class="btn" href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/edit/main/auto_mail/config.json" target="_blank" rel="noopener">Sửa danh sách người nhận ↗</a>
+            <a class="btn" href="#nhan-vien">Sửa danh sách người nhận</a>
           </div>
           <p class="note">Gửi thử: bấm <b>Run workflow</b>, để tích "Che do thu" — mail chỉ về hộp thư test. Lần chạy lỗi có dấu ❌ và GitHub tự báo qua mail.</p>
         </div>
@@ -194,6 +194,46 @@
             <a class="btn" href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/tree/main/data" target="_blank" rel="noopener">Mở kho file ↗</a>
             <a class="btn" href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/commits/main" target="_blank" rel="noopener">Lịch sử thay đổi ↗</a>
           </div>
+        </div>
+      </section>
+
+      <section id="nhan-vien" data-title="Nhân viên &amp; mail" hidden>
+        <div class="sec-head"><div class="sec-no">NV</div><div>
+          <h2>Nhân viên &amp; người nhận mail</h2>
+          <p>Thêm nhân viên mới (Mã NV + email) để nhận mail dashboard hằng ngày; xoá người đã nghỉ việc. Bấm <b>Lưu danh sách</b> — áp dụng từ lần gửi mail kế tiếp.</p>
+        </div></div>
+        <div class="need-connect" data-need-connect hidden>Chưa kết nối hệ thống — <a href="#cap-nhat">sang mục Cập nhật dữ liệu để kết nối</a> (làm 1 lần trên mỗi máy).</div>
+        <div class="card" id="nvCard" hidden>
+          <h2><span class="step-no">+</span> Thêm nhân viên nhận mail</h2>
+          <div class="nv-form">
+            <label class="f">Mã NV<input type="text" id="nvMa" placeholder="vd 019748" inputmode="numeric" autocomplete="off"></label>
+            <label class="f grow">Họ và tên<input type="text" id="nvTen" placeholder="đúng như sheet MNV" autocomplete="off"></label>
+            <label class="f grow">Email<input type="email" id="nvMail" placeholder="ten@cpc1hn.com.vn" autocomplete="off"></label>
+            <button class="primary nv-btn" type="button" id="nvAdd">+ Thêm nhân viên</button>
+          </div>
+          <div class="up-status" id="nvMsg" hidden role="status"></div>
+          <div class="table-wrap" style="margin-top:14px"><table class="plain nv-table">
+            <thead><tr><th style="width:110px">Mã NV</th><th>Họ và tên</th><th>Email nhận dashboard</th><th style="width:70px"></th></tr></thead>
+            <tbody id="nvList"></tbody>
+          </table></div>
+
+          <h2 style="margin-top:24px"><span class="step-no">CC</span> Quản lý nhận bản sao (CC)</h2>
+          <div class="nv-form">
+            <label class="f grow">Email quản lý<input type="email" id="ccMail" placeholder="quanly@cpc1hn.vn" autocomplete="off"></label>
+            <button class="primary nv-btn" type="button" id="ccAdd">+ Thêm CC</button>
+          </div>
+          <div class="table-wrap" style="margin-top:14px"><table class="plain nv-table">
+            <thead><tr><th>Email CC (nhận bản sao mọi mail)</th><th style="width:70px"></th></tr></thead>
+            <tbody id="ccList"></tbody>
+          </table></div>
+
+          <div class="download-row">
+            <button class="primary" type="button" id="nvSave" disabled>Lưu danh sách</button>
+            <button class="linkbtn" type="button" id="nvReload">Bỏ thay đổi</button>
+            <span class="note" id="nvDirty"></span>
+          </div>
+          <div class="up-status" id="nvSaveMsg" hidden role="status"></div>
+          <p class="note" style="margin-top:12px">Lưu ý: nhân viên mới cũng phải có trong sheet <code>MNV</code> của file Excel tháng thì mới được tính điểm và có dashboard để gửi. Hệ thống tìm nhân viên theo <b>Mã NV</b> trước, rồi mới theo họ tên.</p>
         </div>
       </section>
 
@@ -248,9 +288,9 @@
     <footer class="site-foot">Kho vận HCM · Trang nội bộ. Dữ liệu chỉ lưu trong kho riêng tư của Kho vận HCM trên GitHub.</footer>
   </div>
 </div>
-<script src="../assets/flows.js?v=20260929g"></script>
-<script src="../assets/layout.js?v=20260929g"></script>
-<script src="app.js?v=20260929g"></script>
+<script src="../assets/flows.js?v=20260929h"></script>
+<script src="../assets/layout.js?v=20260929h"></script>
+<script src="app.js?v=20260929h"></script>
 <script>
 // Moi dau muc la 1 man hinh rieng, chon qua menu trai (#hash).
 (function () {
