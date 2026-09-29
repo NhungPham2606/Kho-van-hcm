@@ -5,73 +5,74 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Thưởng Kho HCM</title>
 <link rel="icon" href="../assets/logo.png">
-<link rel="stylesheet" href="../assets/theme.css?v=20260929f">
+<link rel="stylesheet" href="../assets/theme.css?v=20260929g">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
-  /* Bố cục giống trang "Thưởng Kho HCM" của app cũ (giao-hang-app) */
-  .content.tk-wide { max-width: none; }
-  .tk { --tk-blue: #1a56db; --tk-green: #059669; --tk-red: #dc2626; font-size: 13px; }
-  .tk .tk-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  /* Bố cục + kiểu chữ y hệt trang "Thưởng Kho HCM" của app cũ (giao-hang-app/src/index.css) */
+  .content.tk-wide { max-width: none; padding: 16px 20px; }
+  .tk { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; color: #333; }
+  .tk .tk-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
   .tk .tk-card-body { padding: 16px; }
-  .tk .tk-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line-soft); }
-  .tk .tk-card-head h3 { margin: 0; font-size: 15px; }
-  .tk .tk-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .tk .tk-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 14px 16px; border-bottom: 1px solid #f3f4f6; }
+  .tk .tk-card-head h3 { margin: 0; font-size: 14px; font-weight: 600; color: #1f2937; }
+  .tk .tk-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-bottom: 10px; }
   .tk .tk-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-  .tk .tk-lbl { font-size: 11px; color: var(--ink-soft); margin-right: 4px; }
-  .tk .b { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; font-weight: 500; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; text-decoration: none; }
-  .tk .b:hover { border-color: var(--tk-blue); }
-  .tk .b.pri { background: var(--tk-blue); border-color: var(--tk-blue); color: #fff; }
-  .tk .b.ok { background: var(--tk-green); border-color: var(--tk-green); color: #fff; }
-  .tk .b.del { background: var(--tk-red); border-color: var(--tk-red); color: #fff; }
-  .tk .b.sm { padding: 4px 10px; font-size: 12px; }
-  .tk .b:disabled { opacity: .5; cursor: default; }
-  .tk .tk-banner { display: inline-block; font-size: 12px; color: #065f46; background: #ecfdf5; padding: 6px 12px; border-radius: 8px; margin-top: 12px; }
-  .tk .tk-sync { font-size: 11.5px; color: var(--ink-soft); margin-top: 8px; }
+  .tk .tk-lbl { font-size: 11px; color: #6b7280; margin-right: 4px; }
+  .tk .b { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 500; padding: 7px 14px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff; color: #374151; cursor: pointer; text-decoration: none; white-space: nowrap; transition: all .15s; line-height: 1.3; }
+  .tk .b svg { width: 15px; height: 15px; }
+  .tk .b:hover { background: #f9fafb; }
+  .tk .b.pri { background: #1a56db; border-color: #1a56db; color: #fff; } .tk .b.pri:hover { background: #1343b0; }
+  .tk .b.ok { background: #0e9f6e; border-color: #0e9f6e; color: #fff; } .tk .b.ok:hover { background: #0b7a56; }
+  .tk .b.del { background: #e02424; border-color: #e02424; color: #fff; } .tk .b.del:hover { background: #b91c1c; }
+  .tk .b.sm { padding: 5px 10px; font-size: 12px; }
+  .tk .b.sm svg { width: 13px; height: 13px; }
+  .tk .tk-banner { display: inline-block; font-size: 12px; color: #065f46; background: #ecfdf5; padding: 6px 12px; border-radius: 8px; }
+  .tk .tk-sync { font-size: 11px; color: #9ca3af; margin-top: 8px; }
   .tk .tk-err { margin-top: 12px; padding: 10px 14px; background: #fee2e2; color: #991b1b; border-radius: 8px; font-size: 12px; }
   .tk .tk-okmsg { margin-top: 12px; padding: 10px 14px; background: #ecfdf5; color: #065f46; border-radius: 8px; font-size: 12px; }
-  .tk .tk-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
-  .tk .tk-stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; box-shadow: var(--shadow); }
-  .tk .tk-stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-soft); font-weight: 600; }
-  .tk .tk-stat .v { font-size: 24px; font-weight: 700; margin-top: 6px; color: var(--ink); }
-  .tk .tk-stat.blue .v { color: var(--tk-blue); }
-  .tk .tk-stat.green .v { color: var(--tk-green); font-size: 20px; }
-  .tk .tk-search { position: relative; }
-  .tk .tk-search input { font: inherit; font-size: 12.5px; padding: 6px 10px 6px 30px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); width: 220px; }
-  .tk .tk-search svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--ink-soft); }
-  .tk .tw { overflow: auto; max-height: calc(100vh - 360px); }
-  .tk table.dt { border-collapse: collapse; width: 100%; font-size: 12.5px; }
-  .tk table.dt th { position: sticky; top: 0; background: var(--paper-2); color: var(--ink); text-align: left; font-weight: 600; padding: 9px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; z-index: 1; }
-  .tk table.dt td { padding: 9px 10px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
-  .tk table.dt tbody tr:hover { background: var(--navy-soft); }
+  .tk .tk-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tk .tk-stat { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; }
+  .tk .tk-stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #9ca3af; font-weight: 500; }
+  .tk .tk-stat .v { font-size: 24px; font-weight: 700; margin-top: 4px; color: #1f2937; }
+  .tk .tk-stat.blue .v { color: #1a56db; }
+  .tk .tk-stat.green .v { color: #0e9f6e; font-size: 18px; }
+  .tk .tk-search { position: relative; min-width: 180px; max-width: 220px; flex: 1; }
+  .tk .tk-search input { width: 100%; box-sizing: border-box; font: inherit; font-size: 12px; padding: 7px 10px 7px 30px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; outline: none; }
+  .tk .tk-search input:focus { border-color: #1a56db; box-shadow: 0 0 0 2px #1a56db22; }
+  .tk .tk-search svg { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: #9ca3af; }
+  .tk .tw { overflow: auto; max-height: calc(100vh - 380px); }
+  .tk table.dt { border-collapse: collapse; width: 100%; font-size: 12px; }
+  .tk table.dt th { position: sticky; top: 0; background: #f9fafb; color: #4b5563; text-align: left; font-weight: 600; padding: 8px 10px; border-bottom: 2px solid #e5e7eb; white-space: nowrap; z-index: 1; }
+  .tk table.dt td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; white-space: nowrap; color: #374151; }
+  .tk table.dt tbody tr:hover td { background: #eff6ff; }
+  .tk table.dt tr:last-child td { border-bottom: none; }
   .tk table.dt .r { text-align: right; }
+  .tk table.dt td.name { font-weight: 600; }
+  .tk table.dt td.note { font-size: 11px; color: #6b7280; white-space: normal; min-width: 200px; max-width: 420px; }
   .tk table.dt tr.total td { background: #f0f9ff; font-weight: 700; }
   .tk table.dt tr.total td:first-child { color: #1e40af; }
-  .tk table.dt td.money { color: var(--tk-blue); font-weight: 700; }
+  .tk table.dt td.money { color: #1a56db; font-weight: 700; }
+  .tk table.dt td.bold { font-weight: 700; }
   .tk table.dt td.over { color: #065f46; font-weight: 700; }
   .tk table.dt td.pair { background: #ede9fe; color: #6d28d9; font-weight: 700; }
-  .tk table.dt.grid th, .tk table.dt.grid td { padding: 7px 6px; }
-  .tk .tk-foot { padding: 10px 16px; font-size: 12px; color: var(--ink-soft); border-top: 1px solid var(--line-soft); }
-  .tk .tk-zone { border: 2px dashed #c7d2fe; border-radius: 12px; padding: 40px 20px; text-align: center; cursor: pointer; background: #f8faff; transition: background .15s, border-color .15s; }
-  .tk .tk-zone:hover, .tk .tk-zone.drag { border-color: var(--tk-blue); background: #eef2ff; }
-  .tk .tk-zone svg { width: 44px; height: 44px; margin-bottom: 8px; }
-  .tk .tk-zone h4 { margin: 6px 0; font-size: 15px; color: var(--ink); }
-  .tk .tk-zone p { margin: 0 auto; font-size: 12.5px; color: var(--ink-soft); max-width: 640px; }
-  .tk .tk-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; padding: 12px; background: var(--paper-2); border-radius: 8px; }
-  .tk .tk-form .f { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--ink-soft); }
-  .tk select, .tk input[type=date], .tk input[type=text] { font: inherit; font-size: 12.5px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--ink); }
-  .tk .tk-legend { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-soft); }
+  .tk .tk-foot { padding: 10px 16px; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+  .tk .tk-zone { border: 2px dashed #d1d5db; border-radius: 10px; padding: 32px 24px; text-align: center; cursor: pointer; background: #f9fafb; transition: all .2s; }
+  .tk .tk-zone:hover, .tk .tk-zone.drag { border-color: #1a56db; background: #eff6ff; }
+  .tk .tk-zone svg { width: 36px; height: 36px; margin-bottom: 10px; }
+  .tk .tk-zone h4 { margin: 0 0 6px; font-size: 14px; font-weight: 600; color: #374151; }
+  .tk .tk-zone p { margin: 0 auto; font-size: 12px; color: #6b7280; max-width: 720px; line-height: 1.6; }
+  .tk .tk-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; padding: 12px; background: #f9fafb; border-radius: 8px; }
+  .tk .tk-form .f { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #6b7280; }
+  .tk select, .tk input[type=date], .tk input[type=text] { font: inherit; font-size: 12px; padding: 7px 8px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; outline: none; }
+  .tk select { min-width: 230px; }
+  .tk select:focus, .tk input:focus { border-color: #1a56db; }
+  .tk .tk-legend { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #6b7280; }
   .tk .tk-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #ede9fe; border: 1px solid #c4b5fd; }
-  .tk .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; background: var(--paper-2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+  .tk .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; background: #f3f4f6; color: #4b5563; border-radius: 20px; padding: 2px 9px; }
   .tk .chip button { border: 0; background: none; color: #991b1b; font-weight: 700; cursor: pointer; padding: 0; }
-  .tk .tk-notes { font-size: 12px; color: var(--ink-soft); line-height: 1.7; }
-  .tk .muted { font-size: 11px; color: var(--ink-soft); }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .tk .tk-banner, :root:not([data-theme="light"]) .tk .tk-okmsg { background: #0f2e24; color: #7fd6b0; }
-    :root:not([data-theme="light"]) .tk .tk-zone { background: #141c2b; border-color: #34426a; }
-    :root:not([data-theme="light"]) .tk table.dt tr.total td { background: #13243a; }
-    :root:not([data-theme="light"]) .tk table.dt td.pair { background: #2e2350; color: #c4b5fd; }
-  }
-  @media (max-width: 900px) { .tk .tk-stats { grid-template-columns: 1fr; } .tk .tw { max-height: none; } }
+  .tk .tk-notes { font-size: 12px; color: #6b7280; line-height: 1.7; }
+  .tk .muted { font-size: 11px; color: #9ca3af; }
+  @media (max-width: 900px) { .tk .tw { max-height: none; } }
 </style>
 </head>
 <body>
@@ -191,7 +192,7 @@
           </div>
         </div>
 
-        <div class="tk-card" id="huong-dan">
+        <div class="tk-card" id="huong-dan" hidden>
           <div class="tk-card-head"><h3>Ghi chú &amp; giả định áp dụng</h3></div>
           <div class="tk-card-body tk-notes">
             <div>• Số lượt mỗi ngày = tổng cộng dồn cả 3 việc <b>Tạo kiện + Bốc hàng + Đóng hàng</b> của 1 nhân viên trong ngày đó ("Tạo kiện" khớp theo username, "Bốc hàng"/"Đóng hàng" theo "Họ tên (SĐT)" hoặc Họ và tên — tra trong sheet "bảng mã nv", dùng <b>tất cả các dòng</b> của mỗi người, không phân biệt hoa/thường).</div>
@@ -208,9 +209,9 @@
     <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel được đọc trong trình duyệt; kết quả theo quý lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
   </div>
 </div>
-<script src="../assets/flows.js?v=20260929f"></script>
-<script src="../assets/layout.js?v=20260929f"></script>
-<script src="engine.js?v=20260929f"></script>
-<script src="app.js?v=20260929f"></script>
+<script src="../assets/flows.js?v=20260929g"></script>
+<script src="../assets/layout.js?v=20260929g"></script>
+<script src="engine.js?v=20260929g"></script>
+<script src="app.js?v=20260929g"></script>
 </body>
 </html>

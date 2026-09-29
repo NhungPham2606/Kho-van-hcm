@@ -18,10 +18,9 @@
     const hash = location.hash;
     let html = `
       <a class="sb-logo" href="${base || './'}">
-        <img src="${base}assets/logo.png" alt="CPC1HN" onerror="this.hidden=true;this.nextElementSibling.hidden=false">
-        <span class="sb-logo-text" hidden>CPC<b>1</b>HN</span>
-        <span class="sb-unit">Kho vận HCM</span>
-      </a><ul class="sb-menu">`;
+        <span class="sb-logo-text">Quản Lý Kho Vận</span>
+        <span class="sb-unit">Hệ thống báo cáo nội bộ · CPC1HN HCM</span>
+      </a><div class="sb-section">Menu chính</div><ul class="sb-menu">`;
     MENU.forEach((g, gi) => {
       if (!g.muc) {
         const active = norm(url(g.href).pathname) === here;

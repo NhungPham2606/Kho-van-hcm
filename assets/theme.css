@@ -471,3 +471,74 @@ table.tk-grid td.over { color: var(--good); font-weight: 700; }
 table.tk-grid td.pair { background: #ede9fe; color: #6d28d9; font-weight: 700; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) table.tk-grid td.pair { background: #2e2350; color: #c4b5fd; } }
 @media (max-width: 900px) { .tk-pipe { grid-template-columns: 1fr; } }
+
+/* ================================================================== */
+/* GIAO DIEN GIONG APP CU "Quan Ly Kho Van" (giao-hang-app) — nguoi   */
+/* dung chon 2026-09-29. Ghi de cac khai bao phia tren.               */
+/* ================================================================== */
+:root, :root:not([data-theme="light"]), :root[data-theme="dark"] {
+  --paper: #f0f2f5; --paper-2: #f9fafb; --ink: #1f2937; --ink-soft: #6b7280;
+  --line: #e5e7eb; --line-soft: #f3f4f6; --card: #ffffff;
+  --accent: #e02424; --accent-soft: #fee2e2; --navy: #1a56db; --navy-soft: #eff6ff;
+  --good: #0e9f6e; --good-soft: #d1fae5; --warn: #92400e; --warn-soft: #fef3c7; --bad: #991b1b; --bad-soft: #fee2e2;
+  --shadow: none;
+  color-scheme: light;
+}
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; background: #f0f2f5; color: #333; }
+h1, .card h2, .sec-head h2, .flow-card h3, footer.rules h3, .page-head h1 { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+.eyebrow { font-family: 'Segoe UI', Tahoma, sans-serif; color: #1a56db; }
+.eyebrow::before { background: #1a56db; }
+
+/* khung: menu trai toi mau */
+.app { grid-template-columns: 220px minmax(0, 1fr); }
+.sidebar { background: #1e293b; color: #cbd5e1; border-right: 0; }
+.sb-logo { align-items: flex-start; padding: 18px 16px 14px; border-bottom: 1px solid #334155; gap: 3px; }
+.sb-logo img { display: none; }
+.sb-logo-text { display: block !important; font-size: 14px; font-weight: 700; color: #f1f5f9; letter-spacing: 0; line-height: 1.4; }
+.sb-logo-text b { color: #f1f5f9; }
+.sb-unit { font-size: 11px; color: #94a3b8; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.sb-section { font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .08em; padding: 10px 16px 4px; }
+.sb-menu { padding: 10px 0; }
+.sb-item { margin: 1px 8px; width: calc(100% - 16px); padding: 9px 16px 9px 12px; border-radius: 6px; color: #94a3b8; font-size: 13px; gap: 10px; }
+.sb-item svg { color: currentColor; width: 16px; height: 16px; }
+.sb-item:hover { background: #334155; color: #e2e8f0; }
+.sb-item.active { background: #1a56db; color: #fff; font-weight: 500; }
+.sb-item.active svg { color: #fff; }
+.sb-group > .sb-toggle.active { background: transparent; color: #e2e8f0; }
+.sb-group > .sb-toggle.active:hover { background: #334155; }
+.sb-children { background: transparent; }
+.sb-child { margin: 1px 8px; padding: 7px 12px 7px 38px; border-radius: 6px; color: #94a3b8; font-size: 12.5px; }
+.sb-child:hover { background: #334155; color: #e2e8f0; }
+.sb-child.active { background: #1a56db; color: #fff; font-weight: 500; }
+.sb-foot { border-top: 1px solid #334155; color: #475569; font-size: 11px; padding: 12px 16px; }
+
+/* thanh tieu de trang */
+.main-bar { padding: 12px 20px; border-bottom: 1px solid #e5e7eb; background: #fff; }
+.crumbs { font-size: 16px; font-weight: 700; color: #1f2937; gap: 6px; }
+.crumbs > a:first-child, .crumbs > a:first-child + span { display: none; }
+.crumbs a { color: #1f2937; }
+.crumbs span { color: #9ca3af; font-weight: 400; }
+.crumbs [aria-current] { color: #1f2937; font-weight: 700; }
+.content { max-width: none; padding: 16px 20px 40px; }
+.site-foot { padding: 0 20px 20px; font-size: 11px; color: #9ca3af; }
+
+/* the / nut / bang kieu app cu */
+.card, .tile, .flow-card, .pipeline li { border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: none; }
+.card { padding: 16px; }
+.tile { background: #fff; }
+.tile .tile-label { color: #9ca3af; font-weight: 500; font-family: inherit; }
+.tile .tile-value { font-family: inherit; font-weight: 700; font-size: 24px; color: #1f2937; }
+.sec-no { background: #1a56db; }
+a.btn, button.primary { border-radius: 6px; font-size: 13px; font-weight: 500; padding: 7px 14px; }
+a.btn.primary, button.primary { background: #1a56db; border-color: #1a56db; color: #fff; }
+a.btn.primary:hover, button.primary:hover { background: #1343b0; filter: none; }
+table.ledger thead th { background: #f9fafb; color: #4b5563; font-family: inherit; font-size: 12px; text-transform: none; letter-spacing: 0; border-bottom: 2px solid #e5e7eb; }
+table.ledger { font-size: 12.5px; }
+table.ledger tbody tr:nth-child(even) { background: transparent; }
+table.ledger tbody tr:hover { background: #eff6ff; }
+.dropzone { border: 2px dashed #d1d5db; background: #f9fafb; border-radius: 10px; }
+.dropzone:hover, .dropzone.drag { border-color: #1a56db; background: #eff6ff; }
+.dz-sub, .dz-file { font-family: inherit; }
+.flow-icon { background: #eff6ff; color: #1a56db; }
+.flow-go { color: #1a56db; }
+@media (max-width: 900px) { .app { grid-template-columns: minmax(0, 1fr); } .sidebar { width: 240px; } }

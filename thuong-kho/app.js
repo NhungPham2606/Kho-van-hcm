@@ -10,7 +10,7 @@
   const OWNER = root.dataset.owner, REPO = root.dataset.repo, DIR = root.dataset.dir;
   const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
   const LS_KEY = 'kvh-thuongkho-v1', LS_SEL = 'kvh-thuongkho-sel', TOKEN_KEY = 'kvh-gh-token';
-  const VER = '20260929f';
+  const VER = '20260929g';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = n => Math.round(n || 0).toLocaleString('vi-VN') + 'đ';
@@ -130,6 +130,8 @@
     $('tkUpCancelRow').hidden = !has;
     $('tkPending').hidden = !pending;
     $('tkMainView').hidden = !has || !!pending;
+    // Giống app cũ: khung "Ghi chú & giả định" chỉ hiện khi đã có dữ liệu (hoặc mở từ menu)
+    $('huong-dan').hidden = !(has || location.hash === '#huong-dan');
     if (!has) return;
     $('tkChips').innerHTML = quarters().map(q => `<button type="button" class="b sm${q === result.quarterKey ? ' pri' : ''}" data-q="${q}">${E.quarterLabel(q)}</button>`).join('');
     $('tkBanner').innerHTML = `✓ <b>${esc(result.fileName)}</b> — ${result.soDongTho.toLocaleString('vi-VN')} dòng thô · Đang xem <b>${E.quarterLabel(result.quarterKey)}</b>`
@@ -155,7 +157,7 @@
     if (!result) return;
     const months = result.months, list = filtered();
     $('tqHead').innerHTML = `<th>Mã NV</th><th style="min-width:150px">Họ và tên</th>${months.map(mk => `<th class="r">${E.monthLabel(mk)}</th>`).join('')}<th class="r">Thưởng quý</th><th style="min-width:200px">Ghi chú (từ file)</th>`;
-    let html = list.map(e => `<tr><td>${esc(e.maNV)}</td><td style="font-weight:600">${esc(e.hoTen)}</td>${e.monthlyDetail.map(m => `<td class="r">${money(m.tongTien)}</td>`).join('')}<td class="r money">${money(e.thuong)}</td><td class="muted" style="white-space:normal">${esc(e.ghiChu)}</td></tr>`).join('');
+    let html = list.map(e => `<tr><td>${esc(e.maNV)}</td><td class="name">${esc(e.hoTen)}</td>${e.monthlyDetail.map(m => `<td class="r">${money(m.tongTien)}</td>`).join('')}<td class="r money">${money(e.thuong)}</td><td class="note">${esc(e.ghiChu)}</td></tr>`).join('');
     if (!search) {
       html += `<tr class="total"><td colspan="2">TỔNG CỘNG</td>${months.map(mk => `<td class="r">${money(result.perEmployee.reduce((s, e) => s + ((e.monthlyDetail.find(m => m.monthKey === mk) || {}).tongTien || 0), 0))}</td>`).join('')}<td class="r">${money(result.perEmployee.reduce((s, e) => s + e.thuong, 0))}</td><td></td></tr>`;
     }
@@ -177,7 +179,7 @@
         const cls = ['r', c > result.rules.nguong ? 'over' : '', p ? 'pair' : ''].join(' ').trim();
         return `<td class="${cls}"${p ? ` title="Đóng cặp cùng: ${esc(displayName(byMa[p]))}"` : ''}>${numSmart(c)}</td>`;
       }).join('');
-      return `<tr><td>${esc(e.maNV)}</td><td style="font-weight:600">${esc(e.hoTen)}</td>${cells}<td class="r" style="font-weight:700">${numSmart(md.soKien)}</td><td class="r money">${money(md.tongTien)}</td></tr>`;
+      return `<tr><td>${esc(e.maNV)}</td><td class="name">${esc(e.hoTen)}</td>${cells}<td class="r bold">${numSmart(md.soKien)}</td><td class="r money">${money(md.tongTien)}</td></tr>`;
     }).join('');
   }
   function renderAdjust() {
@@ -195,7 +197,7 @@
   document.querySelectorAll('[data-rule]').forEach(el => { el.textContent = E.RULES[el.dataset.rule].toLocaleString('vi-VN'); });
   window.addEventListener('hashchange', () => {
     if (location.hash === '#nap-du-lieu') { uploadOpen = true; renderTop(); $('tkUpload').scrollIntoView({ behavior: 'smooth' }); return; }
-    if (location.hash === '#huong-dan') return;
+    if (location.hash === '#huong-dan') { renderTop(); $('huong-dan').scrollIntoView({ behavior: 'smooth' }); return; }
     renderTabs();
   });
 
