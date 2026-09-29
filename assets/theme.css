@@ -457,3 +457,17 @@ table.ledger tbody tr.sel { background: var(--navy-soft) !important; }
   .pipeline li:not(:last-child)::after { content: '↓'; right: 50%; top: auto; bottom: -6px; transform: translate(50%, 50%); }
   .card { padding: 20px; }
 }
+
+/* ---- Thuong kho ---- */
+.tk-pipe { grid-template-columns: repeat(4, 1fr); }
+.tk-search { font: inherit; font-size: 14px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); min-width: 240px; }
+a.btn.primary, button.btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+button.btn { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-weight: 600; font-size: 14px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+button.btn:hover { border-color: var(--navy); }
+.tk-del { color: var(--bad); margin-left: auto; }
+table.tk-grid { min-width: 1200px; font-size: 12.5px; }
+table.tk-grid th, table.tk-grid td { padding: 6px 6px; }
+table.tk-grid td.over { color: var(--good); font-weight: 700; }
+table.tk-grid td.pair { background: #ede9fe; color: #6d28d9; font-weight: 700; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) table.tk-grid td.pair { background: #2e2350; color: #c4b5fd; } }
+@media (max-width: 900px) { .tk-pipe { grid-template-columns: 1fr; } }

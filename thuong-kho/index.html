@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="vi" data-base="../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thưởng Kho HCM</title>
+<link rel="icon" href="../assets/logo.png">
+<link rel="stylesheet" href="../assets/theme.css?v=20260929e">
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar" aria-label="Menu"></aside>
+  <div class="sb-overlay"></div>
+  <div class="main">
+    <div class="main-bar">
+      <button class="menu-btn" type="button" aria-label="Mở menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <nav class="crumbs" aria-label="Đường dẫn"><a href="../">Trang chủ</a><span>›</span><a href="#tong-quan">Thưởng kho HCM</a><span>›</span><span aria-current="page" id="crumbHere">Tổng quan</span></nav>
+    </div>
+    <main class="content">
+      <div class="flow-main" id="tk" data-owner="NhungPham2606" data-repo="BAO-CAO-GIAO-HANG" data-dir="thuong-kho">
+
+      <section id="tong-quan" data-title="Tổng quan">
+        <div class="sec-head"><div class="sec-no">0</div><div>
+          <h2>Tổng quan quy trình</h2>
+          <p>Thưởng đóng gói kiện hàng kho HCM, tính theo quý. Làm lần lượt 4 đầu mục bên dưới.</p>
+        </div></div>
+        <ol class="pipeline tk-pipe">
+          <li><a href="#chuan-bi"><span class="k">01 · người làm</span><b>Chuẩn bị file quý</b>2 sheet bắt buộc</a></li>
+          <li><a href="#nap-du-lieu"><span class="k">02 · người làm</span><b>Nạp dữ liệu</b>Kéo thả file, chọn quý</a></li>
+          <li><a href="#dong-cap"><span class="k">03 · người làm</span><b>Đóng cặp</b>Khai báo ngày làm cặp</a></li>
+          <li><a href="#thuong-quy"><span class="k">04 · tự động</span><b>Thưởng quý</b>Xem &amp; xuất Excel</a></li>
+        </ol>
+        <div class="card">
+          <div class="table-wrap"><table class="plain">
+            <thead><tr><th>Khi nào</th><th>Việc</th><th>Ai làm</th></tr></thead>
+            <tbody>
+              <tr><td>Cuối quý</td><td>Xuất dữ liệu "Bảng check kiện hàng" cả quý, ghép với "bảng mã nv" (và sheet THƯỞNG nếu muốn lọc danh sách)</td><td><span class="who manual">Người làm</span></td></tr>
+              <tr><td>Khi có file</td><td>Kéo thả file vào mục <a href="#nap-du-lieu">Nạp dữ liệu</a>, chọn đúng quý</td><td><span class="who manual">Người làm</span></td></tr>
+              <tr><td>Trước khi chốt</td><td>Khai báo các khoảng ngày <a href="#dong-cap">đóng cặp</a> (2 người làm chung, hệ thống chỉ ghi 1 người)</td><td><span class="who manual">Người làm</span></td></tr>
+              <tr><td>Ngay sau đó</td><td>Tính thưởng từng tháng + thưởng quý, xuất Excel</td><td><span class="who auto">Tự động</span></td></tr>
+            </tbody>
+          </table></div>
+        </div>
+        <div class="card" id="tkStatusCard">
+          <h2><span class="step-no">☰</span> Các quý đã lưu</h2>
+          <p class="hint" id="tkStore"></p>
+          <div class="btn-row" id="tkQuarterChips"></div>
+        </div>
+      </section>
+
+      <section id="chuan-bi" data-title="Chuẩn bị dữ liệu" hidden>
+        <div class="sec-head"><div class="sec-no">1</div><div>
+          <h2>Chuẩn bị file quý <span class="who manual">Người làm</span></h2>
+          <p>Một file Excel cho cả quý (giống <code>kho hcm_quý 2.xlsx</code>).</p>
+        </div></div>
+        <div class="card">
+          <div class="table-wrap"><table class="plain">
+            <thead><tr><th>Sheet</th><th>Bắt buộc</th><th>Nội dung</th></tr></thead>
+            <tbody>
+              <tr><td><code>Bảng check kiện hàng</code></td><td>Có</td><td>Dữ liệu thô cả quý: <code>Người tạo kiện</code>, <code>Ngày tạo kiện</code>, <code>Bốc hàng</code>, <code>TG Bốc hàng</code>, <code>Đóng hàng</code>, <code>TG Đóng hàng</code>…</td></tr>
+              <tr><td><code>bảng mã nv</code></td><td>Có</td><td>Cột A = Mã NV, B = username hệ thống, D = Họ và tên, G = Ghi chú</td></tr>
+              <tr><td><code>THƯỞNG</code></td><td>Không</td><td>Nếu có: chỉ tính thưởng cho các Mã NV trong cột A của sheet này</td></tr>
+            </tbody>
+          </table></div>
+          <p class="note" style="margin-top:10px">Các sheet khác (Pivot, TỔNG HỢP, Tháng 4…) không cần — trang tự tính từ dữ liệu thô, không phụ thuộc việc Refresh Pivot.</p>
+        </div>
+      </section>
+
+      <section id="nap-du-lieu" data-title="Nạp dữ liệu" hidden>
+        <div class="sec-head"><div class="sec-no">2</div><div>
+          <h2>Nạp dữ liệu quý <span class="who manual">Người làm</span></h2>
+          <p>Kéo thả file quý vào khung. File được đọc ngay trong trình duyệt (khoảng 20–60 giây với file lớn).</p>
+        </div></div>
+        <div class="card">
+          <div class="dropzone" id="tkDrop" tabindex="0" role="button" aria-label="Chọn file Excel thưởng kho">
+            <div class="dz-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.5"/><path d="M12 14V3"/><path d="M7 8l5-5 5 5"/></svg></div>
+            <div class="dz-title" id="tkDropTitle">Kéo thả file .xlsx của quý vào đây, hoặc bấm để chọn</div>
+            <div class="dz-sub" id="tkDropSub">Cần sheet "Bảng check kiện hàng" và "bảng mã nv"</div>
+          </div>
+          <input type="file" id="tkFile" accept=".xlsx,.xls">
+          <div class="up-status" id="tkLoadStatus" hidden role="status"></div>
+          <div id="tkPending" hidden style="margin-top:18px">
+            <h2><span class="step-no">2b</span> Xác nhận quý cần tính</h2>
+            <p class="hint" id="tkPendingInfo"></p>
+            <div class="table-wrap" style="max-width:420px"><table class="plain"><thead><tr><th>Tháng</th><th style="text-align:right">Tổng lượt</th></tr></thead><tbody id="tkVols"></tbody></table></div>
+            <div class="btn-row" style="align-items:center;margin-top:12px">
+              <label class="kq-pick">Tính cho: <select id="tkPendingQ"></select></label>
+              <button class="primary" type="button" id="tkConfirm">Xác nhận, tính toán</button>
+              <button class="linkbtn" type="button" id="tkCancel">Huỷ</button>
+            </div>
+            <p class="note" style="margin-top:8px">Nếu quý này đã có dữ liệu, dữ liệu cũ sẽ được thay bằng file mới (các khai báo đóng cặp của quý vẫn giữ nguyên).</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="thuong-quy" data-title="Thưởng quý" hidden>
+        <div class="sec-head"><div class="sec-no">3</div><div>
+          <h2>Thưởng quý <span class="who auto">Tự động</span></h2>
+          <p id="tkQuyHint">Thưởng từng tháng và thưởng quý (trung bình 3 tháng) của từng nhân viên.</p>
+        </div></div>
+        <div class="need-connect" data-tk-empty hidden>Chưa có dữ liệu — <a href="#nap-du-lieu">sang mục Nạp dữ liệu</a>.</div>
+        <div data-tk-need hidden>
+          <div class="btn-row tk-qbar" data-tk-qbar></div>
+          <div class="summary-row" id="tkTiles" style="margin-top:14px"></div>
+          <div class="card">
+            <div class="up-head">
+              <input type="search" class="tk-search" id="tkSearch" placeholder="Tìm tên / mã nhân viên…">
+              <span class="note" id="tkInfo"></span>
+            </div>
+            <div class="table-scroll" style="margin-top:12px">
+              <table class="ledger" id="tkTable"><thead><tr id="tkHead"></tr></thead><tbody id="tkBody"></tbody><tfoot><tr id="tkFoot"></tr></tfoot></table>
+            </div>
+            <div class="download-row">
+              <button class="primary" type="button" id="tkExport">Xuất Excel (THƯỞNG + từng tháng)</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="theo-thang" data-title="Theo tháng" hidden>
+        <div class="sec-head"><div class="sec-no">4</div><div>
+          <h2>Số lượt theo ngày</h2>
+          <p>Tổng lượt (Tạo kiện + Bốc + Đóng) mỗi ngày. Số xanh = vượt 20 lượt; ô tím = ngày đã chia đôi do đóng cặp (rê chuột để xem cặp với ai).</p>
+        </div></div>
+        <div class="need-connect" data-tk-empty hidden>Chưa có dữ liệu — <a href="#nap-du-lieu">sang mục Nạp dữ liệu</a>.</div>
+        <div data-tk-need hidden>
+          <div class="btn-row tk-qbar" data-tk-qbar></div>
+          <div class="card" style="margin-top:14px">
+            <div class="btn-row" id="tkMonthTabs"></div>
+            <div class="table-scroll" style="margin-top:12px">
+              <table class="ledger tk-grid" id="tkGrid"><thead><tr id="tkGridHead"></tr></thead><tbody id="tkGridBody"></tbody></table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="dong-cap" data-title="Đóng cặp" hidden>
+        <div class="sec-head"><div class="sec-no">5</div><div>
+          <h2>Đóng cặp chia đôi <span class="who manual">Người làm</span></h2>
+          <p>Khi 2 người bốc/đóng hàng cùng nhau mà hệ thống chỉ ghi cho 1 người: khai báo khoảng ngày để chia đôi số lượt của 2 người trước khi tính thưởng.</p>
+        </div></div>
+        <div class="need-connect" data-tk-empty hidden>Chưa có dữ liệu — <a href="#nap-du-lieu">sang mục Nạp dữ liệu</a>.</div>
+        <div data-tk-need hidden>
+          <div class="btn-row tk-qbar" data-tk-qbar></div>
+          <div class="card pol" style="margin-top:14px">
+            <div class="pol-grid">
+              <label>Nhân viên 1<select id="adj1"></select></label>
+              <label>Nhân viên 2 (hoặc người ngoài DS)<select id="adj2"></select></label>
+              <label>Từ ngày<input type="date" id="adjFrom"></label>
+              <label>Đến ngày<input type="date" id="adjTo"></label>
+            </div>
+            <div class="btn-row" style="margin-top:12px">
+              <button class="primary" type="button" id="adjAdd">+ Thêm điều chỉnh</button>
+              <button class="linkbtn" type="button" id="adjImport">⚡ Nạp nhanh danh sách đóng cặp tháng 6/2026 (15 dòng)</button>
+            </div>
+            <div class="up-status" id="adjStatus" hidden role="status"></div>
+            <div class="table-wrap" style="margin-top:16px"><table class="plain">
+              <thead><tr><th>Nhân viên 1</th><th>Nhân viên 2</th><th>Từ ngày</th><th>Đến ngày</th><th></th></tr></thead>
+              <tbody id="adjList"></tbody>
+            </table></div>
+            <h2 style="margin-top:22px"><span class="step-no">+</span> Người ngoài danh sách thưởng (như Thoa)</h2>
+            <p class="hint">Không có trong "bảng mã nv" nên không được thưởng — chỉ để chọn ở ô "Nhân viên 2" khi họ đóng cặp cùng nhân viên chính thức.</p>
+            <div class="btn-row" style="align-items:center">
+              <input type="text" id="helperName" placeholder="Tên người ngoài danh sách…" style="min-width:220px">
+              <button class="linkbtn" type="button" id="helperAdd">+ Thêm người</button>
+            </div>
+            <div class="btn-row" id="helperList" style="margin-top:10px"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="quy-tac" data-title="Quy tắc tính" hidden>
+        <div class="sec-head"><div class="sec-no">i</div><div>
+          <h2>Quy tắc tính thưởng kho</h2>
+          <p>Giữ nguyên cách tính của app cũ và file Excel gốc.</p>
+        </div></div>
+        <div class="card">
+          <ul class="rules-list">
+            <li>Số lượt mỗi ngày = <b>Tạo kiện + Bốc hàng + Đóng hàng</b> của 1 nhân viên cộng dồn trong ngày (Tạo kiện khớp theo username, Bốc/Đóng hàng khớp theo Họ và tên — tra trong "bảng mã nv").</li>
+            <li>Ngày có tổng <b>vượt <span data-rule="nguong"></span> lượt</b>: (tổng − <span data-rule="nguong"></span>) × <b><span data-rule="donGia"></span>đ</b>. Cộng dồn cả tháng.</li>
+            <li><b>Thưởng quý</b> = trung bình cộng tiền thưởng 3 tháng của quý.</li>
+            <li>Đóng cặp: trong khoảng ngày khai báo, số lượt của 2 người được cộng lại rồi chia đôi (có thể ra số lẻ .5).</li>
+            <li>Dữ liệu lẫn vài ngày của tháng trước/sau quý được bỏ qua — chỉ tính đúng 3 tháng của quý đã chọn.</li>
+            <li>Nếu file có sheet <code>THƯỞNG</code>: chỉ tính cho các Mã NV trong sheet đó.</li>
+          </ul>
+        </div>
+      </section>
+
+      <nav class="pager" id="pager" aria-label="Chuyển đầu mục"></nav>
+      </div>
+    </main>
+    <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel được đọc trong trình duyệt; kết quả theo quý lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
+  </div>
+</div>
+<script src="../assets/flows.js?v=20260929e"></script>
+<script src="../assets/layout.js?v=20260929e"></script>
+<script src="engine.js?v=20260929e"></script>
+<script src="app.js?v=20260929e"></script>
+<script>
+(function () {
+  const sections = [...document.querySelectorAll('.flow-main > section')];
+  const crumb = document.getElementById('crumbHere');
+  const pager = document.getElementById('pager');
+  function show() {
+    const id = location.hash.slice(1);
+    let idx = sections.findIndex(s => s.id === id);
+    if (idx < 0) idx = 0;
+    sections.forEach((s, i) => { s.hidden = i !== idx; });
+    crumb.textContent = sections[idx].dataset.title;
+    document.title = crumb.textContent + ' · Thưởng kho HCM';
+    const prev = sections[idx - 1], next = sections[idx + 1];
+    pager.innerHTML =
+      (prev ? `<a class="prev" href="#${prev.id}"><small>← Trước</small>${prev.dataset.title}</a>` : '') +
+      (next ? `<a class="next" href="#${next.id}"><small>Tiếp theo →</small>${next.dataset.title}</a>` : '');
+    requestAnimationFrame(() => window.scrollTo(0, 0));
+  }
+  window.addEventListener('hashchange', show);
+  show();
+})();
+</script>
+</body>
+</html>

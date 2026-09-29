@@ -26,6 +26,19 @@ window.KVH_MENU = [
       { ten: 'Quy tắc tính', href: 'bao-cao-giao-hang/#quy-tac' },
     ],
   },
+  {
+    ten: 'Thưởng kho HCM', icon: 'box', trangThai: 'Theo quý',
+    moTa: 'Thưởng đóng gói kiện hàng: cộng Tạo kiện + Bốc + Đóng hàng mỗi ngày, vượt 20 lượt được 2.000đ/lượt; thưởng quý = trung bình 3 tháng.',
+    muc: [
+      { ten: 'Tổng quan', href: 'thuong-kho/#tong-quan' },
+      { ten: 'Chuẩn bị dữ liệu', href: 'thuong-kho/#chuan-bi' },
+      { ten: 'Nạp dữ liệu', href: 'thuong-kho/#nap-du-lieu' },
+      { ten: 'Thưởng quý', href: 'thuong-kho/#thuong-quy' },
+      { ten: 'Theo tháng', href: 'thuong-kho/#theo-thang' },
+      { ten: 'Đóng cặp', href: 'thuong-kho/#dong-cap' },
+      { ten: 'Quy tắc tính', href: 'thuong-kho/#quy-tac' },
+    ],
+  },
   // Vi du dong cong viec tiep theo (bo "//" khi co trang):
   // { ten: 'Nhập kho', icon: 'box', trangThai: 'Đang chạy', moTa: '...', muc: [
   //   { ten: 'Tổng quan', href: 'nhap-kho/#tong-quan' },
