@@ -28,7 +28,7 @@
         </div></div>
         <ol class="pipeline">
           <li><a href="#chuan-bi"><span class="k">01 · người làm</span><b>Chuẩn bị dữ liệu</b>File Excel tháng đủ 4 sheet</a></li>
-          <li><a href="#cap-nhat"><span class="k">02 · người làm</span><b>Cập nhật</b>Tải file lên kho lưu trữ</a></li>
+          <li><a href="#cap-nhat"><span class="k">02 · người làm</span><b>Cập nhật</b>Kéo thả file lên web</a></li>
           <li><a href="#tinh-lai"><span class="k">03 · tự động</span><b>Tính lại</b>~1 phút sau khi tải lên</a></li>
           <li><a href="#gui-bao-cao"><span class="k">04 · tự động</span><b>Gửi báo cáo</b>9h hằng ngày · ngày 5</a></li>
           <li><a href="#luu-tru"><span class="k">05 · tra cứu</span><b>Lưu trữ</b>Mọi phiên bản đều giữ lại</a></li>
@@ -38,7 +38,7 @@
             <thead><tr><th>Khi nào</th><th>Việc</th><th>Ai làm</th></tr></thead>
             <tbody>
               <tr><td>Đầu tháng (ngày 1–2)</td><td>Tạo file tháng mới, cập nhật sheet "Thông số chính sách" (tháng, năm, ngày đẩy hàng, công tác)</td><td><span class="who manual">Người làm</span></td></tr>
-              <tr><td>Trong tháng</td><td>Dán dữ liệu check đơn + chấm công mới, tải file lên lại (giữ nguyên tên)</td><td><span class="who manual">Người làm</span></td></tr>
+              <tr><td>Trong tháng</td><td>Dán dữ liệu check đơn + chấm công mới, kéo thả file lên mục "Cập nhật dữ liệu" (giữ nguyên tên)</td><td><span class="who manual">Người làm</span></td></tr>
               <tr><td>Mỗi lần tải file lên</td><td>Tính lại 3 sheet báo cáo, lưu vào chính file đó</td><td><span class="who auto">Tự động</span></td></tr>
               <tr><td>9h mỗi sáng</td><td>Gửi 8 mail dashboard cá nhân, CC quản lý</td><td><span class="who auto">Tự động</span></td></tr>
               <tr><td>9h ngày 5</td><td>Gửi mail tổng hợp xếp hạng cả đội tháng</td><td><span class="who auto">Tự động</span></td></tr>
@@ -66,20 +66,58 @@
       <section id="cap-nhat" data-title="Cập nhật dữ liệu" hidden>
         <div class="sec-head"><div class="sec-no">2</div><div>
           <h2>Cập nhật dữ liệu <span class="who manual">Người làm</span></h2>
-          <p>Tải file vào thư mục <code>data</code> của kho lưu trữ. Làm được từ máy tính hay điện thoại.</p>
+          <p>Kéo thả file Excel vào khung dưới đây — file được đưa thẳng vào hệ thống, rồi tự tính lại và gửi mail theo lịch.</p>
         </div></div>
-        <div class="card">
-          <ul class="checklist">
-            <li><span>Bấm <b>Tải file lên thư mục data</b> bên dưới</span></li>
-            <li><span>Kéo file vào. Cập nhật trong tháng: <b>giữ nguyên tên</b> để ghi đè. Tháng mới: <b>tên mới</b></span></li>
-            <li><span>Bấm <b>Commit changes</b> — khoảng 1 phút sau hệ thống tự tính lại</span></li>
-          </ul>
-          <div class="btn-row">
-            <a class="btn primary" href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/upload/main/data" target="_blank" rel="noopener">Tải file lên thư mục data ↗</a>
-            <a class="btn" href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/tree/main/data" target="_blank" rel="noopener">Xem thư mục data ↗</a>
+
+        <div class="card" id="uploadBox" data-owner="NhungPham2606" data-repo="BAO-CAO-GIAO-HANG" data-dir="data" data-workflow="tinh-lai.yml">
+          <div id="upConnect">
+            <h2><span class="step-no">🔑</span> Kết nối hệ thống</h2>
+            <p class="hint">Làm 1 lần trên mỗi máy. Dán <b>token truy cập</b> (bắt đầu bằng <code>github_pat_</code>) rồi bấm Kết nối. Token chỉ lưu trong trình duyệt của máy này.</p>
+            <div class="up-connect-row">
+              <input type="password" id="upToken" placeholder="github_pat_…" autocomplete="off" spellcheck="false">
+              <button class="primary" id="upConnectBtn" type="button">Kết nối</button>
+            </div>
+            <p class="note" id="upConnectMsg" role="status"></p>
+            <details class="up-help"><summary>Chưa có token? Cách tạo (2 phút)</summary>
+              <ol>
+                <li>Đăng nhập GitHub (tài khoản quản trị), mở <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">trang tạo token ↗</a></li>
+                <li><b>Token name:</b> <code>Kho van HCM web</code> · <b>Expiration:</b> chọn thời hạn (ví dụ 1 năm)</li>
+                <li><b>Repository access:</b> <i>Only select repositories</i> → chọn <code>BAO-CAO-GIAO-HANG</code></li>
+                <li><b>Permissions → Repository permissions:</b> <code>Contents</code> = <i>Read and write</i>, <code>Actions</code> = <i>Read-only</i></li>
+                <li>Bấm <b>Generate token</b>, copy token và dán vào ô ở trên</li>
+              </ol>
+            </details>
           </div>
-          <p class="note">Kho lưu trữ là riêng tư — chỉ tài khoản quản trị mở được các nút này.</p>
+
+          <div id="upMain" hidden>
+            <div class="up-head">
+              <h2><span class="step-no">2a</span> Kéo thả file dữ liệu</h2>
+              <span class="note">Đã kết nối: <b id="upWho"></b> · <button type="button" class="linkbtn" id="upLogout">Ngắt kết nối</button></span>
+            </div>
+            <p class="hint">Cập nhật trong tháng: <b>giữ nguyên tên file</b> để ghi đè. Sang tháng mới: dùng <b>tên file mới</b>.</p>
+            <div class="dropzone" id="upDrop" tabindex="0" role="button" aria-label="Chọn file Excel để tải lên">
+              <div class="dz-icon"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.5V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.5"/><path d="M12 14V3"/><path d="M7 8l5-5 5 5"/></svg></div>
+              <div class="dz-title" id="upDropTitle">Kéo thả file .xlsx vào đây, hoặc bấm để chọn</div>
+              <div class="dz-sub" id="upDropSub">File được kiểm tra trước khi đưa lên</div>
+            </div>
+            <input type="file" id="upFile" accept=".xlsx">
+            <div class="up-check" id="upCheck" hidden></div>
+            <div class="download-row">
+              <button class="primary" id="upSend" type="button" disabled>Tải lên hệ thống</button>
+            </div>
+            <div class="up-status" id="upStatus" hidden role="status"></div>
+
+            <div class="up-head" style="margin-top:26px">
+              <h2><span class="step-no">2b</span> File đang có trên hệ thống</h2>
+              <button type="button" class="linkbtn" id="upRefresh">Làm mới</button>
+            </div>
+            <div class="table-wrap"><table class="plain">
+              <thead><tr><th>Tên file</th><th>Dung lượng</th><th></th></tr></thead>
+              <tbody id="upList"></tbody>
+            </table></div>
+          </div>
         </div>
+        <p class="note">Cách cũ vẫn dùng được: <a href="https://github.com/NhungPham2606/BAO-CAO-GIAO-HANG/upload/main/data" target="_blank" rel="noopener">tải file trực tiếp trên GitHub ↗</a></p>
       </section>
 
       <section id="tinh-lai" data-title="Tính lại & kiểm tra" hidden>
@@ -734,6 +772,8 @@
   }
 
   // ---------------------------------------------------------------------
+  window.KVH_runPipeline = runPipeline;
+
   // UI wiring
   // ---------------------------------------------------------------------
   const dropzone = document.getElementById('dropzone');
@@ -870,6 +910,7 @@
   });
 })();
 </script>
+<script src="upload.js"></script>
 <script>
 // Moi dau muc la 1 man hinh rieng, chon qua menu trai (#hash).
 (function () {
