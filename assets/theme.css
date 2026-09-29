@@ -430,6 +430,19 @@ table.plain th { font-size: 12px; text-transform: uppercase; letter-spacing: .03
 .up-status.good { background: var(--good-soft); border-color: var(--good); color: var(--good); }
 .up-status.bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
 .up-status a { color: inherit; font-weight: 600; }
+.need-connect { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn); border-radius: 10px; padding: 12px 16px; font-size: 14px; }
+.need-connect a { color: inherit; font-weight: 600; }
+.kq-pick { font-size: 14px; color: var(--ink-soft); display: flex; align-items: center; gap: 8px; }
+.kq-pick select, .pol input, .pol textarea { font: inherit; font-size: 14px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); }
+.pol-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-top: 10px; }
+.pol-grid label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink-soft); font-weight: 600; }
+.pol textarea { resize: vertical; font-family: inherit; }
+.pol-table input { width: 100%; min-width: 80px; box-sizing: border-box; }
+.pol-table td { padding: 6px 6px; }
+.pol input:focus, .pol textarea:focus, .kq-pick select:focus { outline: 2px solid var(--navy); outline-offset: 1px; }
+table.ledger tbody tr.clickable { cursor: pointer; }
+table.ledger tbody tr.sel { background: var(--navy-soft) !important; }
+.kq-detail-title { font-weight: 700; margin: 0 0 8px; }
 .sb-overlay { display: none; }
 @media (max-width: 900px) {
   .app { grid-template-columns: minmax(0, 1fr); }

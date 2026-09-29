@@ -20,7 +20,7 @@ window.KVH_MENU = [
       { ten: 'Tổng quan', href: 'bao-cao-giao-hang/#tong-quan' },
       { ten: 'Chuẩn bị dữ liệu', href: 'bao-cao-giao-hang/#chuan-bi' },
       { ten: 'Cập nhật dữ liệu', href: 'bao-cao-giao-hang/#cap-nhat' },
-      { ten: 'Tính lại & kiểm tra', href: 'bao-cao-giao-hang/#tinh-lai' },
+      { ten: 'Kết quả tính', href: 'bao-cao-giao-hang/#ket-qua' },
       { ten: 'Gửi báo cáo', href: 'bao-cao-giao-hang/#gui-bao-cao' },
       { ten: 'Lưu trữ & tra cứu', href: 'bao-cao-giao-hang/#luu-tru' },
       { ten: 'Quy tắc tính', href: 'bao-cao-giao-hang/#quy-tac' },
