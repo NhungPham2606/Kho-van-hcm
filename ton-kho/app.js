@@ -144,15 +144,15 @@
   }
   const chamStyle = c => c.n >= 6 ? 'color:#b91c1c' : c.n >= 3 ? 'color:#c2410c' : 'color:#374151';
   const lotId = r => `${r.ma}|${r.kho}|${r.lo}`;
-  const huongMap = () => { const e = archive[cur()]; return (e && e.huong) || {}; };
-  function rowsHtml(list, huong, withCham, editable) {
+  const huongMap = (name = 'huong') => { const e = archive[cur()]; return (e && e[name]) || {}; };
+  function rowsHtml(list, huong, withCham, editable) {  // editable = tên map ghi chú ('huong' | 'huongCham')
     if (!list.length) return '<tr><td colspan="15" style="text-align:center;color:#9ca3af;padding:20px">Không có lô nào</td></tr>';
     return list.map((r, i) => {
       const c = T.tuoiColor(r.tuoi);
       return `<tr><td class="r">${i + 1}</td><td>${esc(r.ma)}</td><td style="white-space:normal">${esc(r.ten)}</td><td>${esc(r.kho)}</td><td>${esc(r.dvt)}</td><td>${esc(r.lo)}</td><td>${T.vnDate(r.hd)}</td>
         <td class="tuoi" style="background:${c.bg};color:${c.fg}">${r.tuoi === null ? '—' : r.tuoi < 0 ? 'Hết hạn' : r.tuoi}</td>
         <td class="r">${num(r.tdSL)}</td><td class="r">${num(r.nhSL)}</td><td class="r">${num(r.xuSL)}</td><td class="r bold">${num(r.tcSL)}</td>${withCham ? `<td class="bold" style="${chamStyle(r.chuaXuat)}">${esc(r.chuaXuatText)}</td>` : ''}<td class="r">${num(r.tcGT)}</td>
-        ${editable ? `<td class="huong-edit"><textarea data-hx="${esc(lotId(r))}" rows="1" placeholder="Nhập hướng xử lý…">${esc(huongMap()[lotId(r)] || '')}</textarea></td>`
+        ${editable ? `<td class="huong-edit"><textarea data-hx="${esc(lotId(r))}" data-map="${editable}" rows="1" placeholder="Nhập hướng xử lý…">${esc(huongMap(editable)[lotId(r)] || '')}</textarea></td>`
           : i === 0 ? `<td class="huong" rowspan="${list.length}">${esc(huong)}</td>` : ''}</tr>`;
     }).join('');
   }
@@ -163,8 +163,8 @@
     document.querySelectorAll('[data-head]').forEach(el => { el.innerHTML = headCells(el.dataset.head === 'cham'); });
     $('titleCham').innerHTML = `BÁO CÁO TỒN KHO VẬT TƯ CHẬM LUÂN CHUYỂN<br>CHI NHÁNH HỒ CHÍ MINH T${m}/${y}`;
     $('titleCan').innerHTML = `BÁO CÁO TỒN KHO VẬT TƯ CẬN DATE (≤ ${res.opt.canDateThang} THÁNG)<br>CHI NHÁNH HỒ CHÍ MINH T${m}/${y}`;
-    $('bodyCham').innerHTML = rowsHtml(filt(res.cham), res.opt.huongCham, true);
-    $('bodyCan').innerHTML = rowsHtml(filt(res.canDate), res.opt.huongCanDate, false, true);
+    $('bodyCham').innerHTML = rowsHtml(filt(res.cham), res.opt.huongCham, true, 'huongCham');
+    $('bodyCan').innerHTML = rowsHtml(filt(res.canDate), res.opt.huongCanDate, false, 'huong');
     $('headAll').innerHTML = '<th class="r">Stt</th><th>Mã vật tư</th><th style="min-width:220px">Tên vật tư</th><th>Kho</th><th>Đvt</th><th>Lô</th><th>Hạn dùng</th><th>Tuổi thuốc</th><th class="r">Tồn đầu</th><th class="r">Nhập</th><th class="r">Xuất</th><th class="r">Tồn cuối</th><th class="r">Giá trị tồn</th><th class="r">% xuất</th><th>Số tháng chưa xuất</th><th>Phân loại</th>';
     $('bodyAll').innerHTML = filt(res.list).map((r, i) => { const c = T.tuoiColor(r.tuoi); return `<tr><td class="r">${i + 1}</td><td>${esc(r.ma)}</td><td style="white-space:normal">${esc(r.ten)}</td><td>${esc(r.kho)}</td><td>${esc(r.dvt)}</td><td>${esc(r.lo)}</td><td>${T.vnDate(r.hd)}</td><td class="tuoi" style="background:${c.bg};color:${c.fg}">${r.tuoi === null ? '—' : r.tuoi < 0 ? 'Hết hạn' : r.tuoi}</td><td class="r">${num(r.tdSL)}</td><td class="r">${num(r.nhSL)}</td><td class="r">${num(r.xuSL)}</td><td class="r bold">${num(r.tcSL)}</td><td class="r">${num(r.tcGT)}</td><td class="r">${Math.round(r.tyLeXuat)}%</td><td style="${chamStyle(r.chuaXuat)}">${esc(r.chuaXuatText)}</td><td>${[r.cham ? 'Chậm LC' : '', r.canDate ? 'Cận date' : ''].filter(Boolean).join(' · ')}</td></tr>`; }).join('');
   }
@@ -194,9 +194,9 @@
     $('fKho').innerHTML = '<option value="">Tất cả kho</option>' + khoList.map(k => `<option value="${esc(k)}">Kho ${esc(k)}</option>`).join('');
     $('fKho').value = khoList.includes(kv) ? kv : '';
     renderStats(); renderDash(); renderTables(); renderSettings(); renderTabs();
-    document.querySelectorAll('#bodyCan textarea').forEach(autoH);
+    document.querySelectorAll('#bodyCan textarea, #bodyCham textarea').forEach(autoH);
   }
-  const refilter = () => { renderStats(); renderDash(); renderTables(); renderTabs(); document.querySelectorAll('#bodyCan textarea').forEach(t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }); };
+  const refilter = () => { renderStats(); renderDash(); renderTables(); renderTabs(); document.querySelectorAll('#bodyCan textarea, #bodyCham textarea').forEach(t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }); };
 
   // ------------------------------------------------------------ sự kiện
   window.addEventListener('hashchange', () => {
@@ -206,14 +206,33 @@
   $('fKho').addEventListener('change', refilter);
   $('fSearch').addEventListener('input', refilter);
   function autoH(t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }
-  $('bodyCan').addEventListener('input', e => {
+  function onHuongInput(e) {
     const t = e.target; if (!t.dataset || !t.dataset.hx) return;
     autoH(t);
     const k = cur(); if (!k) return;
-    const m = archive[k].huong = archive[k].huong || {};
-    const v = t.value.trim();
-    if (v) m[t.dataset.hx] = t.value; else delete m[t.dataset.hx];
+    const name = t.dataset.map || 'huong';
+    const m = archive[k][name] = archive[k][name] || {};
+    if (t.value.trim()) m[t.dataset.hx] = t.value; else delete m[t.dataset.hx];
     touch(k);
+  }
+  $('bodyCan').addEventListener('input', onHuongInput);
+  $('bodyCham').addEventListener('input', onHuongInput);
+  // Sao chép ghi chú Cận date sang Chậm LC: lô trùng Mã vật tư + Mã lô + Hạn dùng; chỉ điền ô còn trống
+  $('copyFromCan').addEventListener('click', () => {
+    const k = cur(); if (!k || !res) return;
+    const can = huongMap('huong'), src = {};
+    res.list.forEach(r => { const v = can[lotId(r)]; if (v && v.trim()) { const key = `${r.ma}|${r.lo}|${r.hd}`; if (!src[key]) src[key] = v; } });
+    const dst = archive[k].huongCham = archive[k].huongCham || {};
+    let n = 0, skip = 0;
+    res.cham.forEach(r => {
+      const v = src[`${r.ma}|${r.lo}|${r.hd}`]; if (!v) return;
+      if (dst[lotId(r)] && dst[lotId(r)].trim()) { skip++; return; }
+      dst[lotId(r)] = v; n++;
+    });
+    if (n) touch(k);
+    renderTables(); document.querySelectorAll('#bodyCham textarea').forEach(autoH);
+    msg($('copyMsg'), n || skip ? `Đã sao chép ${n} ghi chú từ Cận date${skip ? ` · bỏ qua ${skip} lô đã có ghi chú` : ''}.` : 'Không có lô nào trùng Mã vật tư + Mã lô + Hạn dùng với ghi chú bên Cận date.', !!n || !!skip);
+    setTimeout(() => msg($('copyMsg'), ''), 6000);
   });
   document.addEventListener('click', e => { const b = e.target.closest('[data-ky]'); if (b) { sel = b.dataset.ky; persist(); renderAll(); } });
   $('tkReload').addEventListener('click', () => { uploadOpen = true; renderTop(); $('tkFile').click(); });
@@ -297,7 +316,8 @@
       ws['!rows'] = [{ hpt: 22 }, { hpt: 22 }, {}, { hpt: 32 }];
       XLSX.utils.book_append_sheet(wb, ws, name);
     }
-    sheet('Chậm luân chuyển', 'BÁO CÁO TỒN KHO VẬT TƯ CHẬM LUÂN CHUYỂN', filt(res.cham), res.opt.huongCham, true);
+    const hc = huongMap('huongCham');
+    sheet('Chậm luân chuyển', 'BÁO CÁO TỒN KHO VẬT TƯ CHẬM LUÂN CHUYỂN', filt(res.cham), res.opt.huongCham, true, Object.keys(hc).length ? hc : null);
     // Cận date: có nhập tay thì ghi từng dòng; chưa nhập dòng nào thì dùng câu mặc định gộp như mẫu
     const hm = huongMap();
     sheet('Cận date', `BÁO CÁO TỒN KHO VẬT TƯ CẬN DATE (≤ ${res.opt.canDateThang} THÁNG)`, filt(res.canDate), res.opt.huongCanDate, false,
@@ -337,7 +357,7 @@
       pane.hidden = false;
       // ô nhập hướng xử lý -> chữ (html2canvas không vẽ đúng nội dung textarea)
       pane.querySelectorAll('textarea').forEach(ta => {
-        const live = document.querySelector(`#bodyCan textarea[data-hx="${CSS.escape(ta.dataset.hx)}"]`);
+        const live = document.querySelector(`[data-pane="${t}"] textarea[data-hx="${CSS.escape(ta.dataset.hx)}"]`);
         const div = document.createElement('div'); div.className = 'snap-hx'; div.textContent = live ? live.value : ta.value;
         ta.replaceWith(div);
       });
