@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Báo Cáo Cận Date &amp; Chậm Luân Chuyển</title>
 <link rel="icon" href="../assets/logo.png?v=2" type="image/png">
-<link rel="stylesheet" href="../assets/theme.css?v=20260930h">
+<link rel="stylesheet" href="../assets/theme.css?v=20260930i">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   /* Bố cục + kiểu chữ y hệt trang "Thưởng Kho HCM" của app cũ (giao-hang-app/src/index.css) */
@@ -88,7 +88,8 @@
   .tk .legend-tuoi { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; color: #6b7280; padding: 8px 16px; }
   .tk .legend-tuoi span { display: inline-flex; align-items: center; gap: 5px; }
   .tk .legend-tuoi i { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
-  .tk .dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; padding: 16px; }
+  .tk .dash { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 16px; }
+  @media (max-width: 1000px) { .tk .dash { grid-template-columns: minmax(0, 1fr); } }
   .tk .chart { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; background: #fff; }
   .tk .chart h4 { margin: 0 0 2px; font-size: 13px; color: #1f2937; }
   .tk .chart .sub { font-size: 11px; color: #9ca3af; margin-bottom: 12px; }
@@ -106,6 +107,14 @@
   .tk .stat-sub { font-size: 11px; color: #9ca3af; margin-top: 2px; }
   .tk .tk-stat.red .v { color: #e02424; }
   .tk .tk-stat.orange .v { color: #d97706; }
+  /* khung ảnh Dashboard (dựng ngoài màn hình rồi chụp) */
+  .tk.snap { position: fixed; left: -20000px; top: 0; width: 1360px; background: #f0f2f5; padding: 24px; box-sizing: border-box; }
+  .tk.snap .snap-head { display: flex; align-items: center; gap: 16px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; }
+  .tk.snap .snap-head img { height: 56px; }
+  .tk.snap .snap-head h2 { margin: 0; font-size: 18px; color: #1f2937; }
+  .tk.snap .snap-head p { margin: 4px 0 0; font-size: 12px; color: #6b7280; }
+  .tk.snap .dash { padding: 0; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .tk.snap .snap-foot { margin-top: 12px; font-size: 11px; color: #9ca3af; text-align: right; }
 </style>
 </head>
 <body>
@@ -127,11 +136,14 @@
               <div class="tk-row">
                 <button class="b" type="button" id="tkReload">Nạp file kỳ khác</button>
                 <button class="b del" type="button" id="tkDelete">Xóa kỳ này</button>
+                <button class="b pri" type="button" id="tkSnap" title="Tải ảnh PNG của Dashboard (ô số liệu + biểu đồ)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Xuất ảnh Dashboard</button>
+                <button class="b" type="button" id="tkSnapCopy" title="Sao chép ảnh Dashboard để dán vào Zalo / email / Word">Sao chép ảnh</button>
                 <button class="b ok" type="button" id="tkExport"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Xuất Excel</button>
               </div>
             </div>
             <div class="tk-banner" id="tkBanner"></div>
             <div class="tk-sync" id="tkSync"></div>
+            <div id="tkSnapMsg"></div>
           </div>
         </div>
 
@@ -217,9 +229,9 @@
     <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel được đọc trong trình duyệt; kết quả theo kỳ lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
   </div>
 </div>
-<script src="../assets/flows.js?v=20260930h"></script>
-<script src="../assets/layout.js?v=20260930h"></script>
-<script src="engine.js?v=20260930h"></script>
-<script src="app.js?v=20260930h"></script>
+<script src="../assets/flows.js?v=20260930i"></script>
+<script src="../assets/layout.js?v=20260930i"></script>
+<script src="engine.js?v=20260930i"></script>
+<script src="app.js?v=20260930i"></script>
 </body>
 </html>
