@@ -170,6 +170,8 @@
   }
   function renderTabs() {
     const t = tab();
+    const st = SNAP_TAB[t] || SNAP_TAB.dashboard;
+    $('tkSnap').title = `Tải ảnh PNG: ${st.ten}`; $('tkSnapCopy').title = `Sao chép ảnh ${st.ten} để dán vào Zalo / email / Word`;
     document.querySelectorAll('#tkTabs [data-tab]').forEach(a => a.classList.toggle('pri', a.dataset.tab === t));
     document.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== t; });
     $('tkFilter').hidden = t === 'cai-dat';
@@ -308,40 +310,68 @@
     if (window.html2canvas) return Promise.resolve();
     return new Promise((ok, fail) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'; sc.onload = ok; sc.onerror = () => fail(new Error('Không tải được thư viện chụp ảnh (kiểm tra mạng).')); document.head.appendChild(sc); });
   }
-  async function dashboardPng() {
+  // Ảnh theo tab đang mở: Dashboard -> ô số liệu + biểu đồ; Chậm LC / Cận date / Tồn theo lô -> nguyên bảng
+  // (đủ mọi dòng, không bị cắt bởi thanh cuộn; ô nhập hướng xử lý đổi thành chữ).
+  const SNAP_TAB = {
+    'dashboard': { ten: 'Dashboard', file: 'Dashboard' },
+    'cham-luan-chuyen': { ten: 'Bảng chậm luân chuyển', file: 'ChamLuanChuyen' },
+    'can-date': { ten: 'Bảng cận date', file: 'CanDate' },
+    'ton-theo-lo': { ten: 'Bảng tồn theo lô', file: 'TonTheoLo' },
+  };
+  async function snapPng(t) {
     if (!res) throw new Error('Chưa có dữ liệu.');
     await loadH2C();
     const d = archive[cur()].data, { m, y } = kyMY(), kho = $('fKho').value, q = $('fSearch').value.trim();
     const wrap = document.createElement('div');
-    wrap.className = 'tk snap';
-    wrap.innerHTML = `<div class="snap-head"><img src="../assets/logo.png?v=2" alt="CPC1HN"><div>
-        <h2>DASHBOARD TỒN KHO — CẬN DATE &amp; CHẬM LUÂN CHUYỂN · CHI NHÁNH HỒ CHÍ MINH T${m}/${y}</h2>
-        <p>Kỳ ${T.vnDate(d.tu)} – ${T.vnDate(d.den)} · Tuổi thuốc tính đến ${T.vnDate(res.ref)} · ${kho ? 'Kho ' + esc(kho) : 'Tất cả kho'}${q ? ' · Lọc: "' + esc(q) + '"' : ''}
-        · Cận date ≤ ${res.opt.canDateThang} tháng · Chậm LC: chưa xuất ≥ ${res.opt.chamThang} tháng</p></div></div>`;
-    const stats = document.querySelector('#tkMainView .tk-stats').cloneNode(true);
-    const dash = $('dash').cloneNode(true); dash.removeAttribute('id');
+    wrap.className = 'tk snap' + (t === 'dashboard' ? '' : ' snap-table');
+    const sub = `Kỳ ${T.vnDate(d.tu)} – ${T.vnDate(d.den)} · Tuổi thuốc tính đến ${T.vnDate(res.ref)} · ${kho ? 'Kho ' + esc(kho) : 'Tất cả kho'}${q ? ' · Lọc: "' + esc(q) + '"' : ''}`;
+    if (t === 'dashboard') {
+      wrap.innerHTML = `<div class="snap-head"><img src="../assets/logo.png?v=2" alt="CPC1HN"><div>
+          <h2>DASHBOARD TỒN KHO — CẬN DATE &amp; CHẬM LUÂN CHUYỂN · CHI NHÁNH HỒ CHÍ MINH T${m}/${y}</h2>
+          <p>${sub} · Cận date ≤ ${res.opt.canDateThang} tháng · Chậm LC: chưa xuất ≥ ${res.opt.chamThang} tháng</p></div></div>`;
+      const stats = document.querySelector('#tkMainView .tk-stats').cloneNode(true);
+      const dash = $('dash').cloneNode(true); dash.removeAttribute('id');
+      wrap.append(stats, dash);
+    } else {
+      const pane = document.querySelector(`[data-pane="${t}"]`).cloneNode(true);
+      pane.hidden = false;
+      // ô nhập hướng xử lý -> chữ (html2canvas không vẽ đúng nội dung textarea)
+      pane.querySelectorAll('textarea').forEach(ta => {
+        const live = document.querySelector(`#bodyCan textarea[data-hx="${CSS.escape(ta.dataset.hx)}"]`);
+        const div = document.createElement('div'); div.className = 'snap-hx'; div.textContent = live ? live.value : ta.value;
+        ta.replaceWith(div);
+      });
+      const card = document.createElement('div'); card.className = 'snap-card';
+      const head = document.createElement('div'); head.className = 'snap-head';
+      head.innerHTML = `<img src="../assets/logo.png?v=2" alt="CPC1HN"><div><h2>Kho Vận CN.HCM</h2><p>${sub}</p></div>`;
+      card.append(pane);
+      wrap.append(head, card);
+    }
     const foot = document.createElement('div'); foot.className = 'snap-foot';
     foot.textContent = `Kho Vận CN.HCM · Xuất lúc ${new Date().toLocaleString('vi-VN')}`;
-    wrap.append(stats, dash, foot);
+    wrap.append(foot);
     document.body.appendChild(wrap);
     try {
-      await Promise.all([...wrap.querySelectorAll('img')].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; }))); // chờ logo tải
-      const canvas = await window.html2canvas(wrap, { scale: 2, backgroundColor: '#f0f2f5', useCORS: true, logging: false });
+      await Promise.all([...wrap.querySelectorAll('img')].map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
+      // bảng dài: giảm độ phóng để không vượt giới hạn kích thước ảnh của trình duyệt (~32.000 px)
+      const scale = Math.max(1, Math.min(2, 30000 / Math.max(wrap.scrollHeight, 1)));
+      const canvas = await window.html2canvas(wrap, { scale, backgroundColor: '#f0f2f5', useCORS: true, logging: false, windowWidth: wrap.scrollWidth + 40 });
       return await new Promise(ok => canvas.toBlob(ok, 'image/png'));
     } finally { wrap.remove(); }
   }
   async function snap(copy) {
+    const t = SNAP_TAB[tab()] ? tab() : 'dashboard';
     const btn = copy ? $('tkSnapCopy') : $('tkSnap'), label = btn.innerHTML;
     btn.disabled = true; btn.textContent = 'Đang tạo ảnh…'; msg($('tkSnapMsg'), '');
     try {
-      const blob = await dashboardPng(), { m, y } = kyMY(), kho = $('fKho').value;
+      const blob = await snapPng(t), { m, y } = kyMY(), kho = $('fKho').value;
       if (copy) {
-        if (!navigator.clipboard || !window.ClipboardItem) throw new Error('Trình duyệt không hỗ trợ sao chép ảnh — dùng nút "Xuất ảnh Dashboard".');
+        if (!navigator.clipboard || !window.ClipboardItem) throw new Error('Trình duyệt không hỗ trợ sao chép ảnh — dùng nút "Xuất ảnh".');
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        msg($('tkSnapMsg'), 'Đã sao chép ảnh Dashboard — dán (Ctrl + V) vào Zalo / email / Word.', true);
+        msg($('tkSnapMsg'), `Đã sao chép ảnh ${SNAP_TAB[t].ten} — dán (Ctrl + V) vào Zalo / email / Word.`, true);
       } else {
         const url = URL.createObjectURL(blob), a = document.createElement('a');
-        a.href = url; a.download = `Dashboard_TonKho_T${m}-${y}${kho ? '_Kho' + kho : ''}.png`;
+        a.href = url; a.download = `${SNAP_TAB[t].file}_T${m}-${y}${kho ? '_Kho' + kho : ''}.png`;
         document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
         msg($('tkSnapMsg'), `Đã tải ảnh ${a.download}.`, true);
       }

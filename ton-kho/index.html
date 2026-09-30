@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Báo Cáo Cận Date &amp; Chậm Luân Chuyển</title>
 <link rel="icon" href="../assets/logo.png?v=2" type="image/png">
-<link rel="stylesheet" href="../assets/theme.css?v=20260930i">
+<link rel="stylesheet" href="../assets/theme.css?v=20260930j">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   /* Bố cục + kiểu chữ y hệt trang "Thưởng Kho HCM" của app cũ (giao-hang-app/src/index.css) */
@@ -114,6 +114,11 @@
   .tk.snap .snap-head h2 { margin: 0; font-size: 18px; color: #1f2937; }
   .tk.snap .snap-head p { margin: 4px 0 0; font-size: 12px; color: #6b7280; }
   .tk.snap .dash { padding: 0; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .tk.snap.snap-table { width: 1560px; }
+  .tk.snap .snap-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
+  .tk.snap .tw { max-height: none !important; overflow: visible !important; }
+  .tk.snap table.dt th { position: static; }
+  .tk.snap .snap-hx { font-size: 12px; line-height: 1.4; color: #1f2937; white-space: normal; padding: 4px 6px; min-width: 240px; }
   .tk.snap .snap-foot { margin-top: 12px; font-size: 11px; color: #9ca3af; text-align: right; }
 </style>
 </head>
@@ -136,8 +141,8 @@
               <div class="tk-row">
                 <button class="b" type="button" id="tkReload">Nạp file kỳ khác</button>
                 <button class="b del" type="button" id="tkDelete">Xóa kỳ này</button>
-                <button class="b pri" type="button" id="tkSnap" title="Tải ảnh PNG của Dashboard (ô số liệu + biểu đồ)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Xuất ảnh Dashboard</button>
-                <button class="b" type="button" id="tkSnapCopy" title="Sao chép ảnh Dashboard để dán vào Zalo / email / Word">Sao chép ảnh</button>
+                <button class="b pri" type="button" id="tkSnap" title="Tải ảnh PNG của tab đang mở"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Xuất ảnh</button>
+                <button class="b" type="button" id="tkSnapCopy" title="Sao chép ảnh của tab đang mở">Sao chép ảnh</button>
                 <button class="b ok" type="button" id="tkExport"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Xuất Excel</button>
               </div>
             </div>
@@ -229,9 +234,9 @@
     <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel được đọc trong trình duyệt; kết quả theo kỳ lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
   </div>
 </div>
-<script src="../assets/flows.js?v=20260930i"></script>
-<script src="../assets/layout.js?v=20260930i"></script>
-<script src="engine.js?v=20260930i"></script>
-<script src="app.js?v=20260930i"></script>
+<script src="../assets/flows.js?v=20260930j"></script>
+<script src="../assets/layout.js?v=20260930j"></script>
+<script src="engine.js?v=20260930j"></script>
+<script src="app.js?v=20260930j"></script>
 </body>
 </html>
