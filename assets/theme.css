@@ -561,3 +561,8 @@ button.primary:disabled { opacity: .5; cursor: default; }
 /* Logo CPC1HN duoi dong "Kho Van HCM" o dau menu toi — dat tren o trang bo goc cho noi ro */
 .sb-brand { display: flex; justify-content: center; align-items: center; margin-top: 12px; background: #fff; border-radius: 8px; padding: 10px; width: 100%; box-sizing: border-box; }
 .sb-brand img { display: block !important; height: 72px; width: auto; }
+
+/* Dau menu: logo tren cung, ben duoi chi 1 dong "Kho Van CN.HCM" can giua */
+.sb-logo { align-items: center; text-align: center; }
+.sb-brand { margin-top: 0; }
+.sb-logo-text { margin-top: 10px; font-size: 15px; }

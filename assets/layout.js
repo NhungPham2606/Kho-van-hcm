@@ -18,9 +18,8 @@
     const hash = location.hash;
     let html = `
       <a class="sb-logo" href="${base || './'}">
-        <span class="sb-logo-text">Quản Lý Kho Vận</span>
-        <span class="sb-unit">Hệ thống báo cáo nội bộ · Kho Vận HCM</span>
         <span class="sb-brand"><img src="${base}assets/logo.svg?v=2" alt="CPC1HN"></span>
+        <span class="sb-logo-text">Kho Vận CN.HCM</span>
       </a><div class="sb-section">Menu chính</div><ul class="sb-menu">`;
     MENU.forEach((g, gi) => {
       if (!g.muc) {
