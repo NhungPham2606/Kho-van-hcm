@@ -143,14 +143,17 @@
     return `<th class="r">Stt</th><th>Mã vật tư</th><th style="min-width:220px">Tên vật tư</th><th>Mã kho</th><th>Đvt</th><th>Mã lô</th><th>Hạn dùng</th><th>Tuổi thuốc<br>(Tháng)</th><th class="r">Tồn đầu<br>(${T.vnDate(d.tu)})</th><th class="r">SL nhập</th><th class="r">SL xuất</th><th class="r">Tồn cuối<br>(${T.vnDate(d.den)})</th>${withCham ? '<th>Số tháng<br>chậm luân chuyển</th>' : ''}<th class="r">Giá trị tồn</th><th>Hướng xử lý</th>`;
   }
   const chamStyle = c => c.n >= 6 ? 'color:#b91c1c' : c.n >= 3 ? 'color:#c2410c' : 'color:#374151';
-  function rowsHtml(list, huong, withCham) {
+  const lotId = r => `${r.ma}|${r.kho}|${r.lo}`;
+  const huongMap = () => { const e = archive[cur()]; return (e && e.huong) || {}; };
+  function rowsHtml(list, huong, withCham, editable) {
     if (!list.length) return '<tr><td colspan="15" style="text-align:center;color:#9ca3af;padding:20px">Không có lô nào</td></tr>';
     return list.map((r, i) => {
       const c = T.tuoiColor(r.tuoi);
       return `<tr><td class="r">${i + 1}</td><td>${esc(r.ma)}</td><td style="white-space:normal">${esc(r.ten)}</td><td>${esc(r.kho)}</td><td>${esc(r.dvt)}</td><td>${esc(r.lo)}</td><td>${T.vnDate(r.hd)}</td>
         <td class="tuoi" style="background:${c.bg};color:${c.fg}">${r.tuoi === null ? '—' : r.tuoi < 0 ? 'Hết hạn' : r.tuoi}</td>
         <td class="r">${num(r.tdSL)}</td><td class="r">${num(r.nhSL)}</td><td class="r">${num(r.xuSL)}</td><td class="r bold">${num(r.tcSL)}</td>${withCham ? `<td class="bold" style="${chamStyle(r.chuaXuat)}">${esc(r.chuaXuatText)}</td>` : ''}<td class="r">${num(r.tcGT)}</td>
-        ${i === 0 ? `<td class="huong" rowspan="${list.length}">${esc(huong)}</td>` : ''}</tr>`;
+        ${editable ? `<td class="huong-edit"><textarea data-hx="${esc(lotId(r))}" rows="1" placeholder="Nhập hướng xử lý…">${esc(huongMap()[lotId(r)] || '')}</textarea></td>`
+          : i === 0 ? `<td class="huong" rowspan="${list.length}">${esc(huong)}</td>` : ''}</tr>`;
     }).join('');
   }
   function renderTables() {
@@ -161,7 +164,7 @@
     $('titleCham').innerHTML = `BÁO CÁO TỒN KHO VẬT TƯ CHẬM LUÂN CHUYỂN<br>CHI NHÁNH HỒ CHÍ MINH T${m}/${y}`;
     $('titleCan').innerHTML = `BÁO CÁO TỒN KHO VẬT TƯ CẬN DATE (≤ ${res.opt.canDateThang} THÁNG)<br>CHI NHÁNH HỒ CHÍ MINH T${m}/${y}`;
     $('bodyCham').innerHTML = rowsHtml(filt(res.cham), res.opt.huongCham, true);
-    $('bodyCan').innerHTML = rowsHtml(filt(res.canDate), res.opt.huongCanDate);
+    $('bodyCan').innerHTML = rowsHtml(filt(res.canDate), res.opt.huongCanDate, false, true);
     $('headAll').innerHTML = '<th class="r">Stt</th><th>Mã vật tư</th><th style="min-width:220px">Tên vật tư</th><th>Kho</th><th>Đvt</th><th>Lô</th><th>Hạn dùng</th><th>Tuổi thuốc</th><th class="r">Tồn đầu</th><th class="r">Nhập</th><th class="r">Xuất</th><th class="r">Tồn cuối</th><th class="r">Giá trị tồn</th><th class="r">% xuất</th><th>Số tháng chưa xuất</th><th>Phân loại</th>';
     $('bodyAll').innerHTML = filt(res.list).map((r, i) => { const c = T.tuoiColor(r.tuoi); return `<tr><td class="r">${i + 1}</td><td>${esc(r.ma)}</td><td style="white-space:normal">${esc(r.ten)}</td><td>${esc(r.kho)}</td><td>${esc(r.dvt)}</td><td>${esc(r.lo)}</td><td>${T.vnDate(r.hd)}</td><td class="tuoi" style="background:${c.bg};color:${c.fg}">${r.tuoi === null ? '—' : r.tuoi < 0 ? 'Hết hạn' : r.tuoi}</td><td class="r">${num(r.tdSL)}</td><td class="r">${num(r.nhSL)}</td><td class="r">${num(r.xuSL)}</td><td class="r bold">${num(r.tcSL)}</td><td class="r">${num(r.tcGT)}</td><td class="r">${Math.round(r.tyLeXuat)}%</td><td style="${chamStyle(r.chuaXuat)}">${esc(r.chuaXuatText)}</td><td>${[r.cham ? 'Chậm LC' : '', r.canDate ? 'Cận date' : ''].filter(Boolean).join(' · ')}</td></tr>`; }).join('');
   }
@@ -189,8 +192,9 @@
     $('fKho').innerHTML = '<option value="">Tất cả kho</option>' + khoList.map(k => `<option value="${esc(k)}">Kho ${esc(k)}</option>`).join('');
     $('fKho').value = khoList.includes(kv) ? kv : '';
     renderStats(); renderDash(); renderTables(); renderSettings(); renderTabs();
+    document.querySelectorAll('#bodyCan textarea').forEach(autoH);
   }
-  const refilter = () => { renderStats(); renderDash(); renderTables(); renderTabs(); };
+  const refilter = () => { renderStats(); renderDash(); renderTables(); renderTabs(); document.querySelectorAll('#bodyCan textarea').forEach(t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }); };
 
   // ------------------------------------------------------------ sự kiện
   window.addEventListener('hashchange', () => {
@@ -199,6 +203,16 @@
   });
   $('fKho').addEventListener('change', refilter);
   $('fSearch').addEventListener('input', refilter);
+  function autoH(t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }
+  $('bodyCan').addEventListener('input', e => {
+    const t = e.target; if (!t.dataset || !t.dataset.hx) return;
+    autoH(t);
+    const k = cur(); if (!k) return;
+    const m = archive[k].huong = archive[k].huong || {};
+    const v = t.value.trim();
+    if (v) m[t.dataset.hx] = t.value; else delete m[t.dataset.hx];
+    touch(k);
+  });
   document.addEventListener('click', e => { const b = e.target.closest('[data-ky]'); if (b) { sel = b.dataset.ky; persist(); renderAll(); } });
   $('tkReload').addEventListener('click', () => { uploadOpen = true; renderTop(); $('tkFile').click(); });
   $('tkUpCancel').addEventListener('click', () => { uploadOpen = false; msg($('tkUpMsg'), ''); renderTop(); });
@@ -256,12 +270,12 @@
     const cell = (h, extra) => Object.assign({ border: B, alignment: { horizontal: h || 'left', vertical: 'center', wrapText: true } }, extra || {});
     const NUM = '#,##0;-#,##0;"-"';
     const wb = XLSX.utils.book_new();
-    function sheet(name, t1, list, huong, withCham) {
+    function sheet(name, t1, list, huong, withCham, perRow) {
       const hdr = ['Stt', 'Mã vật tư', 'Tên vật tư', 'Mã kho', 'Đvt', 'Mã lô', 'Hạn dùng', 'Tuổi thuốc\n(Tháng)', `Tồn đầu\n(${T.vnDate(d.tu)})`, 'Sl nhập', 'Sl xuất', `Tồn cuối\n(${T.vnDate(d.den)})`]
         .concat(withCham ? ['Số tháng\nchậm luân chuyển'] : [], ['Giá trị tồn', 'Hướng xử lý']);
       const H = hdr.length - 1, GT = H - 1, CH = withCham ? H - 2 : -1;
       const aoa = [[t1], [`CHI NHÁNH HỒ CHÍ MINH T${m}/${y}`], [], hdr, ...list.map((r, i) => [i + 1, r.ma, r.ten, r.kho, r.dvt, r.lo, T.vnDate(r.hd), r.tuoi === null ? '' : r.tuoi < 0 ? 'Hết hạn' : r.tuoi, r.tdSL, r.nhSL, r.xuSL, r.tcSL]
-        .concat(withCham ? [r.chuaXuatText] : [], [r.tcGT, i === 0 ? huong : ''])) ];
+        .concat(withCham ? [r.chuaXuatText] : [], [r.tcGT, perRow ? (perRow[lotId(r)] || '') : i === 0 ? huong : ''])) ];
       const ws = XLSX.utils.aoa_to_sheet(aoa);
       const ref = (r, c) => XLSX.utils.encode_cell({ r, c });
       const set = (r, c, st) => { const a = ref(r, c); if (!ws[a]) ws[a] = { t: 's', v: '' }; ws[a].s = st; };
@@ -273,16 +287,19 @@
         set(Rw, 7, cell('center', { fill: { patternType: 'solid', fgColor: { rgb: col.bg.slice(1) } }, font: { bold: true, color: { rgb: col.fg.slice(1) } } }));
         [8, 9, 10, 11, GT].forEach(c => { set(Rw, c, cell('right')); ws[ref(Rw, c)].z = NUM; });
         if (CH >= 0) set(Rw, CH, cell('center', { font: { bold: true, color: { rgb: r.chuaXuat.n >= 6 ? 'B91C1C' : r.chuaXuat.n >= 3 ? 'C2410C' : '374151' } } }));
-        set(Rw, H, cell('center', { font: { bold: true } }));
+        set(Rw, H, perRow ? cell('left') : cell('center', { font: { bold: true } }));
       });
       ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: H } }, { s: { r: 1, c: 0 }, e: { r: 1, c: H } }];
-      if (list.length > 1) ws['!merges'].push({ s: { r: 4, c: H }, e: { r: 3 + list.length, c: H } });
+      if (!perRow && list.length > 1) ws['!merges'].push({ s: { r: 4, c: H }, e: { r: 3 + list.length, c: H } });
       ws['!cols'] = [6, 11, 42, 9, 7, 13, 12, 11, 14, 9, 9, 14].concat(withCham ? [22] : [], [15, 32]).map(w => ({ wch: w }));
       ws['!rows'] = [{ hpt: 22 }, { hpt: 22 }, {}, { hpt: 32 }];
       XLSX.utils.book_append_sheet(wb, ws, name);
     }
     sheet('Chậm luân chuyển', 'BÁO CÁO TỒN KHO VẬT TƯ CHẬM LUÂN CHUYỂN', filt(res.cham), res.opt.huongCham, true);
-    sheet('Cận date', `BÁO CÁO TỒN KHO VẬT TƯ CẬN DATE (≤ ${res.opt.canDateThang} THÁNG)`, filt(res.canDate), res.opt.huongCanDate);
+    // Cận date: có nhập tay thì ghi từng dòng; chưa nhập dòng nào thì dùng câu mặc định gộp như mẫu
+    const hm = huongMap();
+    sheet('Cận date', `BÁO CÁO TỒN KHO VẬT TƯ CẬN DATE (≤ ${res.opt.canDateThang} THÁNG)`, filt(res.canDate), res.opt.huongCanDate, false,
+      Object.keys(hm).length ? hm : null);
     XLSX.writeFile(wb, `BaoCao_CanDate_ChamLuanChuyen_T${m}-${y}.xlsx`);
   });
 
