@@ -138,18 +138,21 @@
       <div class="chart" style="grid-column:1/-1"><h4>Top 10 mặt hàng chậm luân chuyển (theo giá trị tồn)</h4><div class="sub">Rê chuột vào từng dòng để xem số lô và giá trị</div>
         ${top.length ? bars(top, () => '#1a56db') : '<div class="muted">Không có lô chậm luân chuyển.</div>'}</div>`;
   }
+  // chọn dòng để xuất ảnh: pick.cham / pick.can = Set(lotId)
+  const pick = { cham: new Set(), can: new Set() };
   function headCells(withCham) {
-    const d = archive[cur()].data;
-    return `<th class="r">Stt</th><th>Mã vật tư</th><th style="min-width:220px">Tên vật tư</th><th>Mã kho</th><th>Đvt</th><th>Mã lô</th><th>Hạn dùng</th><th>Tuổi thuốc<br>(Tháng)</th><th class="r">Tồn đầu<br>(${T.vnDate(d.tu)})</th><th class="r">SL nhập</th><th class="r">SL xuất</th><th class="r">Tồn cuối<br>(${T.vnDate(d.den)})</th>${withCham ? '<th>Số tháng<br>chậm luân chuyển</th>' : ''}<th class="r">Giá trị tồn</th><th>Hướng xử lý</th>`;
+    const d = archive[cur()].data, which = withCham ? 'cham' : 'can';
+    return `<th class="sel"><input type="checkbox" data-selall="${which}" title="Chọn / bỏ chọn tất cả dòng đang hiển thị"></th><th class="r">Stt</th><th>Mã vật tư</th><th style="min-width:220px">Tên vật tư</th><th>Mã kho</th><th>Đvt</th><th>Mã lô</th><th>Hạn dùng</th><th>Tuổi thuốc<br>(Tháng)</th><th class="r">Tồn đầu<br>(${T.vnDate(d.tu)})</th><th class="r">SL nhập</th><th class="r">SL xuất</th><th class="r">Tồn cuối<br>(${T.vnDate(d.den)})</th>${withCham ? '<th>Số tháng<br>chậm luân chuyển</th>' : ''}<th class="r">Giá trị tồn</th><th>Hướng xử lý</th>`;
   }
   const chamStyle = c => c.n >= 6 ? 'color:#b91c1c' : c.n >= 3 ? 'color:#c2410c' : 'color:#374151';
   const lotId = r => `${r.ma}|${r.kho}|${r.lo}`;
   const huongMap = (name = 'huong') => { const e = archive[cur()]; return (e && e[name]) || {}; };
   function rowsHtml(list, huong, withCham, editable) {  // editable = tên map ghi chú ('huong' | 'huongCham')
-    if (!list.length) return '<tr><td colspan="15" style="text-align:center;color:#9ca3af;padding:20px">Không có lô nào</td></tr>';
+    if (!list.length) return '<tr><td colspan="16" style="text-align:center;color:#9ca3af;padding:20px">Không có lô nào</td></tr>';
+    const P = pick[withCham ? 'cham' : 'can'];
     return list.map((r, i) => {
-      const c = T.tuoiColor(r.tuoi);
-      return `<tr><td class="r">${i + 1}</td><td>${esc(r.ma)}</td><td style="white-space:normal">${esc(r.ten)}</td><td>${esc(r.kho)}</td><td>${esc(r.dvt)}</td><td>${esc(r.lo)}</td><td>${T.vnDate(r.hd)}</td>
+      const c = T.tuoiColor(r.tuoi), id = lotId(r);
+      return `<tr${P.has(id) ? ' class="picked"' : ''}><td class="sel"><input type="checkbox" data-sel="${esc(id)}"${P.has(id) ? ' checked' : ''}></td><td class="r stt">${i + 1}</td><td>${esc(r.ma)}</td><td style="white-space:normal">${esc(r.ten)}</td><td>${esc(r.kho)}</td><td>${esc(r.dvt)}</td><td>${esc(r.lo)}</td><td>${T.vnDate(r.hd)}</td>
         <td class="tuoi" style="background:${c.bg};color:${c.fg}">${r.tuoi === null ? '—' : r.tuoi < 0 ? 'Hết hạn' : r.tuoi}</td>
         <td class="r">${num(r.tdSL)}</td><td class="r">${num(r.nhSL)}</td><td class="r">${num(r.xuSL)}</td><td class="r bold">${num(r.tcSL)}</td>${withCham ? `<td class="bold" style="${chamStyle(r.chuaXuat)}">${esc(r.chuaXuatText)}</td>` : ''}<td class="r">${num(r.tcGT)}</td>
         ${editable ? `<td class="huong-edit"><textarea data-hx="${esc(lotId(r))}" data-map="${editable}" rows="1" placeholder="Nhập hướng xử lý…">${esc(huongMap(editable)[lotId(r)] || '')}</textarea></td>`
@@ -165,6 +168,7 @@
     $('titleCan').innerHTML = `BÁO CÁO TỒN KHO VẬT TƯ CẬN DATE (≤ ${res.opt.canDateThang} THÁNG)<br>CHI NHÁNH HỒ CHÍ MINH T${m}/${y}`;
     $('bodyCham').innerHTML = rowsHtml(filt(res.cham), res.opt.huongCham, true, 'huongCham');
     $('bodyCan').innerHTML = rowsHtml(filt(res.canDate), res.opt.huongCanDate, false, 'huong');
+    updatePick();
     $('headAll').innerHTML = '<th class="r">Stt</th><th>Mã vật tư</th><th style="min-width:220px">Tên vật tư</th><th>Kho</th><th>Đvt</th><th>Lô</th><th>Hạn dùng</th><th>Tuổi thuốc</th><th class="r">Tồn đầu</th><th class="r">Nhập</th><th class="r">Xuất</th><th class="r">Tồn cuối</th><th class="r">Giá trị tồn</th><th class="r">% xuất</th><th>Số tháng chưa xuất</th><th>Phân loại</th>';
     $('bodyAll').innerHTML = filt(res.list).map((r, i) => { const c = T.tuoiColor(r.tuoi); return `<tr><td class="r">${i + 1}</td><td>${esc(r.ma)}</td><td style="white-space:normal">${esc(r.ten)}</td><td>${esc(r.kho)}</td><td>${esc(r.dvt)}</td><td>${esc(r.lo)}</td><td>${T.vnDate(r.hd)}</td><td class="tuoi" style="background:${c.bg};color:${c.fg}">${r.tuoi === null ? '—' : r.tuoi < 0 ? 'Hết hạn' : r.tuoi}</td><td class="r">${num(r.tdSL)}</td><td class="r">${num(r.nhSL)}</td><td class="r">${num(r.xuSL)}</td><td class="r bold">${num(r.tcSL)}</td><td class="r">${num(r.tcGT)}</td><td class="r">${Math.round(r.tyLeXuat)}%</td><td style="${chamStyle(r.chuaXuat)}">${esc(r.chuaXuatText)}</td><td>${[r.cham ? 'Chậm LC' : '', r.canDate ? 'Cận date' : ''].filter(Boolean).join(' · ')}</td></tr>`; }).join('');
   }
@@ -216,6 +220,36 @@
     touch(k);
   }
   $('bodyCan').addEventListener('input', onHuongInput);
+  function updatePick() {
+    [['cham', 'bodyCham'], ['can', 'bodyCan']].forEach(([w, body]) => {
+      const n = pick[w].size;
+      const el = $('pickCnt_' + w); if (el) el.textContent = n;
+      const all = document.querySelector(`[data-selall="${w}"]`);
+      const boxes = [...document.querySelectorAll(`#${body} input[data-sel]`)];
+      if (all) { const on = boxes.filter(b => b.checked).length; all.checked = boxes.length > 0 && on === boxes.length; all.indeterminate = on > 0 && on < boxes.length; }
+      const hint = $('pickHint_' + w);
+      if (hint) { const N = Number(($('pickN_' + w) || {}).value) || 0; hint.textContent = n ? `Ảnh sẽ gồm ${n} dòng đã tích` : N ? `Ảnh sẽ gồm ${N} dòng đầu` : 'Ảnh sẽ gồm tất cả các dòng'; }
+    });
+  }
+  document.addEventListener('change', e => {
+    const t = e.target;
+    if (t.dataset && t.dataset.sel !== undefined) {
+      const w = t.closest('#bodyCham') ? 'cham' : 'can';
+      if (t.checked) pick[w].add(t.dataset.sel); else pick[w].delete(t.dataset.sel);
+      t.closest('tr').classList.toggle('picked', t.checked); updatePick();
+    } else if (t.dataset && t.dataset.selall) {
+      const w = t.dataset.selall, body = w === 'cham' ? 'bodyCham' : 'bodyCan';
+      document.querySelectorAll(`#${body} input[data-sel]`).forEach(b => { b.checked = t.checked; if (t.checked) pick[w].add(b.dataset.sel); else pick[w].delete(b.dataset.sel); b.closest('tr').classList.toggle('picked', t.checked); });
+      updatePick();
+    } else if (t.id === 'pickN_cham' || t.id === 'pickN_can') updatePick();
+  });
+  document.addEventListener('input', e => { if (e.target.id === 'pickN_cham' || e.target.id === 'pickN_can') updatePick(); });
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-pickclear]'); if (!b) return;
+    const w = b.dataset.pickclear; pick[w].clear();
+    document.querySelectorAll(`#${w === 'cham' ? 'bodyCham' : 'bodyCan'} input[data-sel]`).forEach(x => { x.checked = false; x.closest('tr').classList.remove('picked'); });
+    updatePick();
+  });
   $('bodyCham').addEventListener('input', onHuongInput);
   // Sao chép ghi chú Cận date sang Chậm LC: lô trùng Mã vật tư + Mã lô + Hạn dùng; chỉ điền ô còn trống
   $('copyFromCan').addEventListener('click', () => {
@@ -355,6 +389,17 @@
     } else {
       const pane = document.querySelector(`[data-pane="${t}"]`).cloneNode(true);
       pane.hidden = false;
+      const w = t === 'cham-luan-chuyen' ? 'cham' : t === 'can-date' ? 'can' : null;
+      if (w) {
+        const rows = [...pane.querySelectorAll('tbody tr')];
+        const N = Number(($('pickN_' + w) || {}).value) || 0;
+        const keep = pick[w].size ? rows.filter(tr => { const cb = tr.querySelector('input[data-sel]'); return cb && pick[w].has(cb.dataset.sel); })
+          : N ? rows.slice(0, N) : rows;
+        rows.forEach(tr => { if (!keep.includes(tr)) tr.remove(); });
+        keep.forEach((tr, i) => { const st = tr.querySelector('td.stt'); if (st) st.textContent = i + 1; tr.classList.remove('picked'); });
+        if (!keep.length) throw new Error('Không có dòng nào để xuất ảnh.');
+      }
+      pane.querySelectorAll('.sel, .pick-bar, .copy-bar').forEach(el => el.remove());
       // ô nhập hướng xử lý -> chữ (html2canvas không vẽ đúng nội dung textarea)
       pane.querySelectorAll('textarea').forEach(ta => {
         const live = document.querySelector(`[data-pane="${t}"] textarea[data-hx="${CSS.escape(ta.dataset.hx)}"]`);
