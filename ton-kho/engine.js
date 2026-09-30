@@ -7,8 +7,11 @@
      (ngày xuất file, đọc từ đuôi tên file "...-YYYYMMDDhhmmss.xlsx"; không có thì
      lấy hôm nay) — như TODAY() trong Excel. Mẫu T3/2026 chỉ khớp đủ 12/12 dòng khi
      tham chiếu nằm trong 05–07/04/2026 (ngày lập báo cáo), KHÔNG phải 01/04.
-   - Chậm luân chuyển: lô còn tồn cuối > 0 và SL xuất trong kỳ ≤ X% của
-     (tồn đầu + nhập). Mặc định X = 20%.
+   - Số tháng chưa xuất: ghép mọi kỳ đã nạp. File từng tháng -> đếm chính xác số
+     tháng liên tiếp gần nhất không xuất; file gộp nhiều tháng -> "≥ N tháng" nếu
+     cả kỳ không xuất, "Xuất ít trong kỳ" nếu có xuất.
+   - Chậm luân chuyển: chưa xuất ≥ 3 tháng, hoặc (kỳ ≥ 3 tháng và SL xuất ≤ 20%
+     của tồn đầu + nhập). Cả 2 ngưỡng chỉnh được.
    - Cận date: lô còn tồn cuối > 0 và tuổi thuốc ≤ N tháng (mặc định 12),
      kể cả đã hết hạn (tuổi < 0).
    ============================================================================ */
@@ -16,7 +19,9 @@
   'use strict';
   const DEFAULTS = {
     canDateThang: 12,
-    tyLeXuatToiDa: 20,
+    chamThang: 3,        // chưa xuất ≥ 3 tháng (~90 ngày, theo câu "trên 90 ngày" của mẫu)
+    tyLeXuatToiDa: 20,   // áp dụng thêm cho file gộp ≥ 3 tháng: xuất ≤ 20% của (tồn đầu + nhập)
+    tinhNhapTrongKy: false, // lô nhập trong kỳ gộp mà chưa xuất: không rõ nhập tháng nào -> mặc định KHÔNG tính chậm
     huongCham: 'Hàng chậm luân chuyển trên 90 ngày. Thông báo bộ phận Kinh doanh, điều chuyển giữa các chi nhánh/VP',
     huongCanDate: 'Hàng cận date. Ưu tiên xuất trước (FEFO), thông báo bộ phận Kinh doanh đẩy bán / điều chuyển; hàng hết hạn lập biên bản chờ huỷ.',
   };
@@ -96,16 +101,59 @@
     return `${t.getFullYear()}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`;
   }
 
-  function analyse(data, opt) {
+  // ---- Số tháng chưa xuất: ghép các kỳ đã nạp (file từng tháng cho số chính xác;
+  // file gộp nhiều tháng chỉ biết "cả kỳ không xuất" hoặc "có xuất trong kỳ").
+  const mIdx = s => { const [y, m] = s.split('-').map(Number); return y * 12 + (m - 1); };
+  const lotKey = r => `${r.ma}|${r.kho}|${r.lo}`;
+  function monthsWithoutExport(cur, history) {
+    const D = mIdx(cur.den), A = mIdx(cur.tu);
+    const sets = (history || []).concat([cur]).filter(h => h && h.tu && h.den && mIdx(h.den) <= D).map(h => ({
+      a: mIdx(h.tu), b: mIdx(h.den), rows: new Map(h.rows.map(r => [lotKey(r), r])) }));
+    // ưu tiên kỳ 1 tháng (chính xác), rồi kỳ ngắn hơn
+    sets.sort((x, y) => (x.b - x.a) - (y.b - y.a));
+    return r => {
+      const k = lotKey(r);
+      let n = 0, m = D, atLeast = false, note = '';
+      while (m >= D - 120) {
+        const ds = sets.find(s => s.a <= m && m <= s.b);
+        if (!ds) { atLeast = n > 0; break; }
+        const row = ds.rows.get(k);
+        if (!row) break;                                   // chưa có lô này trong kho ở kỳ đó
+        const len = ds.b - ds.a + 1;
+        if (len === 1) {
+          if (row.xuSL > 0) break;                         // có xuất tháng m
+          n += 1; if (row.tdSL <= 0 && row.nhSL > 0) break; // nhập trong tháng m
+          m -= 1; continue;
+        }
+        // kỳ gộp nhiều tháng
+        if (row.xuSL > 0) { if (n === 0) note = 'coXuat'; else atLeast = true; break; }
+        if (row.tdSL <= 0 && row.nhSL > 0) { if (n === 0) note = 'nhapTrongKy'; else atLeast = true; break; }
+        n += m - ds.a + 1; m = ds.a - 1;
+      }
+      return { n, atLeast, note, kyThang: D - A + 1 };
+    };
+  }
+  function chamLabel(c, tyLe, nguong) {
+    if (c.n > 0) return `${c.atLeast ? '≥ ' : ''}${c.n} tháng chưa xuất`;
+    if (c.note === 'nhapTrongKy') return 'Chưa xuất từ khi nhập (nhập trong kỳ)';
+    if (c.note === 'coXuat') return `${tyLe <= nguong ? 'Xuất ít' : 'Có xuất'} trong kỳ (${Math.round(tyLe)}%)`;
+    return 'Có xuất tháng này';
+  }
+
+  function analyse(data, opt, history) {
     const o = Object.assign({}, DEFAULTS, opt || {});
     const ref = toDate((o.ngayThamChieu || refDefault(data)).split('-').reverse().join('/'));
+    const mwe = monthsWithoutExport(data, (history || []).filter(h => h !== data));
     const list = data.rows.map(r => {
       const hd = r.hd ? toDate(r.hd.split('-').reverse().join('/')) : null;
       const tuoi = monthsBetween(ref, hd);
       const coSo = r.tdSL + r.nhSL;
       const tyLe = coSo > 0 ? (r.xuSL / coSo) * 100 : (r.xuSL > 0 ? 100 : 0);
-      return Object.assign({}, r, { tuoi, tyLeXuat: tyLe,
-        cham: tyLe <= o.tyLeXuatToiDa,
+      const c = mwe(r);
+      // Chậm LC: chưa xuất ≥ N tháng; hoặc (kỳ dài ≥ N tháng và xuất ≤ X%)
+      const cham = c.n >= o.chamThang || (c.kyThang >= o.chamThang && tyLe <= o.tyLeXuatToiDa
+        && (c.note !== 'nhapTrongKy' || o.tinhNhapTrongKy));
+      return Object.assign({}, r, { tuoi, tyLeXuat: tyLe, chuaXuat: c, chuaXuatText: chamLabel(c, tyLe, o.tyLeXuatToiDa), cham,
         canDate: tuoi !== null && tuoi <= o.canDateThang });
     });
     const byTuoi = (a, b) => (a.tuoi ?? 9999) - (b.tuoi ?? 9999) || a.ma.localeCompare(b.ma) || a.lo.localeCompare(b.lo);
@@ -125,5 +173,19 @@
     return { bg: '#63BE7B', fg: '#1F2937' };
   }
 
-  root.TonKho = { DEFAULTS, parse, analyse, refDefault, tuoiColor, vnDate: s => s ? s.split('-').reverse().join('/') : '' };
+  // Khoá lưu kỳ: 1 tháng -> "YYYY-MM"; nhiều tháng -> "YYYY-MM_YYYY-MM"
+  function kyKey(d) {
+    if (!d.den) return d.fileName || 'ky';
+    const a = (d.tu || d.den).slice(0, 7), b = d.den.slice(0, 7);
+    return a === b ? b : `${a}_${b}`;
+  }
+  function kyLabel(k) {
+    const one = s => `T${Number(s.slice(5))}/${s.slice(0, 4)}`;
+    if (/^\d{4}-\d{2}$/.test(k)) return one(k);
+    const m = k.match(/^(\d{4}-\d{2})_(\d{4}-\d{2})$/);
+    if (!m) return k;
+    return m[1].slice(0, 4) === m[2].slice(0, 4) ? `T${Number(m[1].slice(5))}–T${Number(m[2].slice(5))}/${m[2].slice(0, 4)}` : `${one(m[1])}–${one(m[2])}`;
+  }
+
+  root.TonKho = { DEFAULTS, parse, analyse, refDefault, tuoiColor, kyKey, kyLabel, vnDate: s => s ? s.split('-').reverse().join('/') : '' };
 })(typeof self !== 'undefined' ? self : window);

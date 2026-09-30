@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cận Date &amp; Chậm Luân Chuyển</title>
 <link rel="icon" href="../assets/logo.png?v=2" type="image/png">
-<link rel="stylesheet" href="../assets/theme.css?v=20260930d">
+<link rel="stylesheet" href="../assets/theme.css?v=20260930e">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   /* Bố cục + kiểu chữ y hệt trang "Thưởng Kho HCM" của app cũ (giao-hang-app/src/index.css) */
@@ -136,7 +136,7 @@
             <div class="tk-zone" id="tkZone" tabindex="0" role="button" aria-label="Chọn file Excel nhập xuất tồn">
               <svg viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
               <h4 id="tkZoneTitle">Tải file "Báo cáo nhập xuất tồn theo kho số lượng và giá trị" (.xlsx)</h4>
-              <p id="tkZoneSub">Xuất từ phần mềm, dạng <b>tồn theo lô</b> (có cột Mã vật tư, Kho, Lô, Hạn dùng, Tồn đầu, Nhập, Xuất, Tồn cuối). Kỳ báo cáo đọc từ dòng "Từ ngày … đến ngày …". Kết quả lưu riêng theo từng kỳ.</p>
+              <p id="tkZoneSub">Xuất từ phần mềm, dạng <b>tồn theo lô</b> (có cột Mã vật tư, Kho, Lô, Hạn dùng, Tồn đầu, Nhập, Xuất, Tồn cuối). Kỳ báo cáo đọc từ dòng "Từ ngày … đến ngày …". Kết quả lưu riêng theo từng kỳ. <b>Mẹo:</b> nạp thêm file <b>từng tháng</b> (T7, T8, T9…) để có số tháng chưa xuất chính xác.</p>
             </div>
             <input type="file" id="tkFile" accept=".xlsx,.xls" hidden>
             <div class="tk-row" style="margin-top:10px" id="tkUpCancelRow" hidden><button class="b sm" type="button" id="tkUpCancel">Đóng, quay lại kỳ đang xem</button></div>
@@ -173,7 +173,7 @@
             <div data-pane="cham-luan-chuyen" hidden>
               <div class="rep-title" id="titleCham"></div>
               <div class="legend-tuoi" data-legend></div>
-              <div class="tw"><table class="dt"><thead><tr data-head></tr></thead><tbody id="bodyCham"></tbody></table></div>
+              <div class="tw"><table class="dt"><thead><tr data-head="cham"></tr></thead><tbody id="bodyCham"></tbody></table></div>
             </div>
             <div data-pane="can-date" hidden>
               <div class="rep-title" id="titleCan"></div>
@@ -188,14 +188,17 @@
                 <div class="set-grid">
                   <label>Ngày tham chiếu tính tuổi thuốc<input type="date" id="sRef"><span class="muted" id="sRefHint"></span></label>
                   <label>Cận date: tuổi thuốc ≤ (tháng)<input type="number" min="0" step="1" id="sCan"></label>
-                  <label>Chậm luân chuyển: SL xuất ≤ (% của tồn đầu + nhập)<input type="number" min="0" max="100" step="1" id="sTyLe"></label>
+                  <label>Chậm luân chuyển: chưa xuất ≥ (tháng)<input type="number" min="1" step="1" id="sCham"></label>
+                  <label>…hoặc (file gộp ≥ số tháng trên) SL xuất ≤ (% của tồn đầu + nhập)<input type="number" min="0" max="100" step="1" id="sTyLe"></label>
+                  <label style="flex-direction:row;align-items:center;gap:8px;font-size:12px;color:#374151"><input type="checkbox" id="sNhap" style="width:16px;height:16px"> Tính cả lô <b>nhập trong kỳ</b> mà chưa xuất (file gộp không biết nhập tháng nào)</label>
                 </div>
                 <label style="display:block;margin-top:14px;font-size:11px;color:#6b7280">Hướng xử lý — hàng chậm luân chuyển<textarea id="sHuongCham" rows="2"></textarea></label>
                 <label style="display:block;margin-top:10px;font-size:11px;color:#6b7280">Hướng xử lý — hàng cận date<textarea id="sHuongCan" rows="2"></textarea></label>
                 <div class="tk-row" style="margin-top:12px"><button class="b pri" type="button" id="sApply">Áp dụng</button><button class="b" type="button" id="sReset">Về mặc định</button></div>
                 <div class="tk-notes" style="margin-top:16px">
                   <div>• <b>Tuổi thuốc (tháng)</b> = số tháng tròn từ ngày tham chiếu đến hạn dùng (như DATEDIF của Excel). Mặc định ngày tham chiếu = <b>ngày lập báo cáo</b> (ngày xuất file, đọc từ tên file), giống hàm TODAY() của Excel — cách này khớp đúng 12/12 dòng của mẫu T3/2026.</div>
-                  <div>• <b>Chậm luân chuyển</b>: lô còn tồn cuối &gt; 0 và SL xuất trong kỳ ≤ ngưỡng % của (tồn đầu + nhập).</div>
+                  <div>• <b>Số tháng chậm luân chuyển</b>: số tháng liên tiếp gần nhất lô không xuất. Nạp <b>file từng tháng</b> (mỗi file 1 tháng) để ra số chính xác (vd "3 tháng chưa xuất"); với file gộp nhiều tháng chỉ biết "≥ N tháng chưa xuất" (cả kỳ không xuất) hoặc "Xuất ít trong kỳ".</div>
+                  <div>• <b>Chậm luân chuyển</b>: chưa xuất ≥ ngưỡng tháng (mặc định 3 tháng ≈ 90 ngày), hoặc với file gộp dài ≥ ngưỡng: SL xuất ≤ ngưỡng % của (tồn đầu + nhập).</div>
                   <div>• <b>Cận date</b>: lô còn tồn cuối &gt; 0 và tuổi thuốc ≤ ngưỡng tháng (kể cả đã hết hạn).</div>
                   <div>• Chỉ tính các lô còn tồn cuối &gt; 0. File chỉ có tổng xuất trong kỳ (không có ngày xuất gần nhất).</div>
                 </div>
@@ -209,9 +212,9 @@
     <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel được đọc trong trình duyệt; kết quả theo kỳ lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
   </div>
 </div>
-<script src="../assets/flows.js?v=20260930d"></script>
-<script src="../assets/layout.js?v=20260930d"></script>
-<script src="engine.js?v=20260930d"></script>
-<script src="app.js?v=20260930d"></script>
+<script src="../assets/flows.js?v=20260930e"></script>
+<script src="../assets/layout.js?v=20260930e"></script>
+<script src="engine.js?v=20260930e"></script>
+<script src="app.js?v=20260930e"></script>
 </body>
 </html>
