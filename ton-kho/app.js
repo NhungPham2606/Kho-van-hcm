@@ -219,6 +219,38 @@
     if (t.value.trim()) m[t.dataset.hx] = t.value; else delete m[t.dataset.hx];
     touch(k);
   }
+  // khoá so khớp ghi chú: Mã vật tư + Mã lô + Hạn dùng + Số lượng tồn cuối
+  const noteKey = r => `${r.ma}|${r.lo}|${r.hd}|${r.tcSL}`;
+  // Mang ghi chú Cận date của các kỳ TRƯỚC sang kỳ k (kỳ gần nhất ưu tiên); chỉ điền ô trống
+  function carryOver(k) {
+    const cur0 = archive[k]; if (!cur0 || !cur0.data) return { n: 0, skip: 0, ky: [] };
+    const den = cur0.data.den || '';
+    const prev = Object.keys(archive).filter(x => x !== k && archive[x].data && (archive[x].data.den || '') < den && archive[x].huong)
+      .sort((a, b) => (archive[b].data.den || '').localeCompare(archive[a].data.den || ''));
+    const src = {};
+    prev.forEach(x => {
+      const hm = archive[x].huong;
+      archive[x].data.rows.forEach(r => { const v = hm[lotId(r)]; if (v && v.trim() && !src[noteKey(r)]) src[noteKey(r)] = v; });
+    });
+    const dst = cur0.huong = cur0.huong || {};
+    let n = 0, skip = 0;
+    cur0.data.rows.forEach(r => {
+      const v = src[noteKey(r)]; if (!v) return;
+      if (dst[lotId(r)] && dst[lotId(r)].trim()) { skip++; return; }
+      dst[lotId(r)] = v; n++;
+    });
+    return { n, skip, ky: prev.map(kyLabel) };
+  }
+  $('copyFromPrev').addEventListener('click', () => {
+    const k = cur(); if (!k) return;
+    const r = carryOver(k);
+    if (r.n) touch(k);
+    renderTables(); document.querySelectorAll('#bodyCan textarea').forEach(autoH);
+    msg($('prevMsg'), !r.ky.length ? 'Chưa có kỳ nào trước kỳ này có ghi chú Cận date.'
+      : r.n || r.skip ? `Đã sao chép ${r.n} ghi chú từ kỳ trước (${r.ky.join(', ')})${r.skip ? ` · bỏ qua ${r.skip} lô đã có ghi chú` : ''}.`
+      : 'Không có lô nào trùng Mã vật tư + Mã lô + Hạn dùng + Số lượng tồn với ghi chú kỳ trước.', !!r.ky.length && (!!r.n || !!r.skip));
+    setTimeout(() => msg($('prevMsg'), ''), 8000);
+  });
   $('bodyCan').addEventListener('input', onHuongInput);
   function updatePick() {
     [['cham', 'bodyCham'], ['can', 'bodyCan']].forEach(([w, body]) => {
@@ -255,17 +287,17 @@
   $('copyFromCan').addEventListener('click', () => {
     const k = cur(); if (!k || !res) return;
     const can = huongMap('huong'), src = {};
-    res.list.forEach(r => { const v = can[lotId(r)]; if (v && v.trim()) { const key = `${r.ma}|${r.lo}|${r.hd}`; if (!src[key]) src[key] = v; } });
+    res.list.forEach(r => { const v = can[lotId(r)]; if (v && v.trim()) { const key = noteKey(r); if (!src[key]) src[key] = v; } });
     const dst = archive[k].huongCham = archive[k].huongCham || {};
     let n = 0, skip = 0;
     res.cham.forEach(r => {
-      const v = src[`${r.ma}|${r.lo}|${r.hd}`]; if (!v) return;
+      const v = src[noteKey(r)]; if (!v) return;
       if (dst[lotId(r)] && dst[lotId(r)].trim()) { skip++; return; }
       dst[lotId(r)] = v; n++;
     });
     if (n) touch(k);
     renderTables(); document.querySelectorAll('#bodyCham textarea').forEach(autoH);
-    msg($('copyMsg'), n || skip ? `Đã sao chép ${n} ghi chú từ Cận date${skip ? ` · bỏ qua ${skip} lô đã có ghi chú` : ''}.` : 'Không có lô nào trùng Mã vật tư + Mã lô + Hạn dùng với ghi chú bên Cận date.', !!n || !!skip);
+    msg($('copyMsg'), n || skip ? `Đã sao chép ${n} ghi chú từ Cận date${skip ? ` · bỏ qua ${skip} lô đã có ghi chú` : ''}.` : 'Không có lô nào trùng Mã vật tư + Mã lô + Hạn dùng + Số lượng tồn với ghi chú bên Cận date.', !!n || !!skip);
     setTimeout(() => msg($('copyMsg'), ''), 6000);
   });
   document.addEventListener('click', e => { const b = e.target.closest('[data-ky]'); if (b) { sel = b.dataset.ky; persist(); renderAll(); } });
@@ -298,8 +330,10 @@
           const data = T.parse(XLSX, wb, file.name);
           const k = kyKey(data);
           const old = archive[k] || {};
-          archive[k] = { data, opt: old.opt || {} };
+          archive[k] = { data, opt: old.opt || {}, huong: old.huong, huongCham: old.huongCham };
+          const carried = carryOver(k);
           sel = k; uploadOpen = false; touch(k); renderAll();
+          if (carried.n) { msg($('prevMsg'), `Đã tự mang ${carried.n} ghi chú Cận date từ kỳ trước (${carried.ky.join(', ')}) — lô trùng Mã + Lô + Hạn dùng + Số lượng tồn.`, true); setTimeout(() => msg($('prevMsg'), ''), 10000); }
           location.hash = '#dashboard';
         } catch (err) { msg($('tkUpMsg'), esc(err.message || String(err))); }
         $('tkZoneTitle').textContent = 'Tải file "Báo cáo nhập xuất tồn theo kho số lượng và giá trị" (.xlsx)';
