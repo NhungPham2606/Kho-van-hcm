@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Thưởng Kho HCM</title>
+<title>Cận Date &amp; Chậm Luân Chuyển</title>
 <link rel="icon" href="../assets/logo.png?v=2" type="image/png">
 <link rel="stylesheet" href="../assets/theme.css?v=20260930d">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
@@ -73,6 +73,34 @@
   .tk .tk-notes { font-size: 12px; color: #6b7280; line-height: 1.7; }
   .tk .muted { font-size: 11px; color: #9ca3af; }
   @media (max-width: 900px) { .tk .tw { max-height: none; } }
+
+  /* ---- riêng trang Cận date & Chậm luân chuyển ---- */
+  .tk .tk-filter { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tk table.dt td.tuoi { text-align: center; font-weight: 700; }
+  .tk table.dt td.huong { white-space: normal; text-align: center; font-weight: 700; color: #1f2937; background: #fff; vertical-align: middle; min-width: 220px; max-width: 280px; border-left: 1px solid #e5e7eb; }
+  .tk table.dt tbody tr:hover td.huong { background: #fff; }
+  .tk .rep-title { text-align: center; background: #c6efce; color: #1f2937; font-weight: 700; padding: 10px; line-height: 1.6; font-size: 13px; }
+  .tk .legend-tuoi { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; color: #6b7280; padding: 8px 16px; }
+  .tk .legend-tuoi span { display: inline-flex; align-items: center; gap: 5px; }
+  .tk .legend-tuoi i { width: 14px; height: 10px; border-radius: 2px; display: inline-block; }
+  .tk .dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; padding: 16px; }
+  .tk .chart { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; background: #fff; }
+  .tk .chart h4 { margin: 0 0 2px; font-size: 13px; color: #1f2937; }
+  .tk .chart .sub { font-size: 11px; color: #9ca3af; margin-bottom: 12px; }
+  .tk .bars { display: flex; flex-direction: column; gap: 8px; }
+  .tk .bar-row { display: grid; grid-template-columns: 150px 1fr 110px; gap: 10px; align-items: center; font-size: 12px; }
+  .tk .bar-row .lbl { color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tk .bar-row .track { height: 14px; background: #f3f4f6; border-radius: 4px; position: relative; }
+  .tk .bar-row .fill { height: 100%; border-radius: 0 4px 4px 0; min-width: 2px; }
+  .tk .bar-row .val { text-align: right; color: #374151; font-variant-numeric: tabular-nums; }
+  .tk .bar-row:hover .lbl { color: #1a56db; }
+  .tk .set-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+  .tk .set-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #6b7280; }
+  .tk .set-grid input, .tk textarea { font: inherit; font-size: 12px; padding: 7px 8px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; }
+  .tk textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+  .tk .stat-sub { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+  .tk .tk-stat.red .v { color: #e02424; }
+  .tk .tk-stat.orange .v { color: #d97706; }
 </style>
 </head>
 <body>
@@ -82,131 +110,103 @@
   <div class="main">
     <div class="main-bar">
       <button class="menu-btn" type="button" aria-label="Mở menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-      <nav class="crumbs" aria-label="Đường dẫn"><a href="../">Trang chủ</a><span>›</span><span aria-current="page">Thưởng đóng gói kho HCM</span></nav>
+      <nav class="crumbs" aria-label="Đường dẫn"><a href="../">Trang chủ</a><span>›</span><span aria-current="page">Báo cáo Cận date &amp; Chậm luân chuyển</span></nav>
     </div>
     <main class="content tk-wide">
-      <div class="tk" id="tk" data-owner="NhungPham2606" data-repo="BAO-CAO-GIAO-HANG" data-dir="thuong-kho">
+      <div class="tk" id="tk" data-owner="NhungPham2606" data-repo="BAO-CAO-GIAO-HANG" data-dir="ton-kho">
 
-        <!-- Thanh công cụ + thông tin quý đang xem -->
         <div class="tk-card" id="tkTop" hidden>
           <div class="tk-card-body">
             <div class="tk-bar">
-              <div class="tk-row"><span class="tk-lbl">Dữ liệu đã lưu:</span><span class="tk-row" id="tkChips"></span></div>
+              <div class="tk-row"><span class="tk-lbl">Kỳ đã lưu:</span><span class="tk-row" id="tkChips"></span></div>
               <div class="tk-row">
-                <button class="b" type="button" id="tkReload">Nạp file quý khác</button>
-                <button class="b del" type="button" id="tkDelete">Xóa quý này</button>
+                <button class="b" type="button" id="tkReload">Nạp file kỳ khác</button>
+                <button class="b del" type="button" id="tkDelete">Xóa kỳ này</button>
                 <button class="b ok" type="button" id="tkExport"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Xuất Excel</button>
               </div>
             </div>
             <div class="tk-banner" id="tkBanner"></div>
             <div class="tk-sync" id="tkSync"></div>
-            <div id="tkMsg"></div>
           </div>
         </div>
 
-        <!-- Nạp file (khi chưa có quý nào / bấm "Nạp file quý khác") -->
         <div class="tk-card" id="tkUpload">
           <div class="tk-card-body">
             <div id="tkUpMsg"></div>
-            <div class="tk-zone" id="tkZone" tabindex="0" role="button" aria-label="Chọn file Excel thưởng kho">
+            <div class="tk-zone" id="tkZone" tabindex="0" role="button" aria-label="Chọn file Excel nhập xuất tồn">
               <svg viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
-              <h4 id="tkZoneTitle">Tải file Excel thưởng kho theo quý (.xlsx)</h4>
-              <p id="tkZoneSub">File cần đúng 2 sheet: <b>Bảng check kiện hàng</b>, <b>bảng mã nv</b>. Nếu file có thêm sheet <b>THƯỞNG</b>, trang sẽ lấy đúng danh sách Mã NV trong đó để lọc kết quả. Kết quả lưu riêng theo từng quý, nạp file quý mới không mất dữ liệu quý cũ.</p>
+              <h4 id="tkZoneTitle">Tải file "Báo cáo nhập xuất tồn theo kho số lượng và giá trị" (.xlsx)</h4>
+              <p id="tkZoneSub">Xuất từ phần mềm, dạng <b>tồn theo lô</b> (có cột Mã vật tư, Kho, Lô, Hạn dùng, Tồn đầu, Nhập, Xuất, Tồn cuối). Kỳ báo cáo đọc từ dòng "Từ ngày … đến ngày …". Kết quả lưu riêng theo từng kỳ.</p>
             </div>
             <input type="file" id="tkFile" accept=".xlsx,.xls" hidden>
-            <div class="tk-row" style="margin-top:10px" id="tkUpCancelRow" hidden><button class="b sm" type="button" id="tkUpCancel">Đóng, quay lại quý đang xem</button></div>
-          </div>
-        </div>
-
-        <!-- Xác nhận quý -->
-        <div class="tk-card" id="tkPending" hidden>
-          <div class="tk-card-head"><h3>Xác nhận quý cần tính</h3></div>
-          <div class="tk-card-body">
-            <div class="muted" style="font-size:12px;margin-bottom:12px" id="tkPendingInfo"></div>
-            <table class="dt" style="max-width:400px;margin-bottom:16px"><thead><tr><th>Tháng</th><th class="r">Tổng lượt</th></tr></thead><tbody id="tkVols"></tbody></table>
-            <div id="tkUnmatched"></div>
-            <div class="tk-row" style="margin:12px 0 16px"><b style="font-size:12px">Tính cho quý:</b><select id="tkPendingQ"></select></div>
-            <div class="tk-row">
-              <button class="b pri" type="button" id="tkConfirm">Xác nhận, tính toán</button>
-              <button class="b" type="button" id="tkCancel">Huỷ</button>
-            </div>
+            <div class="tk-row" style="margin-top:10px" id="tkUpCancelRow" hidden><button class="b sm" type="button" id="tkUpCancel">Đóng, quay lại kỳ đang xem</button></div>
           </div>
         </div>
 
         <div id="tkMainView" hidden>
           <div class="tk-stats">
-            <div class="tk-stat blue"><div class="l">Số nhân viên</div><div class="v" id="stNV"></div></div>
-            <div class="tk-stat"><div class="l">Tổng số lượt bốc/đóng (quý)</div><div class="v" id="stKien"></div></div>
-            <div class="tk-stat green"><div class="l">Tổng tiền thưởng (quý)</div><div class="v" id="stTien"></div></div>
+            <div class="tk-stat blue"><div class="l">Lô còn tồn</div><div class="v" id="stLo"></div><div class="stat-sub" id="stLoSub"></div></div>
+            <div class="tk-stat"><div class="l">Giá trị tồn cuối</div><div class="v" id="stGT"></div><div class="stat-sub">tất cả các kho</div></div>
+            <div class="tk-stat orange"><div class="l">Chậm luân chuyển</div><div class="v" id="stCham"></div><div class="stat-sub" id="stChamSub"></div></div>
+            <div class="tk-stat red"><div class="l">Cận date</div><div class="v" id="stCan"></div><div class="stat-sub" id="stCanSub"></div></div>
           </div>
 
           <div class="tk-card">
             <div class="tk-card-head">
               <div class="tk-row" id="tkTabs">
-                <a class="b sm" href="#thuong-quy" data-tab="thuong-quy">Thưởng quý</a>
-                <a class="b sm" href="#theo-thang" data-tab="theo-thang">Theo tháng</a>
-                <a class="b sm" href="#dong-cap" data-tab="dong-cap">Đóng cặp</a>
+                <a class="b sm" href="#dashboard" data-tab="dashboard">Dashboard</a>
+                <a class="b sm" href="#cham-luan-chuyen" data-tab="cham-luan-chuyen">Chậm luân chuyển</a>
+                <a class="b sm" href="#can-date" data-tab="can-date">Cận date</a>
+                <a class="b sm" href="#ton-theo-lo" data-tab="ton-theo-lo">Tồn theo lô</a>
+                <a class="b sm" href="#cai-dat" data-tab="cai-dat">Cài đặt</a>
               </div>
-              <div class="tk-search" id="tkSearchBox">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                <input id="tkSearch" placeholder="Tìm tên nhân viên...">
+              <div class="tk-filter" id="tkFilter">
+                <select id="fKho"><option value="">Tất cả kho</option></select>
+                <div class="tk-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input id="fSearch" placeholder="Tìm mã / tên vật tư..."></div>
               </div>
             </div>
 
-            <div data-pane="thuong-quy">
-              <div class="tw"><table class="dt"><thead><tr id="tqHead"></tr></thead><tbody id="tqBody"></tbody></table></div>
+            <div data-pane="dashboard">
+              <div class="dash" id="dash"></div>
             </div>
 
-            <div data-pane="theo-thang" hidden>
-              <div class="tk-row" style="padding:10px 16px 0;gap:12px">
-                <span class="tk-row" id="ttMonths"></span>
-                <span class="tk-legend"><i></i>Ngày đã chia đôi do đóng cặp (rê chuột để xem cặp với ai)</span>
-              </div>
-              <div class="tw" style="margin-top:10px"><table class="dt grid"><thead><tr id="ttHead"></tr></thead><tbody id="ttBody"></tbody></table></div>
+            <div data-pane="cham-luan-chuyen" hidden>
+              <div class="rep-title" id="titleCham"></div>
+              <div class="legend-tuoi" data-legend></div>
+              <div class="tw"><table class="dt"><thead><tr data-head></tr></thead><tbody id="bodyCham"></tbody></table></div>
             </div>
-
-            <div data-pane="dong-cap" hidden>
+            <div data-pane="can-date" hidden>
+              <div class="rep-title" id="titleCan"></div>
+              <div class="legend-tuoi" data-legend></div>
+              <div class="tw"><table class="dt"><thead><tr data-head></tr></thead><tbody id="bodyCan"></tbody></table></div>
+            </div>
+            <div data-pane="ton-theo-lo" hidden>
+              <div class="tw"><table class="dt"><thead><tr id="headAll"></tr></thead><tbody id="bodyAll"></tbody></table></div>
+            </div>
+            <div data-pane="cai-dat" hidden>
               <div class="tk-card-body">
-                <div class="muted" style="font-size:12px;margin-bottom:14px">Khi 2 nhân viên bốc/đóng hàng cùng nhau trong một khoảng ngày, hệ thống chấm công lên chỉ 1 người — đánh dấu ở đây để tự chia đôi số lượt của 2 người trong đúng khoảng ngày đó trước khi tính thưởng.</div>
-                <div class="tk-row" style="margin-bottom:14px">
-                  <button class="b sm" type="button" id="adjImport">⚡ Nạp nhanh danh sách đóng cặp có sẵn (tháng 6/2026, 15 dòng)</button>
-                  <span class="muted">Tổng hợp từ ghi chú trong file gốc — có thể bấm lại an toàn, không bị trùng.</span>
+                <div class="set-grid">
+                  <label>Ngày tham chiếu tính tuổi thuốc<input type="date" id="sRef"><span class="muted" id="sRefHint"></span></label>
+                  <label>Cận date: tuổi thuốc ≤ (tháng)<input type="number" min="0" step="1" id="sCan"></label>
+                  <label>Chậm luân chuyển: SL xuất ≤ (% của tồn đầu + nhập)<input type="number" min="0" max="100" step="1" id="sTyLe"></label>
                 </div>
-                <div class="tk-form">
-                  <label class="f">Nhân viên 1<select id="adj1"></select></label>
-                  <label class="f">Nhân viên 2 (hoặc người ngoài DS)<select id="adj2"></select></label>
-                  <label class="f">Từ ngày<input type="date" id="adjFrom"></label>
-                  <label class="f">Đến ngày<input type="date" id="adjTo"></label>
-                  <button class="b pri sm" type="button" id="adjAdd">+ Thêm điều chỉnh</button>
+                <label style="display:block;margin-top:14px;font-size:11px;color:#6b7280">Hướng xử lý — hàng chậm luân chuyển<textarea id="sHuongCham" rows="2"></textarea></label>
+                <label style="display:block;margin-top:10px;font-size:11px;color:#6b7280">Hướng xử lý — hàng cận date<textarea id="sHuongCan" rows="2"></textarea></label>
+                <div class="tk-row" style="margin-top:12px"><button class="b pri" type="button" id="sApply">Áp dụng</button><button class="b" type="button" id="sReset">Về mặc định</button></div>
+                <div class="tk-notes" style="margin-top:16px">
+                  <div>• <b>Tuổi thuốc (tháng)</b> = số tháng tròn từ ngày tham chiếu đến hạn dùng (như DATEDIF của Excel). Mặc định ngày tham chiếu = <b>ngày lập báo cáo</b> (ngày xuất file, đọc từ tên file), giống hàm TODAY() của Excel — cách này khớp đúng 12/12 dòng của mẫu T3/2026.</div>
+                  <div>• <b>Chậm luân chuyển</b>: lô còn tồn cuối &gt; 0 và SL xuất trong kỳ ≤ ngưỡng % của (tồn đầu + nhập).</div>
+                  <div>• <b>Cận date</b>: lô còn tồn cuối &gt; 0 và tuổi thuốc ≤ ngưỡng tháng (kể cả đã hết hạn).</div>
+                  <div>• Chỉ tính các lô còn tồn cuối &gt; 0. File chỉ có tổng xuất trong kỳ (không có ngày xuất gần nhất).</div>
                 </div>
-                <div id="adjMsg"></div>
-                <table class="dt" style="margin-bottom:20px"><thead><tr><th>Nhân viên 1</th><th>Nhân viên 2</th><th>Từ ngày</th><th>Đến ngày</th><th style="width:60px"></th></tr></thead><tbody id="adjList"></tbody></table>
-                <div style="font-size:12px;font-weight:600;margin-bottom:8px">Người ngoài danh sách thưởng (như Thoa)</div>
-                <div class="muted" style="margin-bottom:10px">Những người này không có trong "bảng mã nv" nên không được tính thưởng — chỉ dùng để chọn ở ô "Nhân viên 2" khi họ đóng cặp cùng 1 nhân viên chính thức.</div>
-                <div class="tk-row" style="margin-bottom:10px"><input type="text" id="helperName" placeholder="Tên người ngoài danh sách..." style="width:220px"><button class="b sm" type="button" id="helperAdd">+ Thêm người</button></div>
-                <div class="tk-row" id="helperList"></div>
               </div>
             </div>
-
             <div class="tk-foot" id="tkFoot"></div>
           </div>
         </div>
-
-        <div class="tk-card" id="huong-dan" hidden>
-          <div class="tk-card-head"><h3>Ghi chú &amp; giả định áp dụng</h3></div>
-          <div class="tk-card-body tk-notes">
-            <div>• Số lượt mỗi ngày = tổng cộng dồn cả 3 việc <b>Tạo kiện + Bốc hàng + Đóng hàng</b> của 1 nhân viên trong ngày đó ("Tạo kiện" khớp theo username, "Bốc hàng"/"Đóng hàng" theo "Họ tên (SĐT)" hoặc Họ và tên — tra trong sheet "bảng mã nv", dùng <b>tất cả các dòng</b> của mỗi người, không phân biệt hoa/thường).</div>
-            <div>• <b>Tiền thưởng mỗi ngày</b> = (tổng số lượt − <span data-rule="nguong"></span>) × <span data-rule="donGia"></span>đ, chỉ tính khi tổng vượt quá <span data-rule="nguong"></span> lượt/ngày. Cộng dồn cả tháng, <b>thưởng quý</b> = trung bình cộng 3 tháng.</div>
-            <div>• Tính trực tiếp từ dữ liệu thô mỗi lần nạp file — không phụ thuộc việc Refresh Pivot trong Excel.</div>
-            <div>• File thô có thể lẫn vài ngày của tháng liền trước/sau quý — chỉ tính đúng 3 tháng của quý đã chọn.</div>
-            <div>• Điều chỉnh "Đóng cặp" chỉ ảnh hưởng tới quý đang xem, không cần nạp lại file khi thêm/xoá.</div>
-            <div>• Khi nạp file, trang liệt kê các tên/username trong dữ liệu không khớp "bảng mã nv" để soát người bị sót.</div>
-          </div>
-        </div>
-
       </div>
     </main>
-    <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel được đọc trong trình duyệt; kết quả theo quý lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
+    <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel được đọc trong trình duyệt; kết quả theo kỳ lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
   </div>
 </div>
 <script src="../assets/flows.js?v=20260930d"></script>

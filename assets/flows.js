@@ -9,6 +9,7 @@ window.KVH_ICONS = {
   truck: '<path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/>',
   box: '<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4"/><path d="M12 11v10"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 
 window.KVH_MENU = [
@@ -36,6 +37,18 @@ window.KVH_MENU = [
       { ten: 'Đóng cặp', href: 'thuong-kho/#dong-cap' },
       { ten: 'Nạp file quý', href: 'thuong-kho/#nap-du-lieu' },
       { ten: 'Ghi chú & quy tắc', href: 'thuong-kho/#huong-dan' },
+    ],
+  },
+  {
+    ten: 'Cận date & chậm luân chuyển', icon: 'clock', trangThai: 'Theo kỳ',
+    moTa: 'Từ báo cáo nhập xuất tồn theo lô: lọc hàng chậm luân chuyển và cận date, tuổi thuốc tô màu, dashboard, xuất Excel theo mẫu.',
+    muc: [
+      { ten: 'Dashboard', href: 'ton-kho/#dashboard' },
+      { ten: 'Chậm luân chuyển', href: 'ton-kho/#cham-luan-chuyen' },
+      { ten: 'Cận date', href: 'ton-kho/#can-date' },
+      { ten: 'Tồn theo lô', href: 'ton-kho/#ton-theo-lo' },
+      { ten: 'Nạp file kỳ', href: 'ton-kho/#nap-du-lieu' },
+      { ten: 'Cài đặt', href: 'ton-kho/#cai-dat' },
     ],
   },
   // Vi du dong cong viec tiep theo (bo "//" khi co trang):
