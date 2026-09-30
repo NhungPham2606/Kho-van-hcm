@@ -557,3 +557,7 @@ button.primary:disabled { opacity: .5; cursor: default; }
 
 /* Dau dong cua danh sach huong dan: dung cham tron, KHONG dung o vuong (nguoi dung tuong la o tick) */
 .checklist li::before { content: '•'; color: #1a56db; font-size: 18px; line-height: 1; margin-top: 1px; }
+
+/* Logo CPC1HN duoi dong "Kho Van HCM" o dau menu toi — dat tren o trang bo goc cho noi ro */
+.sb-brand { display: flex; justify-content: center; align-items: center; margin-top: 12px; background: #fff; border-radius: 8px; padding: 10px; width: 100%; box-sizing: border-box; }
+.sb-brand img { display: block !important; height: 72px; width: auto; }

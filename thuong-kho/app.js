@@ -10,7 +10,7 @@
   const OWNER = root.dataset.owner, REPO = root.dataset.repo, DIR = root.dataset.dir;
   const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
   const LS_KEY = 'kvh-thuongkho-v1', LS_SEL = 'kvh-thuongkho-sel', TOKEN_KEY = 'kvh-gh-token';
-  const VER = '20260929i';
+  const VER = '20260930a';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = n => Math.round(n || 0).toLocaleString('vi-VN') + 'đ';
