@@ -158,7 +158,13 @@
     });
     const byTuoi = (a, b) => (a.tuoi ?? 9999) - (b.tuoi ?? 9999) || a.ma.localeCompare(b.ma) || a.lo.localeCompare(b.lo);
     list.sort(byTuoi);
-    return { opt: o, ref: iso(ref), list, cham: list.filter(r => r.cham), canDate: list.filter(r => r.canDate) };
+    // Bảng chậm LC: giảm dần theo số tháng chưa xuất ("≥ 9" xếp trên "9"), rồi lô nhập trong kỳ
+    // chưa xuất, rồi lô xuất ít (tỷ lệ xuất thấp trước); cùng mức thì tuổi thuốc tăng dần.
+    const chamRank = r => r.chuaXuat.n * 2 + (r.chuaXuat.atLeast ? 1 : 0);
+    const chamGroup = r => r.chuaXuat.n > 0 ? 0 : r.chuaXuat.note === 'nhapTrongKy' ? 1 : 2;
+    const byCham = (a, b) => chamGroup(a) - chamGroup(b) || chamRank(b) - chamRank(a)
+      || (chamGroup(a) === 2 ? a.tyLeXuat - b.tyLeXuat : 0) || byTuoi(a, b);
+    return { opt: o, ref: iso(ref), list, cham: list.filter(r => r.cham).sort(byCham), canDate: list.filter(r => r.canDate) };
   }
 
   // Màu ô tuổi thuốc — giống thang màu của mẫu (đỏ → cam → vàng → xanh)
