@@ -40,7 +40,7 @@ window.KVH_MENU = [
     ],
   },
   {
-    ten: 'Cận date & chậm luân chuyển', icon: 'clock', trangThai: 'Theo kỳ',
+    ten: 'Báo Cáo Cận Date & Chậm Luân Chuyển', icon: 'clock', trangThai: 'Theo kỳ',
     moTa: 'Từ báo cáo nhập xuất tồn theo lô: lọc hàng chậm luân chuyển và cận date, tuổi thuốc tô màu, dashboard, xuất Excel theo mẫu.',
     muc: [
       { ten: 'Dashboard', href: 'ton-kho/#dashboard' },
