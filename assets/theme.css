@@ -566,3 +566,26 @@ button.primary:disabled { opacity: .5; cursor: default; }
 .sb-logo { align-items: center; text-align: center; }
 .sb-brand { margin-top: 0; }
 .sb-logo-text { margin-top: 10px; font-size: 15px; }
+
+/* ================================================================== */
+/* MENU TRAI NEN TRANG (nguoi dung chon 2026-09-30): chu xam dam, muc  */
+/* dang chon nen xanh duong chu trang. Ghi de khoi menu toi phia tren. */
+/* ================================================================== */
+.sidebar { background: #ffffff; color: #374151; border-right: 1px solid #e5e7eb; }
+.sb-logo { border-bottom: 1px solid #e5e7eb; }
+.sb-brand { background: transparent; padding: 4px 0 0; }
+.sb-logo-text { color: #0f4573; }
+.sb-section { color: #9ca3af; }
+.sb-item { color: #374151; }
+.sb-item svg { color: #6b7280; }
+.sb-item:hover { background: #f3f4f6; color: #111827; }
+.sb-item:hover svg { color: #1a56db; }
+.sb-item.active { background: #1a56db; color: #fff; }
+.sb-item.active svg { color: #fff; }
+.sb-group > .sb-toggle.active { background: transparent; color: #1a56db; font-weight: 600; }
+.sb-group > .sb-toggle.active svg { color: #1a56db; }
+.sb-group > .sb-toggle.active:hover { background: #f3f4f6; }
+.sb-child { color: #4b5563; }
+.sb-child:hover { background: #f3f4f6; color: #111827; }
+.sb-child.active { background: #1a56db; color: #fff; }
+.sb-foot { border-top: 1px solid #e5e7eb; color: #9ca3af; }
