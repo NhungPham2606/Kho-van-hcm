@@ -95,6 +95,8 @@
     $('tkChips').innerHTML = kys().map(x => `<button type="button" class="b sm${x === k ? ' pri' : ''}" data-ky="${x}">${kyLabel(x)}</button>`).join('');
     const nop = rows.filter(r => r.nop).length;
     $('tkBanner').innerHTML = `✓ Kỳ <b>${kyLabel(k)}</b> · ${rows.length} nhân viên · ${(e.files || []).length} file KPIs đã nạp · ${nop}/${rows.length} người đã nộp`;
+    const seen = {}, dup = rows.filter(r => (seen[r.ma] = (seen[r.ma] || 0) + 1) === 2);
+    if (dup.length) $('tkBanner').innerHTML += `<div class="tk-err" style="margin-top:6px">⚠ Mã NV bị trùng trong danh sách (sẽ tính thưởng 2 lần): ${dup.map(r => `${esc(r.ma)} ${esc(r.ten)}`).join(', ')} — vào tab "Danh sách NV" xóa dòng thừa.</div>`;
     $('tkSync').textContent = syncMsg;
   }
   function renderStats() {
