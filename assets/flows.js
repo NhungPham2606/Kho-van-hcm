@@ -30,17 +30,6 @@ window.KVH_MENU = [
     ],
   },
   {
-    ten: 'Thưởng kho HCM', icon: 'box', trangThai: 'Theo quý',
-    moTa: 'Thưởng đóng gói kiện hàng: cộng Tạo kiện + Bốc + Đóng hàng mỗi ngày, vượt 20 lượt được 2.000đ/lượt; thưởng quý = trung bình 3 tháng.',
-    muc: [
-      { ten: 'Thưởng quý', href: 'thuong-kho/#thuong-quy' },
-      { ten: 'Theo tháng', href: 'thuong-kho/#theo-thang' },
-      { ten: 'Đóng cặp', href: 'thuong-kho/#dong-cap' },
-      { ten: 'Nạp file quý', href: 'thuong-kho/#nap-du-lieu' },
-      { ten: 'Ghi chú & quy tắc', href: 'thuong-kho/#huong-dan' },
-    ],
-  },
-  {
     ten: 'Báo Cáo Cận Date & Chậm Luân Chuyển', icon: 'clock', trangThai: 'Theo kỳ',
     moTa: 'Từ báo cáo nhập xuất tồn theo lô: lọc hàng chậm luân chuyển và cận date, tuổi thuốc tô màu, dashboard, xuất Excel theo mẫu.',
     muc: [
@@ -50,6 +39,17 @@ window.KVH_MENU = [
       { ten: 'Tồn theo lô', href: 'ton-kho/#ton-theo-lo' },
       { ten: 'Nạp file kỳ', href: 'ton-kho/#nap-du-lieu' },
       { ten: 'Cài đặt', href: 'ton-kho/#cai-dat' },
+    ],
+  },
+  {
+    ten: 'Thưởng kho HCM', icon: 'box', trangThai: 'Theo quý',
+    moTa: 'Thưởng đóng gói kiện hàng: cộng Tạo kiện + Bốc + Đóng hàng mỗi ngày, vượt 20 lượt được 2.000đ/lượt; thưởng quý = trung bình 3 tháng.',
+    muc: [
+      { ten: 'Thưởng quý', href: 'thuong-kho/#thuong-quy' },
+      { ten: 'Theo tháng', href: 'thuong-kho/#theo-thang' },
+      { ten: 'Đóng cặp', href: 'thuong-kho/#dong-cap' },
+      { ten: 'Nạp file quý', href: 'thuong-kho/#nap-du-lieu' },
+      { ten: 'Ghi chú & quy tắc', href: 'thuong-kho/#huong-dan' },
     ],
   },
   {
