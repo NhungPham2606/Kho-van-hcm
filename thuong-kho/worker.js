@@ -1,5 +1,5 @@
 // Đọc file Excel thưởng kho (~60.000 dòng) ở luồng riêng để trang không bị treo.
-importScripts('https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js', 'engine.js?v=20261001a');
+importScripts('https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js', 'engine.js?v=20261001b');
 
 self.onmessage = e => {
   try {

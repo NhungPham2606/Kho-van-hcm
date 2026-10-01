@@ -149,15 +149,16 @@
         ${chua.length ? `<div class="tk-notes">${chua.map(r => `• ${esc(r.ma)} — ${esc(r.ten)} <span class="muted">(${esc(r.group)})</span>`).join('<br>')}</div>` : '<div class="muted">Mọi người đã nộp đủ.</div>'}</div>`;
   }
   function renderFiles() {
-    const e = archive[cur()], ros = new Set((e.roster || []).map(r => r.ma));
-    const fs = (e.files || []).slice().sort((a, b) => a.ma.localeCompare(b.ma));
-    const un = fs.filter(f => !ros.has(f.ma));
-    $('unmatched').innerHTML = un.length ? `<div class="tk-err" style="margin-bottom:12px">${un.length} file có Mã NV <b>chưa có trong danh sách</b> — bấm "Thêm vào danh sách" hoặc kiểm tra lại Mã NV.</div>` : '';
+    const e = archive[cur()], R = e.roster || [];
+    const fs = (e.files || []).map(f => ({ f, nv: K.matchFile(R, f) })).sort((a, b) => !a.nv - !b.nv || (a.nv ? a.nv.ma : '').localeCompare(b.nv ? b.nv.ma : ''));
+    const un = fs.filter(x => !x.nv);
+    $('unmatched').innerHTML = un.length ? `<div class="tk-err" style="margin-bottom:12px">${un.length} file <b>chưa khớp được nhân viên nào</b> (không có Mã NV và họ tên không trùng danh sách) — bấm "Thêm vào danh sách" hoặc kiểm tra lại.</div>` : '';
     const k = cur();
-    $('fileBody').innerHTML = fs.length ? fs.map(f => `<tr><td style="white-space:normal">${esc(f.fileName)}</td><td>${f.loaiFile === 'pdf' ? 'PDF' : 'Excel'}</td><td>${esc(f.ma)}</td><td>${esc(f.ten)}</td>
+    $('fileBody').innerHTML = fs.length ? fs.map(({ f, nv }) => `<tr><td style="white-space:normal">${esc(f.fileName)}</td><td>${f.loaiFile === 'pdf' ? 'PDF' : 'Excel'}</td>
+      <td>${nv ? esc(nv.ma) : esc(f.ma)}${nv && nv.ma !== f.ma ? ` <span class="src">${f.ma ? `(file ghi ${esc(f.ma)}) ` : ''}khớp theo tên</span>` : ''}</td><td>${esc(nv ? nv.ten : f.ten)}</td>
       <td>${f.thang ? `T${f.thang}/${f.nam}` : ''}${f.thang && `${f.nam}-${pad2(f.thang)}` !== k ? ' <span class="xl D">khác kỳ</span>' : ''}</td><td class="r bold">${fmtD(f.tongDiem)}</td><td class="r">${fmtD(f.truFile)}</td>
-      <td>${ros.has(f.ma) ? '✓' : `<button class="b sm" type="button" data-addfrom="${esc(f.ma)}">+ Thêm vào danh sách</button>`}</td>
-      <td><button class="b sm del" type="button" data-rmfile="${esc(f.ma)}">Xóa</button></td></tr>`).join('')
+      <td>${nv ? '✓' : `<button class="b sm" type="button" data-addfrom="${esc(f.fileName)}">+ Thêm vào danh sách</button>`}</td>
+      <td><button class="b sm del" type="button" data-rmfile="${esc(f.fileName)}">Xóa</button></td></tr>`).join('')
       : '<tr><td colspan="9" style="text-align:center;color:#9ca3af;padding:20px">Chưa nạp file KPIs nào</td></tr>';
   }
   function renderRoster() {
@@ -197,14 +198,14 @@
     const t = e.target.closest('[data-ky],[data-rmfile],[data-rmnv],[data-addfrom]'); if (!t) return;
     const k = cur();
     if (t.dataset.ky) { sel = t.dataset.ky; persist(); renderAll(); return; }
-    if (t.dataset.rmfile) { archive[k].files = archive[k].files.filter(f => f.ma !== t.dataset.rmfile); touch(k); renderAll(); return; }
+    if (t.dataset.rmfile) { archive[k].files = archive[k].files.filter(f => f.fileName !== t.dataset.rmfile); touch(k); renderAll(); return; }
     if (t.dataset.rmnv !== undefined) {
       const r = archive[k].roster[+t.dataset.rmnv];
       if (!confirm(`Xóa ${r.ten} (${r.ma}) khỏi danh sách kỳ ${kyLabel(k)}?`)) return;
       archive[k].roster.splice(+t.dataset.rmnv, 1); touch(k); renderAll(); return;
     }
     if (t.dataset.addfrom) {
-      const f = archive[k].files.find(x => x.ma === t.dataset.addfrom); if (!f) return;
+      const f = archive[k].files.find(x => x.fileName === t.dataset.addfrom); if (!f) return;
       location.hash = '#danh-sach';
       $('nMa').value = f.ma; $('nTen').value = f.ten.toLowerCase().replace(/(^|\s)\S/g, s => s.toUpperCase()); $('nLoai').value = 'TV1';
       $('nGroup').focus(); msg($('nMsg'), 'Chọn Bộ phận, KV, Loại rồi bấm "+ Thêm nhân viên".', true);
@@ -298,10 +299,13 @@
       const k = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || cur();
       if (!k) { msg($('startMsg'), 'Không xác định được kỳ (tháng) trong file — bấm "Tạo kỳ mới" trước.'); return; }
       const e = ensureKy(k);
-      const byMa = {}; (e.files || []).forEach(x => { byMa[x.ma] = x; }); ok.forEach(p => { byMa[p.ma] = p; });
-      e.files = Object.values(byMa); sel = k; touch(k); renderAll();
-      const ros = new Set((e.roster || []).map(r => r.ma)), lech = ok.filter(p => !ros.has(p.ma)).length;
-      msg($('startMsg'), `Đã nạp ${ok.length} file vào kỳ <b>${kyLabel(k)}</b>${lech ? ` · <b>${lech}</b> file có Mã NV chưa có trong danh sách (xem tab "File KPIs đã nạp")` : ''}${bad.length ? `<br>Không đọc được ${bad.length} file:<br>${bad.join('<br>')}` : ''}`, !bad.length);
+      // mỗi nhân viên giữ 1 file (file nạp sau thay file trước); khóa = mã NV đã khớp, không khớp thì theo mã/tên trong file
+      const R = e.roster || [];
+      const key = x => { const nv = K.matchFile(R, x); return nv ? 'nv:' + nv.ma : x.ma ? 'ma:' + x.ma : 'ten:' + K.nameKey(x.ten || x.fileName); };
+      const byKey = {}; (e.files || []).forEach(x => { byKey[key(x)] = x; }); ok.forEach(p => { byKey[key(p)] = p; });
+      e.files = Object.values(byKey); sel = k; touch(k); renderAll();
+      const lech = ok.filter(p => !K.matchFile(R, p)).length;
+      msg($('startMsg'), `Đã nạp ${ok.length} file vào kỳ <b>${kyLabel(k)}</b>${lech ? ` · <b>${lech}</b> file chưa khớp được nhân viên nào (xem tab "File KPIs đã nạp")` : ''}${bad.length ? `<br>Không đọc được ${bad.length} file:<br>${bad.join('<br>')}` : ''}`, !bad.length);
       msg($('tkMsg'), `Đã nạp ${ok.length} file KPIs vào kỳ ${kyLabel(k)}${bad.length ? ` · lỗi ${bad.length} file` : ''}.`, !bad.length);
     } else msg($('startMsg'), `Không đọc được file nào:<br>${bad.join('<br>')}`);
   }

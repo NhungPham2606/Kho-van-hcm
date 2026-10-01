@@ -48,39 +48,82 @@
     return { list, thang: m ? +m[1] : null, nam: m ? +m[2] : null };
   }
 
-  // ---- file KPI con của 1 nhân viên
-  function parseKpiFile(XLSX, wb, fileName) {
-    const name = wb.SheetNames.find(n => n.trim().toUpperCase() === 'KPI') || wb.SheetNames[0];
-    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: null });
-    const text = aoa.map(r => (r || []).map(norm).filter(Boolean).join(' '));
-    const all = text.join(' \n ');
-    const mMa = all.match(/MNV\s*:?\s*([0-9 ]{4,})/i);
-    const mTen = all.match(/TÊN\s*NV\s*:\s*([^\n-]+?)\s*-/i);
-    const mKy = all.match(/THÁNG\s*(\d{1,2})\s*[\/.-]\s*(\d{4})/i);
-    const rowVal = label => {
-      const i = aoa.findIndex(r => r && r.some(v => norm(v).toUpperCase().replace(/\s+/g, '') === label));
-      if (i < 0) return null;
-      const r = aoa[i]; const j = r.findIndex(v => norm(v).toUpperCase().replace(/\s+/g, '') === label);
-      for (let k = j + 1; k < r.length; k++) if (r[k] !== null && r[k] !== '' && !isNaN(num(r[k])) && String(r[k]).trim() !== '') return num(r[k]);
-      return 0;
-    };
-    const tong = rowVal('TỔNGĐIỂM'), tru = rowVal('ĐIỂMTRỪ');
-    if (!mMa) throw new Error('không thấy "MNV:" trong tiêu đề');
-    if (tong === null) throw new Error('không thấy dòng "TỔNG ĐIỂM"');
-    // bảng nhóm việc (STT | Nhóm việc | KPI đích | KPI tối đa | KPI đạt | % đạt | Chi tiết)
+  // ---- file KPI con của 1 nhân viên. Nhiều mẫu khác nhau:
+  //   mã: "MNV: 015257" | "Mã NV: 016302" | ô "Mã NV" + ô số bên cạnh; không có mã -> khớp theo tên
+  //   tên: "TÊN NV:" | "TÊN NHÂN VIÊN :" | "Họ và tên:" | "HỌ TÊN:" | "NVKT:" | ô tên đứng trước ô "Mã NV"
+  //   tổng: "TỔNG ĐIỂM" | "Tổng điểm KPIs" | "TỔNG CỘNG ĐIỂM:" (lấy số cuối) | dự phòng "TỔNG"/"Tổng cộng" (số cuối = KPI đạt)
+  //   trừ: "ĐIỂM TRỪ" (+ lý do ở ô chữ phía sau nếu có)
+  const LBL = s => norm(s).toUpperCase().replace(/[\s:]+/g, '');
+  const RE_TONG = /^TỔNG(CỘNG)?ĐIỂM(KPIS?)?$/, RE_TONG2 = /^TỔNG(CỘNG)?$/, RE_TRU = /^(TỔNG)?ĐIỂMTRỪ$/;
+  const isNum = v => v !== null && v !== '' && String(v).trim() !== '' && !isNaN(num(v));
+  function sheetInfo(XLSX, ws) {
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: null });
     const hi = aoa.findIndex(r => r && r.some(v => norm(v).toLowerCase() === 'nhóm việc'));
+    const find = re => {
+      for (let i = Math.max(hi, 0); i < aoa.length; i++) {
+        const r = aoa[i] || [], j = r.findIndex(v => re.test(LBL(v)));
+        if (j >= 0) return { r, j };
+      }
+      return null;
+    };
+    const hit = find(RE_TONG) || find(RE_TONG2);
+    return { aoa, hi, hit };
+  }
+  function parseKpiFile(XLSX, wb, fileName) {
+    // chọn sheet có bảng "Nhóm việc" + dòng tổng; ưu tiên tên sheet KPI / Kết quả
+    const order = wb.SheetNames.slice().sort((a, b) => (/kpi|kết quả/i.test(b) && !/chi tiết/i.test(b)) - (/kpi|kết quả/i.test(a) && !/chi tiết/i.test(a)));
+    let S = null;
+    for (const n of order) { const s = sheetInfo(XLSX, wb.Sheets[n]); if (s.hi >= 0 && s.hit) { S = s; break; } if (!S && s.hit) S = s; }
+    if (!S) throw new Error('không thấy dòng "TỔNG ĐIỂM"');
+    const { aoa, hi, hit } = S;
+    const head = aoa.slice(0, hi >= 0 ? hi : 8);
+    const all = head.map(r => (r || []).map(norm).filter(Boolean).join(' | ')).join(' ~ ');
+    let ma = '';
+    const mMa = all.match(/(?:MNV|MÃ\s*NV)\s*:?\s*\|?\s*([0-9][0-9 ]{3,})/i);
+    if (mMa) ma = normMa(mMa[1]);
+    let ten = '';
+    const mTen = all.match(/(?:TÊN\s*(?:NV|NHÂN\s*VIÊN)|HỌ\s*(?:VÀ\s*)?TÊN|NVKT)\s*:\s*(.+?)(?=\s*(?:-|\||~|MÃ\s*NV|MNV|NHÂN\s*VIÊN|$))/i);
+    if (mTen) ten = norm(mTen[1]);
+    if (!ten) { // mẫu "Tên | Mã NV | 0123 | Kho"
+      const r = head.find(r => r && r.some(v => /^mã\s*nv:?$/i.test(norm(v))));
+      if (r) ten = norm(r.find(v => norm(v) && !/^mã\s*nv:?$/i.test(norm(v))));
+    }
+    const mKy = all.match(/THÁNG\s*(\d{1,2})\s*(?:[\/.-]|NĂM)\s*(\d{4})/i);
+    const ns = hit.r.slice(hit.j + 1).filter(isNum).map(num);
+    const tong = ns.length ? ns[ns.length - 1] : 0;
+    let tru = 0, truLyDo = '';
+    for (let i = Math.max(hi, 0); i < aoa.length; i++) {
+      const r = aoa[i] || [], j = r.findIndex(v => RE_TRU.test(LBL(v)));
+      if (j < 0) continue;
+      const k = r.findIndex((v, x) => x > j && isNum(v));
+      if (k >= 0) { tru = num(r[k]); truLyDo = norm(r.slice(k + 1).find(v => norm(v) && !isNum(v))); }
+      break;
+    }
     const nhom = [];
     if (hi >= 0) {
       const H = aoa[hi].map(v => norm(v).toLowerCase());
       const ci = k => H.indexOf(k);
       for (let i = hi + 1; i < aoa.length; i++) {
         const r = aoa[i] || []; const nv = norm(r[ci('nhóm việc')]);
-        if (!nv || /tổng điểm/i.test(norm(r[ci('stt')]))) break;
-        nhom.push({ ten: nv, dich: num(r[ci('kpi đích')]), toiDa: num(r[ci('kpi tối đa')]), dat: num(r[ci('kpi đạt')]), chiTiet: norm(r[ci('chi tiết')]) });
+        if (!nv || /tổng|điểm trừ/i.test(nv + ' ' + norm(r[ci('stt')]))) break;
+        nhom.push({ ten: nv, dich: num(r[ci('kpi đích')]), toiDa: num(r[ci('kpi tối đa')]), dat: num(r[ci('kpi đạt')]), chiTiet: norm(r[ci('chi tiết')] ?? r[ci('ghi chú')]) });
       }
     }
-    return { fileName, ma: normMa(mMa[1]), ten: mTen ? norm(mTen[1]) : '', thang: mKy ? +mKy[1] : null, nam: mKy ? +mKy[2] : null,
-      tongDiem: tong, truFile: tru || 0, nhom };
+    return { fileName, ma, ten, thang: mKy ? +mKy[1] : null, nam: mKy ? +mKy[2] : null, tongDiem: tong, truFile: tru, truLyDo, nhom };
+  }
+
+  // so khớp tên: bỏ dấu, chữ thường (Thuỳ = Thùy)
+  const nameKey = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
+  // file -> nhân viên: theo Mã NV; không có/sai mã thì theo họ tên trong file; cuối cùng theo họ tên nằm trong tên file
+  function matchFile(roster, f) {
+    const byMa = f.ma && roster.find(e => e.ma === f.ma);
+    if (byMa) return byMa;
+    const k = nameKey(f.ten);
+    const byTen = k && roster.find(e => nameKey(e.ten) === k);
+    if (byTen) return byTen;
+    const fn = ' ' + nameKey(f.fileName) + ' ';
+    const hits = roster.filter(e => nameKey(e.ten) && fn.includes(' ' + nameKey(e.ten) + ' '));
+    return hits.length === 1 ? hits[0] : null;
   }
 
   // ---- file KPI dạng PDF (Kế toán, in từ hệ thống "Báo cáo công việc — OKR · KPI · AI")
@@ -108,7 +151,8 @@
 
   // roster + files + inputs -> bảng kết quả
   function compute(roster, files, inputs) {
-    const byMa = {}; (files || []).forEach(f => { byMa[f.ma] = f; });
+    const byMa = {};
+    (files || []).forEach(f => { const e = matchFile(roster, f); if (e) byMa[e.ma] = f; });
     return roster.map(e => {
       const f = byMa[e.ma], inp = (inputs || {})[e.ma] || {};
       const nop = !!f;
@@ -118,7 +162,7 @@
       const bang = isKeToan(e.kv) ? RULES.mucKeToan : RULES.mucKho;
       const tv1 = e.loai === 'TV1';
       const muc = tv1 ? 0 : bang[loai];
-      const lyDo = [!nop ? 'KHÔNG NỘP KPIS' : '', tFile ? `Trừ trong file KPIs: ${tFile}` : '',
+      const lyDo = [!nop ? 'KHÔNG NỘP KPIS' : '', tFile ? `${f.truLyDo || 'Trừ trong file KPIs'} (-${tFile})` : '',
         num(inp.phep) ? `Nghỉ phép ${String(num(inp.phep)).replace('.', ',')} ngày (-${tPhep})` : '',
         tKhac ? `${norm(inp.lyDo) || 'Trừ khác'} (-${tKhac})` : norm(inp.lyDo), tv1 ? 'Thử việc tháng đầu – không tính thưởng' : '']
         .filter(Boolean).join('; ');
@@ -127,5 +171,5 @@
     });
   }
 
-  root.KPI = { RULES, parseRoster, parseKpiFile, parsePdfText, compute, isKeToan, truPhep, xepLoai, normMa };
+  root.KPI = { RULES, parseRoster, parseKpiFile, parsePdfText, compute, matchFile, nameKey, isKeToan, truPhep, xepLoai, normMa };
 })(typeof self !== 'undefined' ? self : window);
