@@ -287,7 +287,8 @@
     try { await importFilesInner(fileList); } catch (err) { note('Lỗi khi nạp file: ' + esc(err && err.message || err)); console.error(err); }
   }
   async function importFilesInner(fileList) {
-    const files = [...fileList]; if (!files.length) return;
+    const files = [...(fileList || [])];
+    if (!files.length) { note('Trình duyệt không nhận được file nào. Nếu kéo file từ Zalo / Outlook, hãy <b>lưu file về một thư mục trên máy</b> trước, rồi bấm "Nạp file KPI" chọn từ thư mục đó.'); return; }
     note(`⏳ Đang đọc ${files.length} file…`, true);
     const ok = [], bad = [];
     for (const f of files) {
@@ -322,7 +323,12 @@
   }
   wireZone($('zoneRoster'), $('fileRoster'), f => f && importRoster(f));
   wireZone($('zoneFiles'), $('fileKpi'), fs => fs && importFiles(fs));
-  $('fileKpi').addEventListener('change', () => {}); // (nút "Nạp file KPI" dùng chung input)
+  // thả file KPIs ở bất kỳ đâu trên trang (ngoài 2 ô) cũng nạp được, tránh trình duyệt tự mở file
+  document.addEventListener('dragover', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
+  document.addEventListener('drop', e => {
+    if (e.defaultPrevented || !e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
+    e.preventDefault(); importFiles(e.dataTransfer.files);
+  });
 
   // ------------------------------------------------------------ xuất Excel theo mẫu "VP.HCM"
   $('tkExport').addEventListener('click', () => {
