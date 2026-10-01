@@ -9,6 +9,7 @@ window.KVH_ICONS = {
   truck: '<path d="M3 7h11v9H3z"/><path d="M14 10h4l3 3v3h-7z"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17" cy="17.5" r="1.6"/>',
   box: '<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4"/><path d="M12 11v10"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  chart: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 
@@ -49,6 +50,18 @@ window.KVH_MENU = [
       { ten: 'Tồn theo lô', href: 'ton-kho/#ton-theo-lo' },
       { ten: 'Nạp file kỳ', href: 'ton-kho/#nap-du-lieu' },
       { ten: 'Cài đặt', href: 'ton-kho/#cai-dat' },
+    ],
+  },
+  {
+    ten: 'Tổng Hợp KPIs', icon: 'chart', trangThai: 'Hằng tháng',
+    moTa: 'Tổng hợp điểm KPIs từng nhân viên (file Excel Kho, PDF Kế toán), điểm trừ, xếp loại, mức thưởng; xuất Excel theo mẫu VP.HCM.',
+    muc: [
+      { ten: 'Bảng tổng hợp', href: 'kpi/#tong-hop' },
+      { ten: 'Dashboard', href: 'kpi/#dashboard' },
+      { ten: 'File KPIs đã nạp', href: 'kpi/#file-kpi' },
+      { ten: 'Danh sách NV', href: 'kpi/#danh-sach' },
+      { ten: 'Nạp file', href: 'kpi/#nap-du-lieu' },
+      { ten: 'Quy tắc', href: 'kpi/#cai-dat' },
     ],
   },
   // Vi du dong cong viec tiep theo (bo "//" khi co trang):
