@@ -279,12 +279,16 @@
       if (!k) { const d = new Date(); k = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`; }
       const e = archive[k] || (archive[k] = { roster: [], files: [], inputs: {} });
       e.roster = r.list; sel = k; touch(k); startOpen = true; renderAll();
-      msg($('startMsg'), `Đã nạp ${r.list.length} nhân viên từ "${esc(file.name)}"${r.thang ? ` (T${r.thang}/${r.nam})` : ''} làm danh sách cho kỳ <b>${kyLabel(k)}</b>. Giờ kéo thả các file KPIs của kỳ này vào ô ②.`, true);
-    } catch (err) { msg($('startMsg'), 'File danh sách: ' + esc(err.message)); }
+      note(`Đã nạp ${r.list.length} nhân viên từ "${esc(file.name)}"${r.thang ? ` (T${r.thang}/${r.nam})` : ''} làm danh sách cho kỳ <b>${kyLabel(k)}</b>. Giờ kéo thả các file KPIs của kỳ này vào ô ②.`, true);
+    } catch (err) { note('File danh sách: ' + esc(err.message)); }
   }
+  const note = (html, ok) => { msg($('startMsg'), html, ok); msg($('tkMsg'), html, ok); };
   async function importFiles(fileList) {
+    try { await importFilesInner(fileList); } catch (err) { note('Lỗi khi nạp file: ' + esc(err && err.message || err)); console.error(err); }
+  }
+  async function importFilesInner(fileList) {
     const files = [...fileList]; if (!files.length) return;
-    msg($('startMsg'), `⏳ Đang đọc ${files.length} file…`, true);
+    note(`⏳ Đang đọc ${files.length} file…`, true);
     const ok = [], bad = [];
     for (const f of files) {
       try {
@@ -297,7 +301,7 @@
       // kỳ = tháng ghi trong đa số file
       const cnt = {}; ok.forEach(p => { if (p.thang) { const kk = `${p.nam}-${pad2(p.thang)}`; cnt[kk] = (cnt[kk] || 0) + 1; } });
       const k = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || cur();
-      if (!k) { msg($('startMsg'), 'Không xác định được kỳ (tháng) trong file — bấm "Tạo kỳ mới" trước.'); return; }
+      if (!k) { note('Không xác định được kỳ (tháng) trong file — bấm "Tạo kỳ mới" trước.'); return; }
       const e = ensureKy(k);
       // mỗi nhân viên giữ 1 file (file nạp sau thay file trước); khóa = mã NV đã khớp, không khớp thì theo mã/tên trong file
       const R = e.roster || [];
@@ -305,9 +309,8 @@
       const byKey = {}; (e.files || []).forEach(x => { byKey[key(x)] = x; }); ok.forEach(p => { byKey[key(p)] = p; });
       e.files = Object.values(byKey); sel = k; touch(k); renderAll();
       const lech = ok.filter(p => !K.matchFile(R, p)).length;
-      msg($('startMsg'), `Đã nạp ${ok.length} file vào kỳ <b>${kyLabel(k)}</b>${lech ? ` · <b>${lech}</b> file chưa khớp được nhân viên nào (xem tab "File KPIs đã nạp")` : ''}${bad.length ? `<br>Không đọc được ${bad.length} file:<br>${bad.join('<br>')}` : ''}`, !bad.length);
-      msg($('tkMsg'), `Đã nạp ${ok.length} file KPIs vào kỳ ${kyLabel(k)}${bad.length ? ` · lỗi ${bad.length} file` : ''}.`, !bad.length);
-    } else msg($('startMsg'), `Không đọc được file nào:<br>${bad.join('<br>')}`);
+      note(`Đã nạp ${ok.length} file vào kỳ <b>${kyLabel(k)}</b>${lech ? ` · <b>${lech}</b> file chưa khớp được nhân viên nào (xem tab "File KPIs đã nạp")` : ''}${bad.length ? `<br>Không đọc được ${bad.length} file:<br>${bad.join('<br>')}` : ''}`, !bad.length);
+    } else note(`Không đọc được file nào:<br>${bad.join('<br>')}`);
   }
   function wireZone(zone, input, handler) {
     zone.addEventListener('click', () => input.click());
