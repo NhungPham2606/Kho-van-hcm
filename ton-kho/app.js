@@ -71,7 +71,7 @@
   const kys = () => Object.keys(archive).sort().reverse();
   const cur = () => archive[sel] ? sel : (kys()[0] || '');
   let res = null, uploadOpen = false;
-  const TABS = ['dashboard', 'cham-luan-chuyen', 'can-date', 'ton-theo-lo', 'cai-dat'];
+  const TABS = ['dashboard', 'cham-luan-chuyen', 'can-date', 'ton-theo-lo', 'gui-mail', 'cai-dat'];
   const tab = () => TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'dashboard';
   // truyền mọi kỳ đã lưu để ghép "số tháng chưa xuất" qua nhiều file
   function recompute() { const k = cur(); res = k ? T.analyse(archive[k].data, archive[k].opt || {}, Object.values(archive).map(e => e.data)) : null; }
@@ -140,19 +140,20 @@
   }
   // chọn dòng để xuất ảnh: pick.cham / pick.can = Set(lotId)
   const pick = { cham: new Set(), can: new Set() };
+  const mailSet = w => new Set(((archive[cur()] || {}).mail || {})[w] || []);
   function headCells(withCham) {
     const d = archive[cur()].data, which = withCham ? 'cham' : 'can';
-    return `<th class="sel"><input type="checkbox" data-selall="${which}" title="Chọn / bỏ chọn tất cả dòng đang hiển thị"></th><th class="r">Stt</th><th>Mã vật tư</th><th style="min-width:220px">Tên vật tư</th><th>Mã kho</th><th>Đvt</th><th>Mã lô</th><th>Hạn dùng</th><th>Tuổi thuốc<br>(Tháng)</th><th class="r">Tồn đầu<br>(${T.vnDate(d.tu)})</th><th class="r">SL nhập</th><th class="r">SL xuất</th><th class="r">Tồn cuối<br>(${T.vnDate(d.den)})</th>${withCham ? '<th>Số tháng<br>chậm luân chuyển</th>' : ''}<th>Hướng xử lý</th>`;
+    return `<th class="sel"><input type="checkbox" data-selall="${which}" title="Chọn / bỏ chọn tất cả dòng đang hiển thị (xuất ảnh)"></th><th class="mailc" title="Tích = đưa lô này vào mail báo cáo thứ 2">✉ Gửi<br>mail<br><input type="checkbox" data-mailall="${which}" title="Tích / bỏ tích gửi mail tất cả dòng đang hiển thị"></th><th class="r">Stt</th><th>Mã vật tư</th><th style="min-width:220px">Tên vật tư</th><th>Mã kho</th><th>Đvt</th><th>Mã lô</th><th>Hạn dùng</th><th>Tuổi thuốc<br>(Tháng)</th><th class="r">Tồn đầu<br>(${T.vnDate(d.tu)})</th><th class="r">SL nhập</th><th class="r">SL xuất</th><th class="r">Tồn cuối<br>(${T.vnDate(d.den)})</th>${withCham ? '<th>Số tháng<br>chậm luân chuyển</th>' : ''}<th>Đề xuất hướng xử lý</th>`;
   }
   const chamStyle = c => c.n >= 6 ? 'color:#b91c1c' : c.n >= 3 ? 'color:#c2410c' : 'color:#374151';
   const lotId = r => `${r.ma}|${r.kho}|${r.lo}`;
   const huongMap = (name = 'huong') => { const e = archive[cur()]; return (e && e[name]) || {}; };
   function rowsHtml(list, huong, withCham, editable) {  // editable = tên map ghi chú ('huong' | 'huongCham')
     if (!list.length) return '<tr><td colspan="16" style="text-align:center;color:#9ca3af;padding:20px">Không có lô nào</td></tr>';
-    const P = pick[withCham ? 'cham' : 'can'];
+    const P = pick[withCham ? 'cham' : 'can'], M = mailSet(withCham ? 'cham' : 'can');
     return list.map((r, i) => {
       const c = T.tuoiColor(r.tuoi), id = lotId(r);
-      return `<tr${P.has(id) ? ' class="picked"' : ''}><td class="sel"><input type="checkbox" data-sel="${esc(id)}"${P.has(id) ? ' checked' : ''}></td><td class="r stt">${i + 1}</td><td>${esc(r.ma)}</td><td style="white-space:normal">${esc(r.ten)}</td><td>${esc(r.kho)}</td><td>${esc(r.dvt)}</td><td>${esc(r.lo)}</td><td>${T.vnDate(r.hd)}</td>
+      return `<tr${P.has(id) ? ' class="picked"' : ''}><td class="sel"><input type="checkbox" data-sel="${esc(id)}"${P.has(id) ? ' checked' : ''}></td><td class="mailc"><input type="checkbox" data-mail="${esc(id)}"${M.has(id) ? ' checked' : ''}></td><td class="r stt">${i + 1}</td><td>${esc(r.ma)}</td><td style="white-space:normal">${esc(r.ten)}</td><td>${esc(r.kho)}</td><td>${esc(r.dvt)}</td><td>${esc(r.lo)}</td><td>${T.vnDate(r.hd)}</td>
         <td class="tuoi" style="background:${c.bg};color:${c.fg}">${r.tuoi === null ? '—' : r.tuoi < 0 ? 'Hết hạn' : r.tuoi}</td>
         <td class="r">${num(r.tdSL)}</td><td class="r">${num(r.nhSL)}</td><td class="r">${num(r.xuSL)}</td><td class="r bold">${num(r.tcSL)}</td>${withCham ? `<td class="bold" style="${chamStyle(r.chuaXuat)}">${esc(r.chuaXuatText)}</td>` : ''}
         ${editable ? `<td class="huong-edit"><textarea data-hx="${esc(lotId(r))}" data-map="${editable}" rows="1" placeholder="Nhập hướng xử lý…">${esc(huongMap(editable)[lotId(r)] || '')}</textarea></td>`
@@ -178,10 +179,11 @@
     $('tkSnap').title = `Tải ảnh PNG: ${st.ten}`; $('tkSnapCopy').title = `Sao chép ảnh ${st.ten} để dán vào Zalo / email / Word`;
     document.querySelectorAll('#tkTabs [data-tab]').forEach(a => a.classList.toggle('pri', a.dataset.tab === t));
     document.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== t; });
-    $('tkFilter').hidden = t === 'cai-dat';
+    $('tkFilter').hidden = t === 'cai-dat' || t === 'gui-mail';
     if (!res) return;
     const n = { dashboard: filt(res.list).length, 'cham-luan-chuyen': filt(res.cham).length, 'can-date': filt(res.canDate).length, 'ton-theo-lo': filt(res.list).length }[t];
-    $('tkFoot').hidden = t === 'cai-dat'; $('tkFoot').textContent = n === undefined ? '' : `${n} lô`;
+    $('tkFoot').hidden = t === 'cai-dat' || t === 'gui-mail';
+    if (t === 'gui-mail') { renderMailTab(); loadMailCfg(); } $('tkFoot').textContent = n === undefined ? '' : `${n} lô`;
   }
   function renderSettings() {
     const o = res.opt, d = archive[cur()].data;
@@ -252,6 +254,20 @@
     setTimeout(() => msg($('prevMsg'), ''), 8000);
   });
   $('bodyCan').addEventListener('input', onHuongInput);
+  function setMail(w, ids, on) {
+    const k = cur(); if (!k) return;
+    const e = archive[k]; e.mail = e.mail || { cham: [], can: [] };
+    const S = new Set(e.mail[w] || []); ids.forEach(id => on ? S.add(id) : S.delete(id));
+    e.mail[w] = [...S]; touch(k); updateMailUi();
+  }
+  function updateMailUi() {
+    [['cham', 'bodyCham'], ['can', 'bodyCan']].forEach(([w, body]) => {
+      const all = document.querySelector(`[data-mailall="${w}"]`);
+      const boxes = [...document.querySelectorAll(`#${body} input[data-mail]`)];
+      if (all) { const on = boxes.filter(b => b.checked).length; all.checked = boxes.length > 0 && on === boxes.length; all.indeterminate = on > 0 && on < boxes.length; }
+    });
+    renderMailTab();
+  }
   function updatePick() {
     [['cham', 'bodyCham'], ['can', 'bodyCan']].forEach(([w, body]) => {
       const n = pick[w].size;
@@ -265,6 +281,14 @@
   }
   document.addEventListener('change', e => {
     const t = e.target;
+    if (t.dataset && t.dataset.mail !== undefined) {
+      setMail(t.closest('#bodyCham') ? 'cham' : 'can', [t.dataset.mail], t.checked); return;
+    }
+    if (t.dataset && t.dataset.mailall) {
+      const w = t.dataset.mailall, boxes = [...document.querySelectorAll(`#${w === 'cham' ? 'bodyCham' : 'bodyCan'} input[data-mail]`)];
+      boxes.forEach(b => { b.checked = t.checked; });
+      setMail(w, boxes.map(b => b.dataset.mail), t.checked); return;
+    }
     if (t.dataset && t.dataset.sel !== undefined) {
       const w = t.closest('#bodyCham') ? 'cham' : 'can';
       if (t.checked) pick[w].add(t.dataset.sel); else pick[w].delete(t.dataset.sel);
@@ -361,7 +385,7 @@
     const wb = XLSX.utils.book_new();
     function sheet(name, t1, list, huong, withCham, perRow) {
       const hdr = ['Stt', 'Mã vật tư', 'Tên vật tư', 'Mã kho', 'Đvt', 'Mã lô', 'Hạn dùng', 'Tuổi thuốc\n(Tháng)', `Tồn đầu\n(${T.vnDate(d.tu)})`, 'Sl nhập', 'Sl xuất', `Tồn cuối\n(${T.vnDate(d.den)})`]
-        .concat(withCham ? ['Số tháng\nchậm luân chuyển'] : [], ['Giá trị tồn', 'Hướng xử lý']);
+        .concat(withCham ? ['Số tháng\nchậm luân chuyển'] : [], ['Giá trị tồn', 'Đề xuất hướng xử lý']);
       const H = hdr.length - 1, GT = H - 1, CH = withCham ? H - 2 : -1;
       const aoa = [[t1], [`CHI NHÁNH HỒ CHÍ MINH T${m}/${y}`], [], hdr, ...list.map((r, i) => [i + 1, r.ma, r.ten, r.kho, r.dvt, r.lo, T.vnDate(r.hd), r.tuoi === null ? '' : r.tuoi < 0 ? 'Hết hạn' : r.tuoi, r.tdSL, r.nhSL, r.xuSL, r.tcSL]
         .concat(withCham ? [r.chuaXuatText] : [], [r.tcGT, perRow ? (perRow[lotId(r)] || '') : i === 0 ? huong : ''])) ];
@@ -433,7 +457,7 @@
         keep.forEach((tr, i) => { const st = tr.querySelector('td.stt'); if (st) st.textContent = i + 1; tr.classList.remove('picked'); });
         if (!keep.length) throw new Error('Không có dòng nào để xuất ảnh.');
       }
-      pane.querySelectorAll('.sel, .pick-bar, .copy-bar').forEach(el => el.remove());
+      pane.querySelectorAll('.sel, .mailc, .pick-bar, .copy-bar').forEach(el => el.remove());
       // ô nhập hướng xử lý -> chữ (html2canvas không vẽ đúng nội dung textarea)
       pane.querySelectorAll('textarea').forEach(ta => {
         const live = document.querySelector(`[data-pane="${t}"] textarea[data-hx="${CSS.escape(ta.dataset.hx)}"]`);
@@ -482,6 +506,53 @@
   $('tkSnapCopy').addEventListener('click', () => snap(true));
 
   if (location.hash === '#nap-du-lieu') uploadOpen = true;
+  // ------------------------------------------------------------ tab "Mail lãnh đạo"
+  const CFG = 'auto_mail/config.json';
+  let mlCfg = null, mlSha = null, mlTimer = null;
+  function renderMailTab() {
+    const k = cur(); if (!k || !res || !$('mlTomTat')) return;
+    const e = archive[k], M = e.mail || {}, nC = (M.cham || []).length, nD = (M.can || []).length;
+    if (document.activeElement !== $('mlLoiNhan')) $('mlLoiNhan').value = e.loiNhan || '';
+    const any = nC + nD > 0;
+    $('mlTomTat').innerHTML = `<b>Mail thứ 2 tới sẽ gửi (kỳ ${esc(T.kyLabel(k))}):</b><br>`
+      + (any ? `• Cận date: <b>${nD}</b> lô đã tích ✉ (trong ${res.canDate.length} lô)<br>• Chậm luân chuyển: <b>${nC}</b> lô đã tích ✉ (trong ${res.cham.length} lô)`
+        : `• Chưa tích ✉ dòng nào → gửi <b>tất cả ${res.canDate.length}</b> lô cận date và <b>${Math.min(30, res.cham.length)}</b> lô chậm luân chuyển lâu nhất`)
+      + `<br><span class="muted">Tích ở cột <b>✉ Gửi mail</b> trong tab Chậm luân chuyển / Cận date. File Excel đính kèm chứa đúng các lô được gửi.</span>`;
+  }
+  async function loadMailCfg() {
+    if (!token) { $('mlMode').innerHTML = '<span class="muted">Kết nối hệ thống (Báo cáo giao hàng → Cập nhật dữ liệu) để xem / sửa người nhận.</span>'; $('mlSave').disabled = true; return; }
+    try {
+      const meta = await gh(`/contents/${CFG}?ref=main&t=${Date.now()}`);
+      mlSha = meta.sha; mlCfg = JSON.parse(b64dec(meta.content));
+      const tk = mlCfg.ton_kho || {};
+      if (document.activeElement !== $('mlTo')) $('mlTo').value = (tk.to || []).join(', ');
+      if (document.activeElement !== $('mlCc')) $('mlCc').value = (tk.cc || []).join(', ');
+      $('mlMode').innerHTML = tk.test_mode !== false
+        ? '<span class="tk-err" style="display:inline-block">Đang chạy THỬ: mail chỉ gửi về ' + esc(mlCfg.test_recipient || '') + '. Báo BP IT/Claude bật gửi thật khi đã duyệt.</span>'
+        : '<span class="tk-okmsg" style="display:inline-block">Đang gửi thật cho người nhận ở trên, 7h00 thứ 2 hằng tuần.</span>';
+    } catch (err) { $('mlMode').textContent = 'Không tải được cấu hình mail: ' + err.message; }
+  }
+  const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+  $('mlSave').addEventListener('click', async () => {
+    const list = id => $(id).value.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
+    const to = list('mlTo'), cc = list('mlCc'), bad = to.concat(cc).filter(x => !EMAIL_RE.test(x));
+    if (bad.length) { $('mlSaveMsg').textContent = 'Email chưa đúng: ' + bad.join(', '); return; }
+    if (!mlCfg) await loadMailCfg();
+    $('mlSave').disabled = true; $('mlSaveMsg').textContent = 'Đang lưu…';
+    try {
+      mlCfg.ton_kho = Object.assign({}, mlCfg.ton_kho || {}, { to, cc });
+      const r = await gh(`/contents/${CFG}`, { method: 'PUT', body: JSON.stringify({ message: 'Cap nhat nguoi nhan mail Can date & Cham LC (tu web)', content: b64enc(JSON.stringify(mlCfg, null, 2) + '\n'), sha: mlSha, branch: 'main' }) });
+      mlSha = r.content.sha; $('mlSaveMsg').textContent = `✅ Đã lưu: ${to.length} người nhận, ${cc.length} CC.`;
+    } catch (err) { $('mlSaveMsg').textContent = '❌ Lưu thất bại: ' + err.message + (err.status === 409 ? ' — tải lại trang rồi thử lại.' : ''); }
+    $('mlSave').disabled = false;
+  });
+  $('mlLoiNhan').addEventListener('input', () => {
+    const k = cur(); if (!k) return;
+    archive[k].loiNhan = $('mlLoiNhan').value;
+    clearTimeout(mlTimer); $('mlLoiNhanMsg').textContent = 'Đang lưu…';
+    mlTimer = setTimeout(() => { touch(k); $('mlLoiNhanMsg').textContent = '✅ Đã lưu lời nhắn' + (token ? ' lên hệ thống.' : ' (chỉ trên máy này — chưa kết nối hệ thống).'); }, 800);
+  });
+
   renderAll();
   pull();
 })();

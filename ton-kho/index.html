@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Báo Cáo Cận Date &amp; Chậm Luân Chuyển</title>
 <link rel="icon" href="../assets/logo.png?v=2" type="image/png">
-<link rel="stylesheet" href="../assets/theme.css?v=20261002b">
+<link rel="stylesheet" href="../assets/theme.css?v=20261002c">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   /* Bố cục + kiểu chữ y hệt trang "Thưởng Kho HCM" của app cũ (giao-hang-app/src/index.css) */
@@ -127,6 +127,8 @@
   .tk .pick-bar input[type=number] { width: 80px; font: inherit; font-size: 12px; padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 6px; }
   .tk table.dt th.sel, .tk table.dt td.sel { width: 34px; text-align: center; padding-left: 6px; padding-right: 0; }
   .tk table.dt td.sel input, .tk table.dt th.sel input { width: 15px; height: 15px; cursor: pointer; accent-color: #1a56db; }
+  .tk table.dt th.mailc, .tk table.dt td.mailc { width: 52px; text-align: center; background: #f0fdf4; font-size: 11px; line-height: 1.25; }
+  .tk table.dt td.mailc input, .tk table.dt th.mailc input { width: 16px; height: 16px; cursor: pointer; accent-color: #0e9f6e; margin-top: 2px; }
   .tk table.dt tbody tr.picked td { background: #eff6ff; }
   .tk table.dt tbody tr.picked td.tuoi { background: inherit; }
 </style>
@@ -189,6 +191,7 @@
                 <a class="b sm" href="#cham-luan-chuyen" data-tab="cham-luan-chuyen">Chậm luân chuyển</a>
                 <a class="b sm" href="#can-date" data-tab="can-date">Cận date</a>
                 <a class="b sm" href="#ton-theo-lo" data-tab="ton-theo-lo">Tồn theo lô</a>
+                <a class="b sm" href="#gui-mail" data-tab="gui-mail">Mail lãnh đạo</a>
                 <a class="b sm" href="#cai-dat" data-tab="cai-dat">Cài đặt</a>
               </div>
               <div class="tk-filter" id="tkFilter">
@@ -218,6 +221,23 @@
             <div data-pane="ton-theo-lo" hidden>
               <div class="tw"><table class="dt"><thead><tr id="headAll"></tr></thead><tbody id="bodyAll"></tbody></table></div>
             </div>
+            <div data-pane="gui-mail" hidden>
+              <div style="max-width:860px">
+                <h3 style="margin:4px 0 6px">✉ Mail báo cáo gửi lãnh đạo — 7h00 thứ 2 hằng tuần</h3>
+                <p class="muted" style="margin:0 0 12px">Mail lấy kỳ dữ liệu mới nhất: lời nhắn của chị ở đầu mail → bảng <b>Cận date</b> → bảng <b>Chậm luân chuyển</b> (kèm hướng xử lý) → file Excel đính kèm.</p>
+                <label style="display:block;font-weight:600;margin-bottom:4px">Lời nhắn gửi lãnh đạo (đầu mail)</label>
+                <textarea id="mlLoiNhan" rows="7" style="width:100%" placeholder="Kính gửi Anh/Chị,&#10;BP Kho vận CN.HCM gửi báo cáo hàng cận date và chậm luân chuyển tuần này..."></textarea>
+                <div class="muted" id="mlLoiNhanMsg" style="font-size:12px;margin-top:4px">Tự lưu khi gõ. Để trống thì mail chỉ có báo cáo.</div>
+                <div id="mlTomTat" style="margin:16px 0;padding:12px 14px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb"></div>
+                <label style="display:block;font-weight:600;margin-bottom:4px">Gửi tới (To) — các email cách nhau dấu phẩy</label>
+                <input id="mlTo" type="text" style="width:100%" placeholder="lanhdao@cpc1hn.com.vn, ...">
+                <label style="display:block;font-weight:600;margin:10px 0 4px">CC</label>
+                <input id="mlCc" type="text" style="width:100%" placeholder="(không bắt buộc)">
+                <div class="tk-row" style="margin-top:10px"><button class="b pri" type="button" id="mlSave">Lưu người nhận</button> <span class="muted" id="mlSaveMsg"></span></div>
+                <div id="mlMode" style="margin-top:10px"></div>
+              </div>
+            </div>
+
             <div data-pane="cai-dat" hidden>
               <div class="tk-card-body">
                 <div class="set-grid">
@@ -247,9 +267,9 @@
     <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel được đọc trong trình duyệt; kết quả theo kỳ lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
   </div>
 </div>
-<script src="../assets/flows.js?v=20261002b"></script>
-<script src="../assets/layout.js?v=20261002b"></script>
-<script src="engine.js?v=20261002b"></script>
-<script src="app.js?v=20261002b"></script>
+<script src="../assets/flows.js?v=20261002c"></script>
+<script src="../assets/layout.js?v=20261002c"></script>
+<script src="engine.js?v=20261002c"></script>
+<script src="app.js?v=20261002c"></script>
 </body>
 </html>
