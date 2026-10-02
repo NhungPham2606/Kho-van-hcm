@@ -143,7 +143,7 @@
   const mailSet = w => new Set(((archive[cur()] || {}).mail || {})[w] || []);
   function headCells(withCham) {
     const d = archive[cur()].data, which = withCham ? 'cham' : 'can';
-    return `<th class="sel"><input type="checkbox" data-selall="${which}" title="Chọn / bỏ chọn tất cả dòng đang hiển thị (xuất ảnh)"></th><th class="mailc" title="Tích = đưa lô này vào mail báo cáo thứ 2">✉ Gửi<br>mail<br><input type="checkbox" data-mailall="${which}" title="Tích / bỏ tích gửi mail tất cả dòng đang hiển thị"></th><th class="r">Stt</th><th>Mã vật tư</th><th style="min-width:220px">Tên vật tư</th><th>Mã kho</th><th>Đvt</th><th>Mã lô</th><th>Hạn dùng</th><th>Tuổi thuốc<br>(Tháng)</th><th class="r">Tồn đầu<br>(${T.vnDate(d.tu)})</th><th class="r">SL nhập</th><th class="r">SL xuất</th><th class="r">Tồn cuối<br>(${T.vnDate(d.den)})</th>${withCham ? '<th>Số tháng<br>chậm luân chuyển</th>' : ''}<th>Đề xuất hướng xử lý</th>`;
+    return `<th class="sel"><input type="checkbox" data-selall="${which}" title="Chọn / bỏ chọn tất cả dòng đang hiển thị (xuất ảnh)"></th><th class="mailc" title="Tích = đưa lô này vào mail báo cáo thứ 2">✉ Gửi<br>mail<br><input type="checkbox" data-mailall="${which}" title="Tích / bỏ tích gửi mail tất cả dòng đang hiển thị"></th><th class="r">Stt</th><th>Mã vật tư</th><th style="min-width:220px">Tên vật tư</th><th>Mã kho</th><th>Đvt</th><th>Mã lô</th><th>Hạn dùng</th><th>Tuổi thuốc<br>(Tháng)</th><th class="r">Tồn đầu<br>(${T.vnDate(d.tu)})</th><th class="r">SL nhập</th><th class="r">SL xuất</th><th class="r">Tồn cuối<br>(${T.vnDate(d.den)})</th>${withCham ? '<th>Số tháng<br>chậm luân chuyển</th>' : ''}<th>Diễn giải / Đề xuất xử lý</th>`;
   }
   const chamStyle = c => c.n >= 6 ? 'color:#b91c1c' : c.n >= 3 ? 'color:#c2410c' : 'color:#374151';
   const lotId = r => `${r.ma}|${r.kho}|${r.lo}`;
@@ -385,7 +385,7 @@
     const wb = XLSX.utils.book_new();
     function sheet(name, t1, list, huong, withCham, perRow) {
       const hdr = ['Stt', 'Mã vật tư', 'Tên vật tư', 'Mã kho', 'Đvt', 'Mã lô', 'Hạn dùng', 'Tuổi thuốc\n(Tháng)', `Tồn đầu\n(${T.vnDate(d.tu)})`, 'Sl nhập', 'Sl xuất', `Tồn cuối\n(${T.vnDate(d.den)})`]
-        .concat(withCham ? ['Số tháng\nchậm luân chuyển'] : [], ['Giá trị tồn', 'Đề xuất hướng xử lý']);
+        .concat(withCham ? ['Số tháng\nchậm luân chuyển'] : [], ['Giá trị tồn', 'Diễn giải / Đề xuất xử lý']);
       const H = hdr.length - 1, GT = H - 1, CH = withCham ? H - 2 : -1;
       const aoa = [[t1], [`CHI NHÁNH HỒ CHÍ MINH T${m}/${y}`], [], hdr, ...list.map((r, i) => [i + 1, r.ma, r.ten, r.kho, r.dvt, r.lo, T.vnDate(r.hd), r.tuoi === null ? '' : r.tuoi < 0 ? 'Hết hạn' : r.tuoi, r.tdSL, r.nhSL, r.xuSL, r.tcSL]
         .concat(withCham ? [r.chuaXuatText] : [], [r.tcGT, perRow ? (perRow[lotId(r)] || '') : i === 0 ? huong : ''])) ];
