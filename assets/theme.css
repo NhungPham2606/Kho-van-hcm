@@ -589,3 +589,11 @@ button.primary:disabled { opacity: .5; cursor: default; }
 .sb-child:hover { background: #f3f4f6; color: #111827; }
 .sb-child.active { background: #1a56db; color: #fff; }
 .sb-foot { border-top: 1px solid #e5e7eb; color: #9ca3af; }
+
+/* Xác nhận số liệu (Báo cáo giao hàng) */
+.xn-stats { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.xn-b { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.xn-b.ok { background: #def7ec; color: #03543f; }
+.xn-b.sai { background: #fde8e8; color: #9b1c1c; }
+.xn-b.cho { background: #fdf6b2; color: #723b13; }
+.xn-b.tre { background: #fde8e8; color: #9b1c1c; }

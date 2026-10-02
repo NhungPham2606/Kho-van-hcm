@@ -91,6 +91,7 @@
     $('polForm').hidden = !connected;
     $('nvCard').hidden = !connected;
     $('ltCard').hidden = !connected;
+    $('xnCard').hidden = !connected;
   }
   async function connect(t) {
     token = t;
@@ -494,6 +495,86 @@
   });
   window.addEventListener('beforeunload', e => { if (nvDirty) { e.preventDefault(); e.returnValue = ''; } });
 
+  // ------------------------------------------------------------ Xác nhận số liệu (nút trong mail hằng ngày)
+  // Nguồn: data/xac_nhan.json (mail đã gửi + phản hồi đã gom mỗi sáng) + đọc trực tiếp CSV câu trả lời Google Form
+  // để thấy ngay người vừa bấm. Cùng quy tắc với auto_mail/xac_nhan.py.
+  let xnLoaded = false;
+  const vnD = s => s ? s.slice(8, 10) + '/' + s.slice(5, 7) : '';
+  const plain = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd').toUpperCase();
+  function parseCsv(t) {
+    const rows = []; let row = [], f = '', q = false;
+    for (let i = 0; i < t.length; i++) {
+      const c = t[i];
+      if (q) { if (c === '"') { if (t[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+      else if (c === '"') q = true;
+      else if (c === ',') { row.push(f); f = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && t[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+      else f += c;
+    }
+    if (f || row.length) { row.push(f); rows.push(row); }
+    return rows;
+  }
+  async function loadXacNhan() {
+    xnLoaded = true;
+    nvMsg($('xnMsg'), 'Đang tải…');
+    try {
+      const [store, cfg] = await Promise.all([
+        getRaw('data/xac_nhan.json').then(r => r.json()).catch(e => { if (e.status === 404) return {}; throw e; }),
+        getRaw(CFG_PATH).then(r => r.json()),
+      ]);
+      const gui = store.gui || {}, ph = (store.phan_hoi || []).slice(), seen = new Set(ph.map(p => p.msgId));
+      const csvUrl = (cfg.xac_nhan_form || {}).csv;
+      let csvNote = '';
+      if (csvUrl) {
+        try {
+          const rows = parseCsv(await (await fetch(csvUrl + '&t=' + Date.now())).text());
+          const H = (rows[0] || []).map(plain), col = k => H.findIndex(h => h.includes(k));
+          const cMa = col('MA NV'), cNgay = col('SO LIEU DEN NGAY'), cKq = col('KET QUA'), cNd = col('NOI DUNG');
+          const p2 = n => String(n).padStart(2, '0');
+          rows.slice(1).forEach(r => {
+            const ma = String(r[cMa] || '').replace(/\D/g, ''); if (!ma || ma === '000000') return;
+            const key = `form|${(r[0] || '').trim()}|${ma}`; if (seen.has(key)) return;
+            const m = String(r[cNgay] || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/), mt = String(r[0] || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
+            const luc = mt ? `${mt[3]}-${p2(mt[2])}-${p2(mt[1])}T${p2(mt[4])}:${mt[5]}` : (r[0] || '');
+            const ngay = m ? `${m[3]}-${p2(m[2])}-${p2(m[1])}` : luc.slice(0, 10);
+            ph.push({ ma, ngay, loai: plain(r[cKq]).trim().startsWith('SAI') ? 'SAI' : 'DUNG', luc, noiDung: (r[cNd] || '').trim(), msgId: key });
+            seen.add(key);
+          });
+        } catch (e) { csvNote = 'Chưa đọc được câu trả lời mới nhất từ Google Form — đang hiện dữ liệu gom lúc sáng.'; }
+      }
+      const nv = (cfg.nhan_vien || []).map(n => ({ ma: String(n.maNV || '').trim(), ten: n.hoTen }));
+      const tenOf = ma => (nv.find(n => n.ma === ma) || {}).ten || '';
+      const moiNhat = Object.values(gui).flat().sort().pop() || '';
+      let nOk = 0, nSai = 0, nCho = 0;
+      $('xnList').innerHTML = nv.map(n => {
+        const ps = ph.filter(p => p.ma === n.ma).sort((a, b) => (a.ngay + a.luc).localeCompare(b.ngay + b.luc));
+        const last = ps[ps.length - 1];
+        const sent = gui[n.ma] || [];
+        const cho = sent.filter(x => x > (last ? last.ngay : ''));
+        let tt;
+        if (last && last.loai === 'SAI' && !cho.length) { nSai++; tt = `<span class="xn-b sai">❌ Báo sai — số liệu đến ${vnD(last.ngay)}</span>${last.noiDung ? `<div class="note" style="white-space:pre-wrap">${esc(last.noiDung)}</div>` : ''}`; }
+        else if (cho.length) { nCho++; tt = `<span class="xn-b ${cho.length >= 3 ? 'tre' : 'cho'}">⏳ Chưa xác nhận ${cho.length} mail (từ số liệu ${vnD(cho[0])})</span>${last ? ` <span class="note">· lần trước: ${last.loai === 'SAI' ? '❌ báo sai' : '✅ đúng'} đến ${vnD(last.ngay)}</span>` : ''}`; }
+        else if (last) { nOk++; tt = `<span class="xn-b ok">✅ Đã xác nhận đúng đến ${vnD(last.ngay)}</span>`; }
+        else tt = '<span class="note">Chưa có mail xác nhận nào</span>';
+        return `<tr><td>${esc(n.ma)}</td><td>${esc(n.ten)}</td><td>${tt}</td><td>${last ? esc(String(last.luc).replace('T', ' ').slice(0, 16)) : ''}</td></tr>`;
+      }).join('') || '<tr><td colspan="4" class="note" style="text-align:center;padding:18px">Chưa có nhân viên</td></tr>';
+      $('xnStats').innerHTML = `<span class="xn-b ok">✅ ${nOk} đã xác nhận</span> <span class="xn-b sai">❌ ${nSai} báo sai</span> <span class="xn-b cho">⏳ ${nCho} chưa xác nhận</span>`
+        + (moiNhat ? ` <span class="note">· mail gần nhất: số liệu đến ${vnD(moiNhat)}</span>` : '');
+      const byTime = ph.slice().sort((a, b) => String(b.luc).localeCompare(String(a.luc)));
+      const sai = byTime.filter(p => p.loai === 'SAI');
+      const when = p => esc(String(p.luc).replace('T', ' ').slice(0, 16));
+      $('xnSai').innerHTML = sai.length ? sai.map(p => `<tr><td>${when(p)}</td><td>${esc(p.ma)} · ${esc(tenOf(p.ma))}</td><td>${vnD(p.ngay)}</td><td style="white-space:pre-wrap">${esc(p.noiDung) || '<span class="note">(không ghi nội dung)</span>'}</td></tr>`).join('')
+        : '<tr><td colspan="4" class="note" style="text-align:center;padding:18px">Chưa ai báo sai</td></tr>';
+      $('xnLog').innerHTML = byTime.length ? byTime.slice(0, 30).map(p => `<tr><td>${when(p)}</td><td>${esc(p.ma)} · ${esc(tenOf(p.ma))}</td><td>${vnD(p.ngay)}</td><td>${p.loai === 'SAI' ? '<span class="xn-b sai">❌ Sai</span>' : '<span class="xn-b ok">✅ Đúng</span>'}</td></tr>`).join('')
+        : '<tr><td colspan="4" class="note" style="text-align:center;padding:18px">Chưa có phản hồi nào</td></tr>';
+      nvMsg($('xnMsg'), csvNote, csvNote ? 'bad' : '');
+    } catch (e) {
+      xnLoaded = false;
+      nvMsg($('xnMsg'), 'Không tải được: ' + esc(e.message), 'bad');
+    }
+  }
+  $('xnRefresh').addEventListener('click', loadXacNhan);
+
   // ------------------------------------------------------------ nạp dữ liệu theo mục đang xem
   function loadSectionData(id) {
     if (!connected) return;
@@ -501,6 +582,7 @@
     if (id === 'quy-tac' && !polLoaded) loadPolicy();
     if (id === 'nhan-vien' && !nvLoaded) loadNhanVien();
     if (id === 'luu-tru' && !files.length) refreshList();
+    if (id === 'xac-nhan' && !xnLoaded) loadXacNhan();
   }
   document.addEventListener('kvh:section', e => loadSectionData(e.detail));
 

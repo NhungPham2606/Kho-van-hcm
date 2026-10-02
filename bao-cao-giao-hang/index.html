@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Báo Cáo Giao Hàng</title>
 <link rel="icon" href="../assets/logo.png?v=2" type="image/png">
-<link rel="stylesheet" href="../assets/theme.css?v=20261001f">
+<link rel="stylesheet" href="../assets/theme.css?v=20261002a">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 </head>
 <body>
@@ -219,6 +219,37 @@
         </div>
       </section>
 
+      <section id="xac-nhan" data-title="Xác nhận số liệu" hidden>
+        <div class="sec-head"><div class="sec-no">✓</div><div>
+          <h2>Xác nhận số liệu của nhân viên</h2>
+          <p>Nhân viên bấm <b>✅ Xác nhận đúng</b> hoặc <b>❌ Báo sai</b> ở cuối mail hằng ngày. Bảng cập nhật ngay khi có người bấm; ai quá 2 ngày chưa xác nhận sẽ được nhắc trong mail hôm sau.</p>
+        </div></div>
+        <div class="need-connect" data-need-connect hidden>Chưa kết nối hệ thống — <a href="#cap-nhat">sang mục Cập nhật dữ liệu để kết nối</a> (làm 1 lần trên mỗi máy).</div>
+        <div class="card" id="xnCard" hidden>
+          <div class="up-head">
+            <h2><span class="step-no">✓</span> Tình trạng từng nhân viên</h2>
+            <button type="button" class="linkbtn" id="xnRefresh">Làm mới</button>
+          </div>
+          <div class="xn-stats" id="xnStats"></div>
+          <div class="table-wrap" style="margin-top:12px"><table class="plain nv-table">
+            <thead><tr><th style="width:90px">Mã NV</th><th>Họ và tên</th><th>Tình trạng</th><th style="width:150px">Phản hồi gần nhất</th></tr></thead>
+            <tbody id="xnList"></tbody>
+          </table></div>
+          <h2 style="margin-top:24px"><span class="step-no">!</span> Các lần báo sai</h2>
+          <div class="table-wrap" style="margin-top:10px"><table class="plain nv-table">
+            <thead><tr><th style="width:140px">Lúc</th><th style="width:170px">Nhân viên</th><th style="width:100px">Số liệu đến</th><th>Nội dung</th></tr></thead>
+            <tbody id="xnSai"></tbody>
+          </table></div>
+          <h2 style="margin-top:24px"><span class="step-no">≡</span> Lịch sử phản hồi (30 lần gần nhất)</h2>
+          <div class="table-wrap" style="margin-top:10px"><table class="plain nv-table">
+            <thead><tr><th style="width:140px">Lúc</th><th>Nhân viên</th><th style="width:100px">Số liệu đến</th><th style="width:110px">Kết quả</th></tr></thead>
+            <tbody id="xnLog"></tbody>
+          </table></div>
+          <div class="up-status" id="xnMsg" hidden role="status"></div>
+          <p class="note" style="margin-top:12px">Xác nhận "đúng" ở ngày nào thì tính là đã xác nhận toàn bộ số liệu tháng đến ngày đó. Câu trả lời gốc nằm trong Google Sheet <b>"Xác nhận số liệu giao hàng (Câu trả lời)"</b> của tài khoản nhungpham2606@gmail.com.</p>
+        </div>
+      </section>
+
       <section id="luu-tru" data-title="Lưu trữ &amp; tra cứu" hidden>
         <div class="sec-head"><div class="sec-no">5</div><div>
           <h2>Lưu trữ &amp; tra cứu</h2>
@@ -298,9 +329,9 @@
     <footer class="site-foot">Kho vận HCM · Trang nội bộ. Dữ liệu chỉ lưu trong kho riêng tư của Kho vận HCM trên GitHub.</footer>
   </div>
 </div>
-<script src="../assets/flows.js?v=20261001f"></script>
-<script src="../assets/layout.js?v=20261001f"></script>
-<script src="app.js?v=20261001f"></script>
+<script src="../assets/flows.js?v=20261002a"></script>
+<script src="../assets/layout.js?v=20261002a"></script>
+<script src="app.js?v=20261002a"></script>
 <script>
 // Moi dau muc la 1 man hinh rieng, chon qua menu trai (#hash).
 (function () {

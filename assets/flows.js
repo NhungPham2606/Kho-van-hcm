@@ -25,6 +25,7 @@ window.KVH_MENU = [
       { ten: 'Kết quả tính', href: 'bao-cao-giao-hang/#ket-qua' },
       { ten: 'Gửi báo cáo', href: 'bao-cao-giao-hang/#gui-bao-cao' },
       { ten: 'Nhân viên & mail', href: 'bao-cao-giao-hang/#nhan-vien' },
+      { ten: 'Xác nhận số liệu', href: 'bao-cao-giao-hang/#xac-nhan' },
       { ten: 'Lưu trữ & tra cứu', href: 'bao-cao-giao-hang/#luu-tru' },
       { ten: 'Quy tắc tính', href: 'bao-cao-giao-hang/#quy-tac' },
     ],
