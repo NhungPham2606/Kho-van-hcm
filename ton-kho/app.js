@@ -142,7 +142,7 @@
   const pick = { cham: new Set(), can: new Set() };
   function headCells(withCham) {
     const d = archive[cur()].data, which = withCham ? 'cham' : 'can';
-    return `<th class="sel"><input type="checkbox" data-selall="${which}" title="Chọn / bỏ chọn tất cả dòng đang hiển thị"></th><th class="r">Stt</th><th>Mã vật tư</th><th style="min-width:220px">Tên vật tư</th><th>Mã kho</th><th>Đvt</th><th>Mã lô</th><th>Hạn dùng</th><th>Tuổi thuốc<br>(Tháng)</th><th class="r">Tồn đầu<br>(${T.vnDate(d.tu)})</th><th class="r">SL nhập</th><th class="r">SL xuất</th><th class="r">Tồn cuối<br>(${T.vnDate(d.den)})</th>${withCham ? '<th>Số tháng<br>chậm luân chuyển</th>' : ''}<th class="r">Giá trị tồn</th><th>Hướng xử lý</th>`;
+    return `<th class="sel"><input type="checkbox" data-selall="${which}" title="Chọn / bỏ chọn tất cả dòng đang hiển thị"></th><th class="r">Stt</th><th>Mã vật tư</th><th style="min-width:220px">Tên vật tư</th><th>Mã kho</th><th>Đvt</th><th>Mã lô</th><th>Hạn dùng</th><th>Tuổi thuốc<br>(Tháng)</th><th class="r">Tồn đầu<br>(${T.vnDate(d.tu)})</th><th class="r">SL nhập</th><th class="r">SL xuất</th><th class="r">Tồn cuối<br>(${T.vnDate(d.den)})</th>${withCham ? '<th>Số tháng<br>chậm luân chuyển</th>' : ''}<th>Hướng xử lý</th>`;
   }
   const chamStyle = c => c.n >= 6 ? 'color:#b91c1c' : c.n >= 3 ? 'color:#c2410c' : 'color:#374151';
   const lotId = r => `${r.ma}|${r.kho}|${r.lo}`;
@@ -154,7 +154,7 @@
       const c = T.tuoiColor(r.tuoi), id = lotId(r);
       return `<tr${P.has(id) ? ' class="picked"' : ''}><td class="sel"><input type="checkbox" data-sel="${esc(id)}"${P.has(id) ? ' checked' : ''}></td><td class="r stt">${i + 1}</td><td>${esc(r.ma)}</td><td style="white-space:normal">${esc(r.ten)}</td><td>${esc(r.kho)}</td><td>${esc(r.dvt)}</td><td>${esc(r.lo)}</td><td>${T.vnDate(r.hd)}</td>
         <td class="tuoi" style="background:${c.bg};color:${c.fg}">${r.tuoi === null ? '—' : r.tuoi < 0 ? 'Hết hạn' : r.tuoi}</td>
-        <td class="r">${num(r.tdSL)}</td><td class="r">${num(r.nhSL)}</td><td class="r">${num(r.xuSL)}</td><td class="r bold">${num(r.tcSL)}</td>${withCham ? `<td class="bold" style="${chamStyle(r.chuaXuat)}">${esc(r.chuaXuatText)}</td>` : ''}<td class="r">${num(r.tcGT)}</td>
+        <td class="r">${num(r.tdSL)}</td><td class="r">${num(r.nhSL)}</td><td class="r">${num(r.xuSL)}</td><td class="r bold">${num(r.tcSL)}</td>${withCham ? `<td class="bold" style="${chamStyle(r.chuaXuat)}">${esc(r.chuaXuatText)}</td>` : ''}
         ${editable ? `<td class="huong-edit"><textarea data-hx="${esc(lotId(r))}" data-map="${editable}" rows="1" placeholder="Nhập hướng xử lý…">${esc(huongMap(editable)[lotId(r)] || '')}</textarea></td>`
           : i === 0 ? `<td class="huong" rowspan="${list.length}">${esc(huong)}</td>` : ''}</tr>`;
     }).join('');
