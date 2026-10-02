@@ -46,24 +46,45 @@
         const remote = JSON.parse(b64dec((await gh(`/contents/${DIR}/${encodeURIComponent(it.name)}?ref=main`)).content || '') || '{}');
         if (remote.data && kyKey(remote.data) !== k) { k = kyKey(remote.data); } else repoSha[k] = it.sha;
         if (!archive[k] || (remote.savedAt || '') >= (archive[k].savedAt || '')) archive[k] = remote;
+        else save(k, 0); // bản trên máy mới hơn (lần lưu trước bị lỗi) -> đẩy lên
       }
       for (const k of Object.keys(archive)) if (!repoSha[k]) save(k, 0);
       syncMsg = 'Đã đồng bộ với hệ thống — mở trên máy khác cũng thấy.'; persist(); renderAll();
     } catch (e) { syncMsg = 'Không đồng bộ được với hệ thống: ' + e.message + '. Dữ liệu vẫn lưu trên máy này.'; renderTop(); }
   }
+  // Lưu 1 kỳ lên hệ thống: mỗi kỳ chỉ 1 lần lưu chạy cùng lúc (tích nhanh nhiều ô không bị chồng lệnh);
+  // xung đột phiên bản (409/422) -> lấy sha mới nhất rồi lưu lại, không bị "kẹt" như trước.
+  const saving = {}, saveAgain = {};
   function save(k, delay = 1200) {
     if (!token) return;
     clearTimeout(saveTimers[k]);
-    saveTimers[k] = setTimeout(async () => {
-      if (!archive[k]) return;
-      try {
+    saveTimers[k] = setTimeout(() => putKy(k), delay);
+  }
+  async function putKy(k) {
+    if (!archive[k]) return;
+    if (saving[k]) { saveAgain[k] = true; return; }
+    saving[k] = true;
+    const path = `/contents/${DIR}/${encodeURIComponent(k)}.json`;
+    try {
+      for (let lan = 0; lan < 3; lan++) {
         const body = { message: `Ton kho ${k} (tu web)`, content: b64enc(JSON.stringify(archive[k])), branch: 'main' };
         if (repoSha[k]) body.sha = repoSha[k];
-        const r = await gh(`/contents/${DIR}/${encodeURIComponent(k)}.json`, { method: 'PUT', body: JSON.stringify(body) });
-        repoSha[k] = r.content.sha; syncMsg = `Đã lưu kỳ ${kyLabel(k)} lên hệ thống lúc ${new Date().toLocaleTimeString('vi-VN')}.`;
-      } catch (e) { syncMsg = `Chưa lưu được kỳ ${kyLabel(k)} lên hệ thống (${e.message}).`; if (e.status === 409 || e.status === 422) delete repoSha[k]; }
-      renderTop();
-    }, delay);
+        try {
+          const r = await gh(path, { method: 'PUT', body: JSON.stringify(body) });
+          repoSha[k] = r.content.sha; syncMsg = `Đã lưu kỳ ${kyLabel(k)} lên hệ thống lúc ${new Date().toLocaleTimeString('vi-VN')}.`;
+          break;
+        } catch (e) {
+          if ((e.status === 409 || e.status === 422) && lan < 2) {
+            try { repoSha[k] = (await gh(`${path}?ref=main&t=${Date.now()}`)).sha; } catch (e2) { if (e2.status === 404) delete repoSha[k]; else throw e2; }
+            continue;
+          }
+          throw e;
+        }
+      }
+    } catch (e) { syncMsg = `Chưa lưu được kỳ ${kyLabel(k)} lên hệ thống (${e.message}). Thử thao tác lại hoặc tải lại trang.`; }
+    saving[k] = false;
+    renderTop();
+    if (saveAgain[k]) { saveAgain[k] = false; putKy(k); }
   }
   const touch = k => { archive[k].savedAt = new Date().toISOString(); persist(); save(k); };
 
