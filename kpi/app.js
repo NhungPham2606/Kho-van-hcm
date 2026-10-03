@@ -85,7 +85,7 @@
   let rows = null, startOpen = false;
   const TABS = ['tong-hop', 'dashboard', 'file-kpi', 'danh-sach', 'cai-dat'];
   const tab = () => TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'tong-hop';
-  function recompute() { const k = cur(); rows = k ? K.compute(archive[k].roster || [], archive[k].files || [], archive[k].inputs || {}) : null; }
+  function recompute() { const k = cur(); rows = k ? K.compute(archive[k].roster || [], archive[k].files || [], archive[k].inputs || {}, k) : null; }
   const groupsOf = list => { const g = []; list.forEach(e => { if (!g.includes(e.group)) g.push(e.group); }); return g; };
   function filt(list) {
     const g = $('fGroup').value, q = $('fSearch').value.trim().toLowerCase();
@@ -95,7 +95,7 @@
   function ensureKy(k) {
     if (archive[k]) return archive[k];
     const prev = kys().find(x => x < k) || kys()[0];
-    const roster = prev ? (archive[prev].roster || []).map(e => Object.assign({}, e, { loai: e.loai === 'TV1' ? 'TV2' : e.loai })) : [];
+    const roster = prev ? (archive[prev].roster || []).map(e => Object.assign({}, e, { loai: e.loai === 'TV1' ? 'TV2' : e.loai }, e.ts ? { ts: Object.assign({}, e.ts) } : {})) : [];
     archive[k] = { roster, files: [], inputs: {} };
     return archive[k];
   }
@@ -112,17 +112,17 @@
     $('filesInfo').textContent = e && e.files ? `Kỳ ${kyLabel(k)} đã nạp ${e.files.length} file.` : '';
     if (!has) return;
     $('tkChips').innerHTML = kys().map(x => `<button type="button" class="b sm${x === k ? ' pri' : ''}" data-ky="${x}">${kyLabel(x)}</button>`).join('');
-    const nop = rows.filter(r => r.nop).length;
-    $('tkBanner').innerHTML = `✓ Kỳ <b>${kyLabel(k)}</b> · ${rows.length} nhân viên · ${(e.files || []).length} file KPIs đã nạp · ${nop}/${rows.length} người đã nộp`;
+    const lam = rows.filter(r => !r.ts), nop = lam.filter(r => r.nop).length, nts = rows.length - lam.length;
+    $('tkBanner').innerHTML = `✓ Kỳ <b>${kyLabel(k)}</b> · ${rows.length} nhân viên${nts ? ` (${nts} nghỉ thai sản)` : ''} · ${(e.files || []).length} file KPIs đã nạp · ${nop}/${lam.length} người đã nộp`;
     const seen = {}, dup = rows.filter(r => (seen[r.ma] = (seen[r.ma] || 0) + 1) === 2);
     if (dup.length) $('tkBanner').innerHTML += `<div class="tk-err" style="margin-top:6px">⚠ Mã NV bị trùng trong danh sách (sẽ tính thưởng 2 lần): ${dup.map(r => `${esc(r.ma)} ${esc(r.ten)}`).join(', ')} — vào tab "Danh sách NV" xóa dòng thừa.</div>`;
     $('tkSync').textContent = syncMsg;
   }
   function renderStats() {
     const L = filt(rows), cnt = l => L.filter(r => r.loai === l).length;
-    const nop = L.filter(r => r.nop).length, tien = L.reduce((s, r) => s + r.thuong, 0);
-    $('stNV').textContent = L.length; $('stNVSub').textContent = `${groupsOf(L).length} bộ phận`;
-    $('stNop').textContent = `${nop}/${L.length}`; $('stNopSub').textContent = L.length - nop ? `${L.length - nop} người chưa nộp` : 'Đủ cả';
+    const lam = L.filter(r => !r.ts), nop = lam.filter(r => r.nop).length, tien = L.reduce((s, r) => s + r.thuong, 0), nts = L.length - lam.length;
+    $('stNV').textContent = L.length; $('stNVSub').textContent = `${groupsOf(L).length} bộ phận${nts ? ` · ${nts} nghỉ thai sản` : ''}`;
+    $('stNop').textContent = `${nop}/${lam.length}`; $('stNopSub').textContent = lam.length - nop ? `${lam.length - nop} người chưa nộp` : 'Đủ cả';
     $('stXL').innerHTML = ['A', 'B', 'C', 'D'].map(l => `<span class="xl ${l}">${cnt(l)}</span>`).join(' ');
     $('stXLSub').textContent = `A ${cnt('A')} · B ${cnt('B')} · C ${cnt('C')} · D ${cnt('D')}`;
     $('stTien').textContent = vnd(tien) + 'đ'; $('stTienSub').textContent = `Kế toán ${vnd(L.filter(r => K.isKeToan(r.kv)).reduce((s, r) => s + r.thuong, 0))}đ · Kho/GH/LX ${vnd(L.filter(r => !K.isKeToan(r.kv)).reduce((s, r) => s + r.thuong, 0))}đ`;
@@ -132,19 +132,22 @@
     $('titleTH').innerHTML = `DANH SÁCH XÉT THƯỞNG KPIs THÁNG ${m} NĂM ${y}<br>Bộ phận: Kế toán - Kho vận CN Hồ Chí Minh`;
     const L = filt(rows); let html = '', stt = 0, g = null;
     L.forEach(r => {
-      if (r.group !== g) { g = r.group; html += `<tr class="grp"><td colspan="16">${esc(g || '(chưa có bộ phận)')}</td></tr>`; }
+      if (r.group !== g) { g = r.group; html += `<tr class="grp"><td colspan="17">${esc(g || '(chưa có bộ phận)')}</td></tr>`; }
       stt++;
-      html += `<tr class="${r.nop ? '' : 'nonop'}" data-ma="${esc(r.ma)}"><td class="r">${stt}</td><td>${esc(r.ma)}</td><td class="name">${esc(r.ten)}${r.nop ? '' : ' <span class="src">(chưa nộp)</span>'}</td>
+      const tsO = archiveTs(r.ma) || {};
+      html += `<tr class="${r.ts ? 'tsan' : r.nop ? '' : 'nonop'}" data-ma="${esc(r.ma)}"><td class="r">${stt}</td><td>${esc(r.ma)}</td><td class="name">${esc(r.ten)}${r.ts ? ' <span class="src">(nghỉ thai sản)</span>' : r.nop ? '' : ' <span class="src">(chưa nộp)</span>'}</td>
         <td class="r">${r.nop ? fmtD(r.ban) : ''}</td><td class="r">${fmtD(r.tFile)}</td>
         <td class="r"><input class="cell" type="number" min="0" step="0.5" data-f="phep" value="${esc(r.phep)}" title="Số ngày nghỉ phép"></td>
         <td class="r"><input class="cell" type="number" min="0" step="1" data-f="truKhac" value="${esc(r.truKhac)}" title="Điểm trừ khác"></td>
         <td class="r bold">${fmtD(r.tru)}</td><td class="r bold">${r.nop ? fmtD(r.conLai) : 0}</td><td class="r">${r.nop ? (r.pct * 100).toFixed(1).replace('.', ',') + '%' : '0%'}</td>
         <td><span class="xl ${r.loai}">${r.loai}</span></td><td class="r">${vnd(r.muc)}</td><td class="r money">${vnd(r.thuong)}</td>
         <td>${r.loai === 'TV1' ? 'TV' : r.loai === 'TV2' ? 'TV' : 'CT'}${r.loai === 'TV1' ? ' <span class="src">tháng đầu</span>' : ''}</td><td class="kv-badge">${esc(r.kv)}</td>
-        <td><input class="cell txt" type="text" data-f="lyDo" value="${esc(r.lyDoKhac)}" placeholder="Lý do trừ khác…" title="${esc(r.lyDo)}"></td></tr>`;
+        <td class="ts-cell"><label class="ts-chk"><input type="checkbox" data-ts="on"${tsO.on ? ' checked' : ''}> Nghỉ TS</label>${tsO.on ? `
+          <span class="ts-d">từ <input class="cell d" type="date" data-ts="tu" value="${esc(tsO.tu || '')}"></span><span class="ts-d">đến <input class="cell d" type="date" data-ts="den" value="${esc(tsO.den || '')}" title="Ngày đi làm lại — bỏ trống nếu chưa biết"></span>` : ''}</td>
+        <td><input class="cell txt" type="text" data-f="lyDo" value="${esc(r.lyDoKhac)}" placeholder="${r.ts ? 'Nghỉ thai sản – không tính thưởng' : 'Lý do trừ khác…'}" title="${esc(r.lyDo)}"></td></tr>`;
     });
-    $('thBody').innerHTML = html || '<tr><td colspan="16" style="text-align:center;color:#9ca3af;padding:20px">Chưa có nhân viên — nạp file tổng hợp tháng trước ở bước ①</td></tr>';
-    $('thFoot').innerHTML = `<td colspan="12">Tổng cộng (${L.length} nhân viên)</td><td class="r">${vnd(L.reduce((s, r) => s + r.thuong, 0))}</td><td colspan="3"></td>`;
+    $('thBody').innerHTML = html || '<tr><td colspan="17" style="text-align:center;color:#9ca3af;padding:20px">Chưa có nhân viên — nạp file tổng hợp tháng trước ở bước ①</td></tr>';
+    $('thFoot').innerHTML = `<td colspan="12">Tổng cộng (${L.length} nhân viên)</td><td class="r">${vnd(L.reduce((s, r) => s + r.thuong, 0))}</td><td colspan="4"></td>`;
     // ô "Trạng thái" (fix loai text) — hiển thị đúng loại
     L.forEach(r => { const tr = $('thBody').querySelector(`tr[data-ma="${CSS.escape(r.ma)}"] td:nth-child(11) .xl`); if (tr) { tr.className = 'xl ' + r.loai; tr.textContent = r.loai; } });
   }
@@ -158,7 +161,7 @@
     const XLC = { A: '#0e9f6e', B: '#1a56db', C: '#d97706', D: '#e02424' };
     const xl = ['A', 'B', 'C', 'D'].map(l => { const n = L.filter(r => r.loai === l).length; return { l: 'Loại ' + l, v: n, t: `${n} người`, c: XLC[l] }; });
     const tru = L.filter(r => r.tru > 0).sort((a, b) => b.tru - a.tru).slice(0, 10).map(r => ({ l: `${r.ma} · ${r.ten}`, v: r.tru, t: `−${fmtD(r.tru)} điểm`, tip: r.lyDo }));
-    const chua = L.filter(r => !r.nop);
+    const chua = L.filter(r => !r.nop && !r.ts);
     $('dash').innerHTML = `
       <div class="chart"><h4>Tổng thưởng theo bộ phận</h4><div class="sub">${vnd(L.reduce((s, r) => s + r.thuong, 0))}đ · ${L.length} nhân viên</div>
         ${bars(byG.map(o => ({ l: o.g, v: o.tien, t: vnd(o.tien) + 'đ', tip: `${o.g}: ${o.rs.length} người` })), () => '#1a56db')}</div>
@@ -237,8 +240,19 @@
     if (t.dataset && t.dataset.loai !== undefined) { const k = cur(); archive[k].roster[+t.dataset.loai].loai = t.value; touch(k); renderAll(); }
   });
   // nhập ngày phép / trừ khác / lý do trên bảng tổng hợp
+  function archiveTs(ma) { const k = cur(), e = k && (archive[k].roster || []).find(x => x.ma === ma); return e && e.ts; }
   $('thBody').addEventListener('change', e => {
-    const t = e.target; if (!t.dataset || !t.dataset.f) return;
+    const t = e.target;
+    if (t.dataset && t.dataset.ts) {
+      const k = cur(), ma = t.closest('tr').dataset.ma, nv = (archive[k].roster || []).find(x => x.ma === ma);
+      if (!nv) return;
+      const ts = nv.ts = nv.ts || {};
+      if (t.dataset.ts === 'on') { ts.on = t.checked; if (t.checked && !ts.tu) ts.tu = `${k}-01`; if (!t.checked) delete nv.ts; }
+      else ts[t.dataset.ts] = t.value;
+      touch(k); const y = window.scrollY; renderAll(); window.scrollTo(0, y);
+      return;
+    }
+    if (!t.dataset || !t.dataset.f) return;
     const k = cur(), ma = t.closest('tr').dataset.ma;
     const inp = archive[k].inputs = archive[k].inputs || {};
     const o = inp[ma] = inp[ma] || {};

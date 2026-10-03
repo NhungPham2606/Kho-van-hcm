@@ -134,6 +134,14 @@
   .tk table.dt tr.grp td { background: #eef2ff; color: #1e3a8a; font-weight: 700; }
   .tk table.dt tbody tr.grp:hover td { background: #eef2ff; }
   .tk table.dt tr.nonop td { color: #9ca3af; }
+  .tk table.dt tr.tsan td { color: #9ca3af; background: #fdf2f8; }
+  .tk table.dt tr.tsan td.name { color: #be185d; }
+  .tk table.dt td.ts-cell { white-space: nowrap; }
+  .tk .ts-chk { display: inline-flex; gap: 5px; align-items: center; font-size: 12px; color: #374151; cursor: pointer; }
+  .tk .ts-chk input { accent-color: #be185d; width: 14px; height: 14px; }
+  .tk .ts-d { display: block; font-size: 11px; color: #6b7280; margin-top: 3px; }
+  .tk table.dt input.cell.d { width: 128px; text-align: left; background: #fff; }
+  .tk .xl.TS { background: #fce7f3; color: #be185d; }
   .tk table.dt tr.nonop td.name { color: #b91c1c; }
   .tk table.dt input.cell, .tk table.dt select.cell { width: 64px; font: inherit; font-size: 12px; padding: 4px 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fffbeb; color: #1f2937; text-align: right; }
   .tk table.dt input.cell.txt { width: 100%; min-width: 200px; text-align: left; }
@@ -240,7 +248,7 @@
                 <th class="r">STT</th><th>Mã NV</th><th style="min-width:170px">Họ và tên</th><th class="r">Điểm đánh giá<br>ban đầu</th>
                 <th class="r">Trừ trong<br>file</th><th class="r no-snap-col">Ngày<br>phép</th><th class="r no-snap-col">Trừ<br>khác</th><th class="r">Điểm trừ</th>
                 <th class="r">Tổng điểm<br>còn lại</th><th class="r">Tổng chỉ tiêu<br>đánh giá (%)</th><th>Xếp loại</th><th class="r">Mức thưởng</th><th class="r">Tổng thưởng</th>
-                <th>Ghi chú</th><th>KV</th><th style="min-width:220px">Lý do điểm trừ</th></tr></thead>
+                <th>Ghi chú</th><th>KV</th><th style="min-width:120px">Nghỉ thai sản</th><th style="min-width:220px">Lý do điểm trừ</th></tr></thead>
                 <tbody id="thBody"></tbody><tfoot><tr id="thFoot"></tr></tfoot></table></div>
             </div>
 
@@ -290,7 +298,7 @@
 </div>
 <script src="../assets/flows.js?v=20261003a"></script>
 <script src="../assets/layout.js?v=20261003a"></script>
-<script src="engine.js?v=20261003a"></script>
-<script src="app.js?v=20261003a"></script>
+<script src="engine.js?v=20261003b"></script>
+<script src="app.js?v=20261003b"></script>
 </body>
 </html>

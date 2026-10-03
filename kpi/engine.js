@@ -9,6 +9,8 @@
    - Mức thưởng: KV bắt đầu bằng "KT" hoặc "ADETC" -> bảng Kế toán, còn lại -> bảng
      Kho - Giao hàng - Lái xe. Không nộp KPIs -> D, 0đ.
    - Thử việc tháng đầu (TV1): không thưởng; từ tháng thứ 2 (TV2) thưởng bình thường.
+   - Nghỉ thai sản (ts trên danh sách NV, chép sang các kỳ sau): tháng nào nằm trong khoảng
+     từ ngày – đến ngày (đến ngày bỏ trống = chưa đi làm lại) thì không thưởng, không tính "chưa nộp".
    ============================================================================ */
 (function (root) {
   'use strict';
@@ -149,8 +151,19 @@
     return diem >= n.A ? 'A' : diem >= n.B ? 'B' : diem >= n.C ? 'C' : 'D';
   }
 
+  // nghỉ thai sản có rơi vào kỳ "YYYY-MM" không (ngày dạng YYYY-MM-DD)
+  function tsTrongKy(ts, ky) {
+    if (!ts || !ts.on) return false;
+    if (!/^\d{4}-\d{2}$/.test(ky || '')) return true;
+    const dau = ky + '-01', cuoi = ky + '-31';
+    if (ts.tu && ts.tu > cuoi) return false;   // chưa bắt đầu nghỉ
+    if (ts.den && ts.den < dau) return false;  // đã đi làm lại trước kỳ này
+    return true;
+  }
+  const ngayVN = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '') ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : '';
+
   // roster + files + inputs -> bảng kết quả
-  function compute(roster, files, inputs) {
+  function compute(roster, files, inputs, ky) {
     const byMa = {};
     (files || []).forEach(f => { const e = matchFile(roster, f); if (e) byMa[e.ma] = f; });
     return roster.map(e => {
@@ -161,15 +174,21 @@
       const loai = nop ? xepLoai(conLai) : 'D';
       const bang = isKeToan(e.kv) ? RULES.mucKeToan : RULES.mucKho;
       const tv1 = e.loai === 'TV1';
+      const ts = tsTrongKy(e.ts, ky);
+      if (ts) {
+        const tsLyDo = `Nghỉ thai sản${e.ts.tu ? ' từ ' + ngayVN(e.ts.tu) : ''}${e.ts.den ? ' đến ' + ngayVN(e.ts.den) : ''} – không tính thưởng`;
+        return Object.assign({}, e, { nop, ts: true, file: f ? f.fileName : '', ban, tFile, tPhep, tKhac, tru, conLai, pct: conLai / 1000, loai: 'TS', muc: 0, thuong: 0,
+          lyDo: tsLyDo, phep: inp.phep || '', truKhac: inp.truKhac || '', lyDoKhac: inp.lyDo || '' });
+      }
       const muc = tv1 ? 0 : bang[loai];
       const lyDo = [!nop ? 'KHÔNG NỘP KPIS' : '', tFile ? `${f.truLyDo || 'Trừ trong file KPIs'} (-${tFile})` : '',
         num(inp.phep) ? `Nghỉ phép ${String(num(inp.phep)).replace('.', ',')} ngày (-${tPhep})` : '',
         tKhac ? `${norm(inp.lyDo) || 'Trừ khác'} (-${tKhac})` : norm(inp.lyDo), tv1 ? 'Thử việc tháng đầu – không tính thưởng' : '']
         .filter(Boolean).join('; ');
-      return Object.assign({}, e, { nop, file: f ? f.fileName : '', ban, tFile, tPhep, tKhac, tru, conLai, pct: conLai / 1000, loai, muc, thuong: muc, lyDo,
+      return Object.assign({}, e, { nop, ts: false, file: f ? f.fileName : '', ban, tFile, tPhep, tKhac, tru, conLai, pct: conLai / 1000, loai, muc, thuong: muc, lyDo,
         phep: inp.phep || '', truKhac: inp.truKhac || '', lyDoKhac: inp.lyDo || '' });
     });
   }
 
-  root.KPI = { RULES, parseRoster, parseKpiFile, parsePdfText, compute, matchFile, nameKey, isKeToan, truPhep, xepLoai, normMa };
+  root.KPI = { RULES, parseRoster, parseKpiFile, parsePdfText, compute, tsTrongKy, matchFile, nameKey, isKeToan, truPhep, xepLoai, normMa };
 })(typeof self !== 'undefined' ? self : window);
