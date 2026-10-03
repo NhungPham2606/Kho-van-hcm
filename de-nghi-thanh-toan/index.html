@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Đề Nghị Thanh Toán</title>
 <link rel="icon" href="../assets/logo.png?v=2" type="image/png">
-<link rel="stylesheet" href="../assets/theme.css?v=20261003e">
+<link rel="stylesheet" href="../assets/theme.css?v=20261003f">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   .content.tk-wide { max-width: none; padding: 16px 20px; }
@@ -170,7 +170,7 @@
   .tk table.it select { width: 100%; font: inherit; font-size: 12px; padding: 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; }
   .tk table.dt input.cell { font: inherit; font-size: 12px; padding: 4px 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fffbeb; width: 100%; box-sizing: border-box; }
   .tk table.dt input.cell.r { text-align: right; width: 110px; }
-  [data-bm03="0"] .only-bm03, [data-pt="0"] .only-pt { display: none !important; }
+  [data-bm03="0"] .only-bm03, [data-pt="0"] .only-pt, [data-tt="0"] .only-tt { display: none !important; }
   [data-bm03="0"][data-pt="1"] .only-pt.only-bm03, [data-bm03="1"][data-pt="0"] .only-pt.only-bm03 { display: revert !important; }
   .tk .mau-in { flex-direction: column; align-items: flex-start; gap: 6px; }
   /* ---- Phiếu trình V/v thăm hỏi (mẫu Word "ĐỀ NGHỊ chi tiền ốm đau") ---- */
@@ -318,12 +318,12 @@
           </div>
 
           <!-- ====================== CHẾ ĐỘ CÔNG ĐOÀN ====================== -->
-          <div data-pane="cong-doan" class="tk-card-body" data-bm03="1" data-pt="1" hidden>
+          <div data-pane="cong-doan" class="tk-card-body" data-bm03="1" data-pt="1" data-tt="1" hidden>
             <div class="lp">
               <div>
                 <div class="sec">① Bộ hồ sơ cần in <span class="hint" style="text-transform:none;letter-spacing:0;font-weight:400">— bấm "In bộ hồ sơ" là in liền các tờ đã tích, theo thứ tự</span></div>
                 <div class="radio mau-in">
-                  <label class="chk"><input type="checkbox" id="inTT"> <span><b>1. Giấy đề nghị thanh toán</b> <span class="hint">(BM-01/KT — gộp các khoản, khổ A5)</span></span></label>
+                  <label class="chk"><input type="checkbox" id="inTT"> <span><b>1. Giấy đề nghị thanh toán</b> <span class="hint">(BM-01/KT — mỗi nhân viên 1 tờ A5, tiền chuyển vào tài khoản của NV)</span></span></label>
                   <label class="chk"><input type="checkbox" id="inBM03"> <span><b>2. Giấy đề nghị hỗ trợ theo chế độ</b> <span class="hint">(BM-03/HC — mỗi nhân viên 1 tờ A4)</span></span></label>
                   <label class="chk"><input type="checkbox" id="inPT"> <span><b>3. Phiếu trình V/v thăm hỏi</b> <span class="hint">(1 tờ A4, các nhân viên trong bảng)</span></span></label>
                 </div>
@@ -331,9 +331,7 @@
                   <label class="only-bm03">Bộ phận đề xuất<input id="cBoPhan"></label>
                   <label class="only-bm03">Đơn vị (dòng in đậm góc trái)<input id="cDonVi"></label>
                   <label class="only-bm03">Nơi ký (dòng ngày tháng)<input id="cNoiKy"></label>
-                  <label>Người đề nghị thanh toán (dòng "Tên tôi là" — người nhận tiền)<input id="cNguoiTT" list="nguoiList"></label>
-                  <label>Số tài khoản nhận tiền<input id="cSoTK" inputmode="numeric"></label>
-                  <label>Tại ngân hàng<input id="cNH"></label>
+                  <label class="only-tt">Người đề nghị thanh toán (dòng "Tên tôi là")<input id="cNguoiTT" list="nguoiList"></label>
                   <label>Ngày lập<input id="cNgay" type="date"></label>
                   <div class="fl">Ngày trên phiếu<label class="chk"><input type="checkbox" id="cNgayTrong"> Để trống ngày/tháng (ký tay)</label></div>
                   <div class="fl only-bm03">Mục II (Công đoàn cơ sở)<label class="chk"><input type="checkbox" id="cDienCD"> Điền sẵn mức Quỹ CĐ</label></div>
@@ -347,7 +345,7 @@
                 </div>
 
                 <div class="sec">② Nhân viên được hỗ trợ</div>
-                <table class="it"><thead><tr><th>STT</th><th style="min-width:170px">Họ tên</th><th style="width:110px">Mã NV</th><th class="only-pt" style="min-width:170px">Người thân (nếu có)</th><th class="only-pt" style="width:80px">NV là</th><th style="min-width:230px">Chế độ</th><th style="width:130px">Số tiền (Cty)</th><th class="only-bm03">Lý do (in trên phiếu)</th><th class="only-pt">Ghi chú</th><th></th></tr></thead>
+                <table class="it"><thead><tr><th>STT</th><th style="min-width:170px">Họ tên</th><th style="width:110px">Mã NV</th><th class="only-pt" style="min-width:170px">Người thân (nếu có)</th><th class="only-pt" style="width:80px">NV là</th><th style="min-width:230px">Chế độ</th><th style="width:130px">Số tiền (Cty)</th><th class="only-tt" style="min-width:130px">Số TK của NV</th><th class="only-tt" style="min-width:150px">Ngân hàng của NV</th><th class="only-bm03">Lý do (in trên phiếu)</th><th class="only-pt">Ghi chú</th><th></th></tr></thead>
                   <tbody id="cdBody"></tbody>
                   <tfoot><tr><td></td><td colspan="3"><button class="b sm" type="button" id="cdAdd">+ Thêm nhân viên</button> <span class="hint">Gõ tên/mã — gợi ý từ danh sách NV ở trang KPIs và các lần trước.</span></td><td style="text-align:right" id="cdTong"></td><td colspan="2"></td></tr></tfoot>
                 </table>
@@ -423,8 +421,8 @@
   </div>
 </div>
 <div id="printArea"></div>
-<script src="../assets/flows.js?v=20261003e"></script>
-<script src="../assets/layout.js?v=20261003e"></script>
-<script src="app.js?v=20261003e"></script>
+<script src="../assets/flows.js?v=20261003f"></script>
+<script src="../assets/layout.js?v=20261003f"></script>
+<script src="app.js?v=20261003f"></script>
 </body>
 </html>

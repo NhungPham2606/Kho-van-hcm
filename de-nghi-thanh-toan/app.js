@@ -724,12 +724,12 @@
   const mucChi = () => (db.cfg && Array.isArray(db.cfg.mucChi) && db.cfg.mucChi.length) ? db.cfg.mucChi : MUC_CHI_GOC;
   const cheDo = id => mucChi().find(x => x.id === id);
   const LS_CD = 'kvh-dntt-cd-draft';
-  const blankRow = () => ({ ten: '', ma: '', cheDo: '', tien: 0, lyDo: '', nguoiThan: '', quanHe: '', gc: '' });
+  const blankRow = () => ({ ten: '', ma: '', cheDo: '', tien: 0, lyDo: '', nguoiThan: '', quanHe: '', gc: '', soTK: '', nh: '' });
   // bộ hồ sơ: inTT = Giấy ĐN thanh toán (A5) · inBM03 = Giấy ĐN hỗ trợ theo chế độ (1 tờ/NV) · inPT = Phiếu trình V/v thăm hỏi (1 tờ)
   const newCd = keep => ({ id: '', inTT: keep ? keep.inTT !== false : true, inBM03: keep ? keep.inBM03 !== false : true, inPT: keep ? keep.inPT !== false : true,
     boPhan: keep ? keep.boPhan : 'Bộ phận Hành chính HCM', donVi: keep ? keep.donVi : 'HÀNH CHÍNH CN HCM', noiKy: keep ? keep.noiKy : 'Hà Nội',
     ngayLap: today(), ngayTrong: keep ? keep.ngayTrong : true, dienCD: keep ? keep.dienCD : false,
-    vv: '', vvTay: false, yk: '', ykTay: false, dienGiai: '', nguoiDN: keep ? keep.nguoiDN || '' : '', nguoiTT: keep && keep.nguoiTT ? keep.nguoiTT : 'Phạm Thị Nhung', soTK: keep ? keep.soTK || '' : '', nh: keep ? keep.nh || '' : '', giamDoc: keep && keep.giamDoc !== undefined ? keep.giamDoc : 'Phương Thu',
+    vv: '', vvTay: false, yk: '', ykTay: false, dienGiai: '', nguoiDN: keep ? keep.nguoiDN || '' : '', nguoiTT: keep && keep.nguoiTT ? keep.nguoiTT : 'Phạm Thị Nhung', giamDoc: keep && keep.giamDoc !== undefined ? keep.giamDoc : 'Phương Thu',
     rows: [blankRow()] });
   let c = null; try { c = JSON.parse(localStorage.getItem(LS_CD) || 'null'); } catch (e) {}
   c = (!c || !Array.isArray(c.rows)) ? newCd() : Object.assign(newCd(), c);
@@ -745,7 +745,10 @@
       const k = Object.keys(a).sort().reverse()[0];
       ((k && a[k].roster) || []).forEach(e => { if (e.ten) m[(e.ma || e.ten)] = { ma: String(e.ma || ''), ten: e.ten }; });
     } catch (e) {}
-    (db.cd || []).forEach(x => (x.rows || []).forEach(r => { if (r.ten) m[r.ma || r.ten] = { ma: r.ma, ten: r.ten }; }));
+    (db.cd || []).slice().sort((a, b) => (a.sua || '').localeCompare(b.sua || '')).forEach(x => (x.rows || []).forEach(r => {
+      if (!r.ten) return; const o = m[r.ma || r.ten] || {};
+      m[r.ma || r.ten] = { ma: r.ma || o.ma || '', ten: r.ten, soTK: r.soTK || o.soTK || '', nh: r.nh || o.nh || '' };
+    }));
     return Object.values(m).sort((a, b) => a.ten.localeCompare(b.ten, 'vi'));
   }
 
@@ -829,23 +832,24 @@
     </div>`;
   }
   // Giấy đề nghị thanh toán gộp các khoản Công đoàn (người đề nghị ứng tiền rồi xin thanh toán)
-  function buildTT(x) {
-    const rows = cdRows(x).filter(r => r.tien);
-    const nguoi = clean(x.nguoiTT) || 'Phạm Thị Nhung';
-    const payee = db.mau.find(m => clean(m.tenTK).toLowerCase() === nguoi.toLowerCase() && m.soTK);
-    const tham = rows.every(r => (cheDo(r.cheDo) || {}).nhom !== 'Sự kiện');
+  // Giấy đề nghị thanh toán cho 1 NV: người đề nghị = bên Công đoàn (nguoiTT), người nhận tiền = NV được hỗ trợ
+  function buildTT(x, r) {
+    r = r || blankRow();
+    const m = cheDo(r.cheDo) || {};
     const t = newDraft(d);
     return Object.assign(t, {
-      id: x.ttId || '', mauTen: 'Công đoàn', nguoi, boPhan: d.boPhan || t.boPhan, ht: 'ck', ngayLap: x.ngayLap || today(), ngayTrong: x.ngayTrong,
-      lyDo: tham ? 'Chi tiền thăm hỏi nhân viên_CN.HCM' : 'Chi tiền hỗ trợ chế độ CBNV_CN.HCM',
-      tenTK: payee ? payee.tenTK : nguoi, soTK: clean(x.soTK) || (payee ? payee.soTK : ''), nh: clean(x.nh) || (payee ? payee.nh : ''),
-      items: (rows.length ? rows : [blankRow()]).map(r => ({ ngay: x.ngayLap || today(), ct: 'Giấy ĐN hỗ trợ', tien: r.tien, gc: r.ten ? `${r.ten}${r.ma ? ' (' + r.ma + ')' : ''} – ${(cheDo(r.cheDo) || {}).ten || r.lyDo}` : '' })),
+      id: r.ttId || '', mauTen: 'Công đoàn' + (r.ten ? ' – ' + r.ten : ''), nguoi: clean(x.nguoiTT) || 'Phạm Thị Nhung', boPhan: d.boPhan || t.boPhan,
+      ht: 'ck', ngayLap: x.ngayLap || today(), ngayTrong: x.ngayTrong,
+      lyDo: m.nhom === 'Sự kiện' ? `Chi tiền ${(m.ten || 'hỗ trợ chế độ').charAt(0).toLowerCase() + (m.ten || 'hỗ trợ chế độ').slice(1)}_CN.HCM`
+        : `Chi tiền thăm hỏi nhân viên${m.ten ? ' – ' + m.ten : ''}_CN.HCM`,
+      tenTK: r.ten || '', soTK: clean(r.soTK), nh: clean(r.nh),
+      items: [{ ngay: x.ngayLap || today(), ct: 'Giấy ĐN hỗ trợ', tien: r.tien || 0, gc: r.ten ? `${r.ten}${r.ma ? ' – Mã NV ' + r.ma : ''}` : '' }],
     });
   }
   // bộ hồ sơ in: 1 ĐN thanh toán · 2 Giấy ĐN hỗ trợ (mỗi NV 1 tờ) · 3 Phiếu trình
   function cdBundle(x) {
     const rows = cdRows(x), list = rows.length ? rows : [blankRow()], pages = [];
-    if (x.inTT) { const t = buildTT(x); pages.push({ ten: '1. Giấy ĐN thanh toán', kho: t.kho === 'A4' ? 'A4' : 'A5', html: phieuHtml(t).replace('class="phieu', `class="phieu${t.kho === 'A4' ? '' : ' p5'}`) }); }
+    if (x.inTT) list.forEach(r => { const t = buildTT(x, r); pages.push({ ten: `1. Giấy ĐN thanh toán – ${r.ten || '(chưa có tên)'}`, kho: t.kho === 'A4' ? 'A4' : 'A5', html: phieuHtml(t).replace('class="phieu', `class="phieu${t.kho === 'A4' ? '' : ' p5'}`) }); });
     if (x.inBM03) list.forEach(r => pages.push({ ten: `2. Giấy ĐN hỗ trợ – ${r.ten || '(chưa có tên)'}`, kho: 'A4', html: cdHtml(x, r) }));
     if (x.inPT) pages.push({ ten: '3. Phiếu trình', kho: 'A4', html: ptHtml(x) });
     return pages;
@@ -861,13 +865,13 @@
     $('cdPaper').style.width = Math.round(w * sc) + 'px'; $('cdPaper').style.height = Math.round(h * sc) + 'px';
   }
   $('cdPvSel').addEventListener('change', e => { cdPv = +e.target.value; renderCdPreview(); });
-  const CF = { cBoPhan: 'boPhan', cDonVi: 'donVi', cNoiKy: 'noiKy', cNgay: 'ngayLap', cDienGiai: 'dienGiai', cNguoiDN: 'nguoiDN', cNguoiTT: 'nguoiTT', cSoTK: 'soTK', cNH: 'nh', cGiamDoc: 'giamDoc' };
+  const CF = { cBoPhan: 'boPhan', cDonVi: 'donVi', cNoiKy: 'noiKy', cNgay: 'ngayLap', cDienGiai: 'dienGiai', cNguoiDN: 'nguoiDN', cNguoiTT: 'nguoiTT', cGiamDoc: 'giamDoc' };
   function renderCd() {
     Object.entries(CF).forEach(([id, k]) => { if (document.activeElement !== $(id)) $(id).value = c[k] || ''; });
     $('cNgayTrong').checked = !!c.ngayTrong; $('cDienCD').checked = !!c.dienCD;
     const pane = document.querySelector('[data-pane="cong-doan"]');
     pane.dataset.bm03 = c.inBM03 ? '1' : '0'; pane.dataset.pt = c.inPT ? '1' : '0';
-    dienTKTheoMau(false);
+    pane.dataset.tt = c.inTT ? '1' : '0';
     $('inTT').checked = !!c.inTT; $('inBM03').checked = !!c.inBM03; $('inPT').checked = !!c.inPT;
     autoPt();
     const opts = sel => mucChi().map(m => `<option value="${esc(m.id)}"${m.id === sel ? ' selected' : ''}>${esc(m.ten)}${m.cty ? ' — ' + vnd(m.cty) : ''}</option>`).join('');
@@ -878,6 +882,8 @@
       <td class="only-pt"><input data-k="quanHe" value="${esc(r.quanHe)}" placeholder="Con"></td>
       <td><select data-k="cheDo"><option value="">— chọn chế độ —</option>${opts(r.cheDo)}</select></td>
       <td><input class="money" data-k="tien" inputmode="numeric" value="${r.tien ? vnd(r.tien) : ''}"></td>
+      <td class="only-tt"><input data-k="soTK" inputmode="numeric" value="${esc(r.soTK)}" placeholder="Số tài khoản"></td>
+      <td class="only-tt"><input data-k="nh" value="${esc(r.nh)}" placeholder="vd: ACB"></td>
       <td class="only-bm03"><input data-k="lyDo" value="${esc(r.lyDo)}"></td>
       <td class="only-pt"><input data-k="gc" value="${esc(r.gc)}"></td>
       <td class="x"><button type="button" data-del="${i}" title="Xóa dòng">×</button></td></tr>`).join('');
@@ -889,14 +895,6 @@
   function renderCdTong() { const t = cdRows(c).reduce((s, r) => s + (r.tien || 0), 0); $('cdTong').innerHTML = t ? `<b>${vnd(t)}</b>` : ''; }
   function cdChanged() { autoPt(); saveCd(); renderCdTong(); renderCdPreview(); }
   Object.entries(CF).forEach(([id, k]) => $(id).addEventListener('input', () => { c[k] = $(id).value; cdChanged(); }));
-  function dienTKTheoMau(epBuoc) { // tìm mẫu đơn vị nhận tiền trùng tên người đề nghị thanh toán
-    const p = db.mau.find(m => clean(m.tenTK).toLowerCase() === clean(c.nguoiTT).toLowerCase() && m.soTK);
-    if (!p) return;
-    if (epBuoc || !clean(c.soTK)) c.soTK = p.soTK;
-    if (epBuoc || !clean(c.nh)) c.nh = p.nh || '';
-    $('cSoTK').value = c.soTK || ''; $('cNH').value = c.nh || '';
-  }
-  $('cNguoiTT').addEventListener('change', () => { dienTKTheoMau(true); cdChanged(); });
   [['inTT', 'inTT'], ['inBM03', 'inBM03'], ['inPT', 'inPT']].forEach(([id, k]) => $(id).addEventListener('change', e => { c[k] = e.target.checked; cdPv = 0; saveCd(); renderCd(); }));
   $('cVv').addEventListener('input', e => { c.vv = e.target.value; c.vvTay = true; cdChanged(); });
   $('cYk').addEventListener('input', e => { c.yk = e.target.value; c.ykTay = true; cdChanged(); });
@@ -914,7 +912,10 @@
       r[k] = e.target.value;
       if (k === 'ten' || k === 'ma') { // khớp tên <-> mã
         const nv = nvGoiY().find(x => k === 'ten' ? x.ten === r.ten : x.ma === r.ma);
-        if (nv) { const o = k === 'ten' ? 'ma' : 'ten'; if (!r[o]) { r[o] = nv[o]; tr.querySelector(`[data-k=${o}]`).value = nv[o]; } }
+        if (nv) {
+          const o = k === 'ten' ? 'ma' : 'ten'; if (!r[o]) { r[o] = nv[o]; tr.querySelector(`[data-k=${o}]`).value = nv[o]; }
+          ['soTK', 'nh'].forEach(f => { if (!r[f] && nv[f]) { r[f] = nv[f]; tr.querySelector(`[data-k=${f}]`).value = nv[f]; } });
+        }
       }
     }
     cdPv = i; cdChanged();
@@ -946,13 +947,15 @@
     const loi = [];
     const thieu = rows.filter(r => !r.ten || !r.tien || (c.inBM03 && !r.lyDo));
     if (thieu.length) loi.push(`${thieu.length} dòng còn thiếu tên / số tiền${c.inBM03 ? ' / lý do' : ''}`);
-    if (c.inTT) { const t = buildTT(c); if (!t.soTK) loi.push(`phiếu thanh toán chưa có số tài khoản của "${t.nguoi || '?'}" — điền ở ô "Số tài khoản nhận tiền"`); }
+    if (c.inTT) { const k = rows.filter(r => !clean(r.soTK) || !clean(r.nh)); if (k.length) loi.push(`${k.map(r => r.ten || '?').join(', ')} chưa có số tài khoản / ngân hàng (cột "Số TK của NV")`); }
     if (loi.length && !confirm(loi.join('\n') + '.\nVẫn in?')) return;
     luuCd();
-    if (c.inTT) { // lưu luôn phiếu thanh toán vào "Phiếu đã lập"
-      const t = buildTT(c); if (!t.id) { t.id = newId(); c.ttId = t.id; }
-      t.items = t.items.filter(it => it.tien); t.tong = tong(t); t.sua = nowIso();
-      const i = db.phieu.findIndex(p => p.id === t.id); if (i >= 0) { t.tao = db.phieu[i].tao; db.phieu[i] = t; } else { t.tao = t.sua; db.phieu.push(t); }
+    if (c.inTT) { // lưu luôn các phiếu thanh toán (mỗi NV 1 phiếu) vào "Phiếu đã lập"
+      c.rows.filter(r => r.tien).forEach(r => {
+        if (!r.ttId) r.ttId = newId();
+        const t = buildTT(c, r); t.tong = tong(t); t.sua = nowIso();
+        const i = db.phieu.findIndex(p => p.id === t.id); if (i >= 0) { t.tao = db.phieu[i].tao; db.phieu[i] = t; } else { t.tao = t.sua; db.phieu.push(t); }
+      });
       luuCd(); renderLists();
     }
     const pages = cdBundle(c);
@@ -966,9 +969,11 @@
     const rows = cdRows(c).filter(r => r.tien);
     if (!rows.length) { msg($('cdMsg'), 'Chưa có khoản nào có số tiền.'); return; }
     luuCd();
-    d = buildTT(c); d.items = d.items.filter(it => it.tien);
+    const pages = cdBundle(c), cur = pages[cdPv] && pages[cdPv].ten.split(' – ')[1];
+    const r = rows.find(x => x.ten === cur) || rows[0];
+    d = buildTT(c, r);
     saveDraft(); location.hash = '#lap-phieu'; renderForm();
-    msg($('lpMsg'), `Đã tạo phiếu thanh toán từ ${rows.length} khoản Công đoàn. Kiểm tra người nhận tiền / tài khoản rồi In.`, true);
+    msg($('lpMsg'), `Đang sửa phiếu thanh toán của <b>${esc(r.ten)}</b>${rows.length > 1 ? ` (1 trong ${rows.length} nhân viên — chọn tờ ở ô Xem trước bên Công đoàn để mở phiếu NV khác)` : ''}.`, true);
   });
   function renderCdHist() {
     const list = (db.cd || []).slice().sort((a, b) => (b.ngayLap || '').localeCompare(a.ngayLap || '') || (b.sua || '').localeCompare(a.sua || ''));
