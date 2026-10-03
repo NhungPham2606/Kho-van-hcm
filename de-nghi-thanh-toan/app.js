@@ -303,6 +303,139 @@
     if (m) { e.target.value = ''; applyMau(m); }
   });
 
+  // ------------------------------------------------------------ thả hóa đơn điện tử (PDF bản thể hiện / XML) -> tự điền phiếu
+  const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  const CPC1_MST = ['0104089394', '0101243150']; // MST bên mua (CPC1) + MISA (nhà phát hành) — không phải người bán
+  const soChu = s => String(s || '').replace(/\D/g, '');
+  const tienHD = s => { const t = String(s || '').trim(); if (!t) return 0; return /,\d{1,2}$/.test(t) ? Math.round(parseFloat(t.replace(/\./g, '').replace(',', '.'))) : parseMoney(t); };
+  async function pdfLines(buf) {
+    if (!window.pdfjsLib) { await loadScript(PDFJS + 'pdf.min.js'); window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; }
+    const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise, out = [];
+    for (let n = 1; n <= Math.min(pdf.numPages, 3); n++) {
+      const items = (await (await pdf.getPage(n)).getTextContent()).items.filter(it => it.str && it.str.trim());
+      const rows = {};
+      items.forEach(it => { const k = Math.round(it.transform[5] / 3); (rows[k] = rows[k] || []).push(it); });
+      Object.keys(rows).map(Number).sort((a, b) => b - a).forEach(k => {
+        let line = '', end = null; // ghép các mảnh sát nhau (pdf.js tách "10.260.000" thành "10" "." "260"…)
+        rows[k].sort((a, b) => a.transform[4] - b.transform[4]).forEach(it => {
+          const x = it.transform[4];
+          line += (end !== null && x - end > 1.5 ? ' ' : '') + it.str;
+          end = x + (it.width || 0);
+        });
+        out.push(line.replace(/\s+/g, ' ').trim());
+      });
+    }
+    return out;
+  }
+  function docHdPdf(lines) {
+    const hd = {}, all = lines.join('\n');
+    let m;
+    if ((m = all.match(/Ký hiệu\s*(?:\(Serial\))?\s*:\s*([0-9A-Z]{5,9})/i))) hd.kyHieu = m[1];
+    for (const l of lines) if ((m = l.match(/^Số\s*(?:\(No\.?\))?\s*:\s*(\d{1,10})\b/i))) { hd.so = m[1]; break; }
+    if ((m = all.match(/Ngày\s*(?:\(Date\))?\s*(\d{1,2})\s*tháng\s*(?:\(month\))?\s*(\d{1,2})\s*năm\s*(?:\(year\))?\s*(\d{4})/i))) hd.ngay = `${m[3]}-${pad2(+m[2])}-${pad2(+m[1])}`;
+    const iBan = lines.findIndex(l => /^(Đơn vị bán( hàng)?|Tên người bán|Người bán( hàng)?|Tên đơn vị bán)\s*(\([^)]*\))?\s*:/i.test(l));
+    const iMua = lines.findIndex(l => /(người mua|Tên đơn vị\s*:|Đơn vị mua)/i.test(l));
+    if (iBan >= 0) {
+      hd.ban = clean(lines[iBan].replace(/^[^:]*:/, ''));
+      const vung = lines.slice(iBan + 1, iMua > iBan ? iMua : iBan + 8);
+      for (const l of vung) {
+        if (!hd.mst && (m = l.match(/Mã số thuế[^:]*:\s*([\d\s-]{10,20})/i))) hd.mst = m[1].replace(/\s/g, '');
+        if (!hd.stk && (m = l.match(/Số tài khoản[^:]*:\s*([\d\s.-]{5,30})(.*)$/i))) { hd.stk = clean(m[1]).replace(/[\s.]/g, ''); const nh = clean(m[2]).replace(/^[-–,\s]*(tại\s*)?/i, ''); if (nh) hd.nh = nh; }
+        if (!hd.nh && (m = l.match(/(?:Tại\s*)?Ngân hàng[^:]*:\s*(.+)$/i))) hd.nh = clean(m[1]);
+      }
+    }
+    if ((m = all.match(/Tổng (?:cộng )?tiền thanh toán[^:\d]*:?\s*([\d.,]+)/i))) hd.tong = tienHD(m[1]);
+    // tên hàng hóa: các dòng giữa tiêu đề bảng và "Cộng tiền hàng"
+    const i0 = lines.findIndex(l => /Tên hàng hóa/i.test(l)), i1 = lines.findIndex((l, i) => i > i0 && /Cộng tiền hàng|Tổng tiền thanh toán/i.test(l));
+    if (i0 >= 0) {
+      const ten = [];
+      lines.slice(i0 + 1, i1 > i0 ? i1 : i0 + 12).forEach(l => {
+        if (/^[\d\s=x]+$/i.test(l) || l.split(' ').length < 2 && !/[a-zà-ỹ]{3,}/i.test(l)) return;
+        if (/MISA|MeInvoice|Phát hành|Cổ phần/i.test(l) && l.length < 25) return;
+        let w = l.split(' ');
+        const iSo = w.findIndex((t, j) => j > 0 && /^\d{1,3}([.,]\d{3})+$|^\d+,\d+$/.test(t));
+        if (iSo > 0) { w = w.slice(0, iSo); if (/^\d+$/.test(w[0])) w.shift(); w.pop(); } else if (/^\d+$/.test(w[0]) && w.length > 1) w.shift();
+        if (w.length) ten.push(w.join(' '));
+      });
+      hd.hang = clean(ten.join(' '));
+    }
+    return hd;
+  }
+  function docHdXml(text) {
+    const x = new DOMParser().parseFromString(text, 'application/xml');
+    if (x.getElementsByTagName('parsererror').length) throw new Error('file XML lỗi');
+    const g = (el, tag) => { const n = el && el.getElementsByTagName(tag)[0]; return n ? clean(n.textContent) : ''; };
+    const ban = x.getElementsByTagName('NBan')[0];
+    const hd = { kyHieu: g(x, 'KHHDon'), so: g(x, 'SHDon'), ngay: (g(x, 'NLap') || '').slice(0, 10),
+      ban: g(ban, 'Ten'), mst: g(ban, 'MST'), stk: soChu(g(ban, 'STKNHang')), nh: g(ban, 'TNHang'), tong: tienHD(g(x, 'TgTTTBSo')) };
+    hd.hang = [...x.getElementsByTagName('HHDVu')].map(h => g(h, 'THHDVu')).filter(Boolean).join(', ');
+    if (!hd.ban && !hd.tong) throw new Error('không phải hóa đơn điện tử');
+    return hd;
+  }
+  async function docHoaDon(file) {
+    const ten = file.name || '';
+    let hd;
+    if (/\.xml$/i.test(ten)) hd = docHdXml(await file.text());
+    else if (/\.pdf$/i.test(ten)) hd = docHdPdf(await pdfLines(await file.arrayBuffer()));
+    else throw new Error('chỉ đọc được PDF hoặc XML');
+    if (!hd.so && (/_(\d{3,10})\.(pdf|xml)$/i.exec(ten))) hd.so = /_(\d{3,10})\.(pdf|xml)$/i.exec(ten)[1];
+    if (CPC1_MST.includes(soChu(hd.mst).slice(0, 10))) hd.mst = '';
+    hd.file = ten;
+    return hd;
+  }
+  const tenGon = s => clean(String(s || '').toUpperCase().normalize('NFC')
+    .replace(/CÔNG TY|CTY|TNHH|CỔ PHẦN|\bCP\b|THƯƠNG MẠI|DỊCH VỤ|SẢN XUẤT|MỘT THÀNH VIÊN|MTV|CHI NHÁNH|[-–.,()]/g, ' '));
+  function timMau(hd) {
+    const stk = soChu(hd.stk), mst = soChu(hd.mst), ten = tenGon(hd.ban);
+    return db.mau.find(m => mst && soChu(m.mst) === mst)
+      || db.mau.find(m => stk.length >= 6 && soChu(m.soTK) === stk)
+      || db.mau.find(m => ten.length >= 6 && tenGon(m.tenTK) && (tenGon(m.tenTK) === ten || tenGon(m.tenTK).includes(ten) || ten.includes(tenGon(m.tenTK))));
+  }
+  let hdHang = []; // các nhóm hóa đơn (theo đơn vị bán) chưa lập phiếu
+  function lapTuHoaDon(nhom) {
+    const hd0 = nhom[0], m = timMau(hd0);
+    const ky = hd0.ngay ? hd0.ngay.slice(0, 7) : kyMacDinh();
+    if (m) applyMau(m); else { d = newDraft(d); }
+    const pre = (m && m.ctPrefix) || 'HĐ: ';
+    Object.assign(d, {
+      ky, mst: hd0.mst || (m && m.mst) || '',
+      items: nhom.map(h => ({ ngay: h.ngay || '', ct: h.so ? pre + String(Number(h.so)) : '', tien: h.tong || 0, gc: (m && m.ghiChu) || '' })),
+    });
+    if (m) d.lyDo = doiKy(m.lyDo || '', ky);
+    else Object.assign(d, { mauId: '', mauTen: hd0.ban, ht: 'ck', tenTK: hd0.ban || '', soTK: hd0.stk || '', nh: hd0.nh || '',
+      lyDo: `Thanh toán ${hd0.hang || 'tiền hàng/dịch vụ'}_CN.HCM` });
+    if (m && hd0.mst && !m.mst) { m.mst = hd0.mst; m.sua = nowIso(); touch(); }
+    saveDraft(); renderForm();
+    const canhBao = [];
+    if (m && hd0.stk && soChu(m.soTK) && soChu(m.soTK) !== soChu(hd0.stk)) canhBao.push(`⚠ Số tài khoản trên hóa đơn (${esc(hd0.stk)}) <b>khác</b> mẫu (${esc(m.soTK)}) — kiểm tra lại.`);
+    if (!m) canhBao.push('Chưa có mẫu cho đơn vị này — đã điền theo hóa đơn. Kiểm tra lý do + <b>ngân hàng</b>, rồi bấm "Lưu làm mẫu" để lần sau tự nhận.');
+    if (nhom.some(h => !h.tong)) canhBao.push('⚠ Có hóa đơn không đọc được tổng tiền — nhập tay.');
+    msg($('lpMsg'), `Đã điền từ ${nhom.length} hóa đơn của <b>${esc(hd0.ban || '?')}</b>${m ? ` (mẫu <b>${esc(m.ten)}</b>)` : ''}: ${nhom.map(h => `HĐ ${esc(h.so || '?')} ngày ${esc(isoToVN(h.ngay))} = ${vnd(h.tong)}`).join('; ')}.${canhBao.length ? '<br>' + canhBao.join('<br>') : ''}`, !canhBao.some(t => t.startsWith('⚠')));
+  }
+  function renderHdHang() {
+    $('hdHang').innerHTML = hdHang.length ? `<span class="hint">Còn hóa đơn của đơn vị khác — bấm để lập phiếu tiếp:</span> ` + hdHang.map((n, i) => `<button type="button" class="b sm" data-hd="${i}">${esc(n[0].ban || n[0].file)} · ${n.length} HĐ · ${vnd(n.reduce((s, h) => s + (h.tong || 0), 0))}</button>`).join(' ') : '';
+  }
+  async function napHoaDon(files) {
+    msg($('lpMsg'), 'Đang đọc hóa đơn…', true);
+    const ok = [], loi = [];
+    for (const f of files) { try { ok.push(await docHoaDon(f)); } catch (e) { loi.push(`${esc(f.name)}: ${esc(e.message)}`); } }
+    if (!ok.length) { msg($('lpMsg'), 'Không đọc được hóa đơn nào. ' + loi.join('; ')); return; }
+    const nhom = {};
+    ok.forEach(h => { const k = soChu(h.mst) || tenGon(h.ban) || h.file; (nhom[k] = nhom[k] || []).push(h); });
+    const ds = Object.values(nhom).map(n => n.sort((a, b) => (a.ngay || '').localeCompare(b.ngay || '')));
+    hdHang = ds.slice(1);
+    lapTuHoaDon(ds[0]); renderHdHang();
+    if (loi.length) $('lpMsg').innerHTML += `<div class="tk-err">Không đọc được: ${loi.join('; ')}</div>`;
+  }
+  $('hdHang').addEventListener('click', e => { const b = e.target.closest('[data-hd]'); if (!b) return; const n = hdHang.splice(+b.dataset.hd, 1)[0]; lapTuHoaDon(n); renderHdHang(); });
+  const hdZone = $('hdZone'), hdFile = $('hdFile');
+  hdZone.addEventListener('click', () => hdFile.click());
+  hdZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hdFile.click(); } });
+  hdFile.addEventListener('change', () => { if (hdFile.files.length) napHoaDon([...hdFile.files]); hdFile.value = ''; });
+  ['dragenter', 'dragover'].forEach(ev => hdZone.addEventListener(ev, e => { e.preventDefault(); hdZone.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(ev => hdZone.addEventListener(ev, e => { e.preventDefault(); hdZone.classList.remove('drag'); }));
+  hdZone.addEventListener('drop', e => { if (e.dataTransfer.files.length) napHoaDon([...e.dataTransfer.files]); });
+
   // ------------------------------------------------------------ lưu phiếu / mẫu, in, Excel
   function kiemTra() {
     const loi = [];
@@ -355,6 +488,7 @@
       m = { id: newId(), ten }; db.mau.push(m);
     }
     Object.assign(m, { nguoi: d.nguoi, boPhan: d.boPhan, lyDo: d.lyDo, ht: d.ht, tenTK: d.tenTK, soTK: d.soTK, nh: d.nh, ghiChu: (d.items[0] || {}).gc || '', sua: nowIso() });
+    if (d.mst) m.mst = d.mst;
     d.mauId = m.id; d.mauTen = m.ten; saveDraft(); touch(); renderAll();
     msg($('lpMsg'), `Đã lưu mẫu <b>${esc(m.ten)}</b>.`, true);
   });
@@ -595,7 +729,7 @@
   const newCd = keep => ({ id: '', inTT: keep ? keep.inTT !== false : true, inBM03: keep ? keep.inBM03 !== false : true, inPT: keep ? keep.inPT !== false : true,
     boPhan: keep ? keep.boPhan : 'Bộ phận Hành chính HCM', donVi: keep ? keep.donVi : 'HÀNH CHÍNH CN HCM', noiKy: keep ? keep.noiKy : 'Hà Nội',
     ngayLap: today(), ngayTrong: keep ? keep.ngayTrong : true, dienCD: keep ? keep.dienCD : false,
-    vv: '', vvTay: false, yk: '', ykTay: false, dienGiai: '', nguoiDN: keep ? keep.nguoiDN || '' : '', giamDoc: keep && keep.giamDoc !== undefined ? keep.giamDoc : 'Phương Thu',
+    vv: '', vvTay: false, yk: '', ykTay: false, dienGiai: '', nguoiDN: keep ? keep.nguoiDN || '' : '', nguoiTT: keep && keep.nguoiTT ? keep.nguoiTT : 'Phạm Thị Nhung', soTK: keep ? keep.soTK || '' : '', nh: keep ? keep.nh || '' : '', giamDoc: keep && keep.giamDoc !== undefined ? keep.giamDoc : 'Phương Thu',
     rows: [blankRow()] });
   let c = null; try { c = JSON.parse(localStorage.getItem(LS_CD) || 'null'); } catch (e) {}
   c = (!c || !Array.isArray(c.rows)) ? newCd() : Object.assign(newCd(), c);
@@ -697,14 +831,14 @@
   // Giấy đề nghị thanh toán gộp các khoản Công đoàn (người đề nghị ứng tiền rồi xin thanh toán)
   function buildTT(x) {
     const rows = cdRows(x).filter(r => r.tien);
-    const nguoi = clean(x.nguoiDN) || d.nguoi || '';
+    const nguoi = clean(x.nguoiTT) || 'Phạm Thị Nhung';
     const payee = db.mau.find(m => clean(m.tenTK).toLowerCase() === nguoi.toLowerCase() && m.soTK);
     const tham = rows.every(r => (cheDo(r.cheDo) || {}).nhom !== 'Sự kiện');
     const t = newDraft(d);
     return Object.assign(t, {
       id: x.ttId || '', mauTen: 'Công đoàn', nguoi, boPhan: d.boPhan || t.boPhan, ht: 'ck', ngayLap: x.ngayLap || today(), ngayTrong: x.ngayTrong,
       lyDo: tham ? 'Chi tiền thăm hỏi nhân viên_CN.HCM' : 'Chi tiền hỗ trợ chế độ CBNV_CN.HCM',
-      tenTK: payee ? payee.tenTK : nguoi, soTK: payee ? payee.soTK : '', nh: payee ? payee.nh : '',
+      tenTK: payee ? payee.tenTK : nguoi, soTK: clean(x.soTK) || (payee ? payee.soTK : ''), nh: clean(x.nh) || (payee ? payee.nh : ''),
       items: (rows.length ? rows : [blankRow()]).map(r => ({ ngay: x.ngayLap || today(), ct: 'Giấy ĐN hỗ trợ', tien: r.tien, gc: r.ten ? `${r.ten}${r.ma ? ' (' + r.ma + ')' : ''} – ${(cheDo(r.cheDo) || {}).ten || r.lyDo}` : '' })),
     });
   }
@@ -727,12 +861,13 @@
     $('cdPaper').style.width = Math.round(w * sc) + 'px'; $('cdPaper').style.height = Math.round(h * sc) + 'px';
   }
   $('cdPvSel').addEventListener('change', e => { cdPv = +e.target.value; renderCdPreview(); });
-  const CF = { cBoPhan: 'boPhan', cDonVi: 'donVi', cNoiKy: 'noiKy', cNgay: 'ngayLap', cDienGiai: 'dienGiai', cNguoiDN: 'nguoiDN', cGiamDoc: 'giamDoc' };
+  const CF = { cBoPhan: 'boPhan', cDonVi: 'donVi', cNoiKy: 'noiKy', cNgay: 'ngayLap', cDienGiai: 'dienGiai', cNguoiDN: 'nguoiDN', cNguoiTT: 'nguoiTT', cSoTK: 'soTK', cNH: 'nh', cGiamDoc: 'giamDoc' };
   function renderCd() {
     Object.entries(CF).forEach(([id, k]) => { if (document.activeElement !== $(id)) $(id).value = c[k] || ''; });
     $('cNgayTrong').checked = !!c.ngayTrong; $('cDienCD').checked = !!c.dienCD;
     const pane = document.querySelector('[data-pane="cong-doan"]');
     pane.dataset.bm03 = c.inBM03 ? '1' : '0'; pane.dataset.pt = c.inPT ? '1' : '0';
+    dienTKTheoMau(false);
     $('inTT').checked = !!c.inTT; $('inBM03').checked = !!c.inBM03; $('inPT').checked = !!c.inPT;
     autoPt();
     const opts = sel => mucChi().map(m => `<option value="${esc(m.id)}"${m.id === sel ? ' selected' : ''}>${esc(m.ten)}${m.cty ? ' — ' + vnd(m.cty) : ''}</option>`).join('');
@@ -754,6 +889,14 @@
   function renderCdTong() { const t = cdRows(c).reduce((s, r) => s + (r.tien || 0), 0); $('cdTong').innerHTML = t ? `<b>${vnd(t)}</b>` : ''; }
   function cdChanged() { autoPt(); saveCd(); renderCdTong(); renderCdPreview(); }
   Object.entries(CF).forEach(([id, k]) => $(id).addEventListener('input', () => { c[k] = $(id).value; cdChanged(); }));
+  function dienTKTheoMau(epBuoc) { // tìm mẫu đơn vị nhận tiền trùng tên người đề nghị thanh toán
+    const p = db.mau.find(m => clean(m.tenTK).toLowerCase() === clean(c.nguoiTT).toLowerCase() && m.soTK);
+    if (!p) return;
+    if (epBuoc || !clean(c.soTK)) c.soTK = p.soTK;
+    if (epBuoc || !clean(c.nh)) c.nh = p.nh || '';
+    $('cSoTK').value = c.soTK || ''; $('cNH').value = c.nh || '';
+  }
+  $('cNguoiTT').addEventListener('change', () => { dienTKTheoMau(true); cdChanged(); });
   [['inTT', 'inTT'], ['inBM03', 'inBM03'], ['inPT', 'inPT']].forEach(([id, k]) => $(id).addEventListener('change', e => { c[k] = e.target.checked; cdPv = 0; saveCd(); renderCd(); }));
   $('cVv').addEventListener('input', e => { c.vv = e.target.value; c.vvTay = true; cdChanged(); });
   $('cYk').addEventListener('input', e => { c.yk = e.target.value; c.ykTay = true; cdChanged(); });
@@ -803,7 +946,7 @@
     const loi = [];
     const thieu = rows.filter(r => !r.ten || !r.tien || (c.inBM03 && !r.lyDo));
     if (thieu.length) loi.push(`${thieu.length} dòng còn thiếu tên / số tiền${c.inBM03 ? ' / lý do' : ''}`);
-    if (c.inTT) { const t = buildTT(c); if (!t.soTK) loi.push(`phiếu thanh toán chưa có số tài khoản của "${t.nguoi || '?'}" (chưa có mẫu đơn vị nhận tiền trùng tên)`); }
+    if (c.inTT) { const t = buildTT(c); if (!t.soTK) loi.push(`phiếu thanh toán chưa có số tài khoản của "${t.nguoi || '?'}" — điền ở ô "Số tài khoản nhận tiền"`); }
     if (loi.length && !confirm(loi.join('\n') + '.\nVẫn in?')) return;
     luuCd();
     if (c.inTT) { // lưu luôn phiếu thanh toán vào "Phiếu đã lập"

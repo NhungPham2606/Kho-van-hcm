@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Đề Nghị Thanh Toán</title>
 <link rel="icon" href="../assets/logo.png?v=2" type="image/png">
-<link rel="stylesheet" href="../assets/theme.css?v=20261003d">
+<link rel="stylesheet" href="../assets/theme.css?v=20261003e">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   .content.tk-wide { max-width: none; padding: 16px 20px; }
@@ -207,6 +207,7 @@
   .ptp .ten > div:last-child { padding-left: 45mm; }
   .ptp .dl { overflow: hidden; white-space: nowrap; margin: 1mm 0; letter-spacing: -.5px; }
   .ptp .ngay2 { text-align: right; font-style: italic; padding-right: 8mm; }
+  .tk .hd-zone { padding: 12px 14px; margin-top: 10px; font-size: 13px; color: #1f2937; text-align: left; }
   #printArea { display: none; }
   @media print {
     body { background: #fff !important; }
@@ -257,6 +258,11 @@
                   <button class="b sm" type="button" id="btnNew">Phiếu mới (trống)</button>
                 </div>
                 <div class="mau-chips" id="mauChips"></div>
+                <div class="tk-zone small hd-zone" id="hdZone" tabindex="0" role="button">
+                  <b>📄 Thả hóa đơn điện tử vào đây</b> <span class="hint">(file PDF hoặc XML, được nhiều file một lúc)</span> — tự điền đơn vị nhận tiền, số HĐ, ngày, số tiền
+                </div>
+                <input type="file" id="hdFile" accept=".pdf,.xml" multiple hidden>
+                <div id="hdHang" class="tk-row" style="margin-top:6px"></div>
                 <div class="hint" id="mauEmpty" hidden>Chưa có mẫu nào — vào tab <a href="#nap-mau">Nạp file mẫu Excel</a> để nạp file "BM 01_ĐN thanh toán", hoặc điền tay rồi bấm "Lưu làm mẫu".</div>
 
                 <div class="sec">② Người đề nghị</div>
@@ -325,6 +331,9 @@
                   <label class="only-bm03">Bộ phận đề xuất<input id="cBoPhan"></label>
                   <label class="only-bm03">Đơn vị (dòng in đậm góc trái)<input id="cDonVi"></label>
                   <label class="only-bm03">Nơi ký (dòng ngày tháng)<input id="cNoiKy"></label>
+                  <label>Người đề nghị thanh toán (dòng "Tên tôi là" — người nhận tiền)<input id="cNguoiTT" list="nguoiList"></label>
+                  <label>Số tài khoản nhận tiền<input id="cSoTK" inputmode="numeric"></label>
+                  <label>Tại ngân hàng<input id="cNH"></label>
                   <label>Ngày lập<input id="cNgay" type="date"></label>
                   <div class="fl">Ngày trên phiếu<label class="chk"><input type="checkbox" id="cNgayTrong"> Để trống ngày/tháng (ký tay)</label></div>
                   <div class="fl only-bm03">Mục II (Công đoàn cơ sở)<label class="chk"><input type="checkbox" id="cDienCD"> Điền sẵn mức Quỹ CĐ</label></div>
@@ -337,7 +346,7 @@
                   <label>Giám đốc (in dưới chữ ký)<input id="cGiamDoc"></label>
                 </div>
 
-                <div class="sec">② Nhân viên được hỗ trợ<span class="only-bm03"> — mỗi dòng in thành 1 tờ</span><span class="only-pt"> — mỗi dòng là 1 dòng trong bảng</span></div>
+                <div class="sec">② Nhân viên được hỗ trợ</div>
                 <table class="it"><thead><tr><th>STT</th><th style="min-width:170px">Họ tên</th><th style="width:110px">Mã NV</th><th class="only-pt" style="min-width:170px">Người thân (nếu có)</th><th class="only-pt" style="width:80px">NV là</th><th style="min-width:230px">Chế độ</th><th style="width:130px">Số tiền (Cty)</th><th class="only-bm03">Lý do (in trên phiếu)</th><th class="only-pt">Ghi chú</th><th></th></tr></thead>
                   <tbody id="cdBody"></tbody>
                   <tfoot><tr><td></td><td colspan="3"><button class="b sm" type="button" id="cdAdd">+ Thêm nhân viên</button> <span class="hint">Gõ tên/mã — gợi ý từ danh sách NV ở trang KPIs và các lần trước.</span></td><td style="text-align:right" id="cdTong"></td><td colspan="2"></td></tr></tfoot>
@@ -414,8 +423,8 @@
   </div>
 </div>
 <div id="printArea"></div>
-<script src="../assets/flows.js?v=20261003d"></script>
-<script src="../assets/layout.js?v=20261003d"></script>
-<script src="app.js?v=20261003d"></script>
+<script src="../assets/flows.js?v=20261003e"></script>
+<script src="../assets/layout.js?v=20261003e"></script>
+<script src="app.js?v=20261003e"></script>
 </body>
 </html>
