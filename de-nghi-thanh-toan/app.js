@@ -724,7 +724,7 @@
   const mucChi = () => (db.cfg && Array.isArray(db.cfg.mucChi) && db.cfg.mucChi.length) ? db.cfg.mucChi : MUC_CHI_GOC;
   const cheDo = id => mucChi().find(x => x.id === id);
   const LS_CD = 'kvh-dntt-cd-draft';
-  const blankRow = () => ({ ten: '', ma: '', cheDo: '', tien: 0, lyDo: '', nguoiThan: '', quanHe: '', gc: '', soTK: '', nh: '' });
+  const blankRow = () => ({ ten: '', ma: '', cheDo: '', tien: 0, lyDo: '', nguoiThan: '', laGi: '', quanHe: '', gc: '', soTK: '', nh: '' });
   // bộ hồ sơ: inTT = Giấy ĐN thanh toán (A5) · inBM03 = Giấy ĐN hỗ trợ theo chế độ (1 tờ/NV) · inPT = Phiếu trình V/v thăm hỏi (1 tờ)
   const newCd = keep => ({ id: '', inTT: keep ? keep.inTT !== false : true, inBM03: keep ? keep.inBM03 !== false : true, inPT: keep ? keep.inPT !== false : true,
     boPhan: keep ? keep.boPhan : 'Bộ phận Hành chính HCM', donVi: keep ? keep.donVi : 'HÀNH CHÍNH CN HCM', noiKy: keep ? keep.noiKy : 'Hà Nội',
@@ -784,13 +784,21 @@
   }
   // ---- Phiếu trình V/v thăm hỏi
   const XUNG = ['Ông', 'Bà', 'Anh', 'Chị', 'Em', 'Cháu', 'Cô', 'Chú', 'Bác', 'Cụ'];
+  // "Người thân là" (quan hệ của người thân với NV) -> NV là gì của người thân (dùng trong bảng phiếu trình)
+  const NGUOC = { 'con': 'Bố/Mẹ', 'con trai': 'Bố/Mẹ', 'con gái': 'Bố/Mẹ', 'bố': 'Con', 'mẹ': 'Con', 'cha': 'Con', 'bố vợ': 'Con rể', 'mẹ vợ': 'Con rể',
+    'bố chồng': 'Con dâu', 'mẹ chồng': 'Con dâu', 'vợ': 'Chồng', 'chồng': 'Vợ' };
+  const boXung = s => { const w = clean(s).split(' '); return XUNG.some(t => t.toLowerCase() === (w[0] || '').toLowerCase()) ? w.slice(1).join(' ') : clean(s); };
+  const capHoa = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   function noiDungPt(r) {
     const nv = `${r.ten}${r.ma ? ' – Mã NV ' + r.ma : ''}`;
     if (!clean(r.nguoiThan)) return nv;
     const w = clean(r.nguoiThan).split(' '), x = XUNG.find(t => t.toLowerCase() === (w[0] || '').toLowerCase());
     const ten = x ? `${x} : ${w.slice(1).join(' ')}` : clean(r.nguoiThan);
-    return `${ten} (${clean(r.quanHe) || 'Người thân'} : ${nv})`;
+    const nvLa = clean(r.quanHe) || NGUOC[clean(r.laGi).toLowerCase()] || 'Người thân';
+    return `${ten} (${capHoa(nvLa)} : ${nv})`;
   }
+  // "(con Lê Phúc Khang)" chèn vào lý do phiếu thanh toán
+  const ngoacNguoiThan = r => clean(r.nguoiThan) ? ` (${clean(r.laGi) ? clean(r.laGi).toLowerCase() + ' ' : ''}${boXung(r.nguoiThan)})` : '';
   function autoPt() {
     const rows = cdRows(c);
     if (!c.vvTay) {
@@ -798,7 +806,7 @@
       c.vv = 'V/v thăm hỏi ' + (chuDe.length ? chuDe.join(', ') : 'CBNV') + ' CN HCM';
     }
     if (!c.ykTay) {
-      const ai = rows.map(r => clean(r.nguoiThan) ? `người thân CBNV ${r.ten} là ${clean(r.nguoiThan)}` : `CBNV ${r.ten}`);
+      const ai = rows.map(r => clean(r.nguoiThan) ? `người thân${clean(r.laGi) ? ' (' + capHoa(clean(r.laGi)) + ')' : ''} CBNV ${r.ten} là ${clean(r.nguoiThan)}` : `CBNV ${r.ten}`);
       c.yk = `Thăm hỏi động viên tinh thần ${ai.join('; ') || 'CBNV'}${clean(c.dienGiai) ? ' ' + clean(c.dienGiai) : ''}, chuyên viên kính đề nghị Ban Lãnh Đạo và Phòng Kế Toán duyệt chi cho việc như sau:`;
     }
     ['cVv', 'cYk'].forEach(id => { if (document.activeElement !== $(id)) $(id).value = c[id === 'cVv' ? 'vv' : 'yk'] || ''; });
@@ -841,7 +849,7 @@
       id: r.ttId || '', mauTen: 'Công đoàn' + (r.ten ? ' – ' + r.ten : ''), nguoi: clean(x.nguoiTT) || 'Phạm Thị Nhung', boPhan: d.boPhan || t.boPhan,
       ht: 'ck', ngayLap: x.ngayLap || today(), ngayTrong: x.ngayTrong,
       lyDo: m.nhom === 'Sự kiện' ? `Chi tiền ${(m.ten || 'hỗ trợ chế độ').charAt(0).toLowerCase() + (m.ten || 'hỗ trợ chế độ').slice(1)}_CN.HCM`
-        : `Chi tiền thăm hỏi nhân viên${m.ten ? ' – ' + m.ten : ''}_CN.HCM`,
+        : `Chi tiền thăm hỏi nhân viên${m.ten ? ' – ' + (m.ten.includes(' – ') ? m.ten.replace(' – ', ngoacNguoiThan(r) + ' – ') : m.ten + ngoacNguoiThan(r)) : ngoacNguoiThan(r)}_CN.HCM`,
       tenTK: r.ten || '', soTK: clean(r.soTK), nh: clean(r.nh),
       items: [{ ngay: x.ngayLap || today(), ct: 'Giấy ĐN hỗ trợ', tien: r.tien || 0, gc: r.ten ? `${r.ten}${r.ma ? ' – Mã NV ' + r.ma : ''}` : '' }],
     });
@@ -871,15 +879,15 @@
     $('cNgayTrong').checked = !!c.ngayTrong; $('cDienCD').checked = !!c.dienCD;
     const pane = document.querySelector('[data-pane="cong-doan"]');
     pane.dataset.bm03 = c.inBM03 ? '1' : '0'; pane.dataset.pt = c.inPT ? '1' : '0';
-    pane.dataset.tt = c.inTT ? '1' : '0';
+    pane.dataset.tt = c.inTT ? '1' : '0'; pane.dataset.nt = c.inTT || c.inPT ? '1' : '0';
     $('inTT').checked = !!c.inTT; $('inBM03').checked = !!c.inBM03; $('inPT').checked = !!c.inPT;
     autoPt();
     const opts = sel => mucChi().map(m => `<option value="${esc(m.id)}"${m.id === sel ? ' selected' : ''}>${esc(m.ten)}${m.cty ? ' — ' + vnd(m.cty) : ''}</option>`).join('');
     $('cdBody').innerHTML = c.rows.map((r, i) => `<tr data-i="${i}"><td class="stt">${i + 1}</td>
       <td><input data-k="ten" list="nvList" value="${esc(r.ten)}" placeholder="Họ tên"></td>
       <td><input data-k="ma" list="maList" value="${esc(r.ma)}" placeholder="Mã NV"></td>
-      <td class="only-pt"><input data-k="nguoiThan" value="${esc(r.nguoiThan)}" placeholder="vd: Ông Nguyễn Văn A"></td>
-      <td class="only-pt"><input data-k="quanHe" value="${esc(r.quanHe)}" placeholder="Con"></td>
+      <td class="only-nt"><input data-k="nguoiThan" value="${esc(r.nguoiThan)}" placeholder="vd: Lê Phúc Khang"></td>
+      <td class="only-nt"><input data-k="laGi" list="laGiList" value="${esc(r.laGi)}" placeholder="con / bố / mẹ…"></td>
       <td><select data-k="cheDo"><option value="">— chọn chế độ —</option>${opts(r.cheDo)}</select></td>
       <td><input class="money" data-k="tien" inputmode="numeric" value="${r.tien ? vnd(r.tien) : ''}"></td>
       <td class="only-tt"><input data-k="soTK" inputmode="numeric" value="${esc(r.soTK)}" placeholder="Số tài khoản"></td>
@@ -888,6 +896,7 @@
       <td class="only-pt"><input data-k="gc" value="${esc(r.gc)}"></td>
       <td class="x"><button type="button" data-del="${i}" title="Xóa dòng">×</button></td></tr>`).join('');
     const nv = nvGoiY();
+    if (!$('laGiList')) { const dl = document.createElement('datalist'); dl.id = 'laGiList'; dl.innerHTML = Object.keys(NGUOC).map(k => `<option value="${k}">`).join(''); document.body.appendChild(dl); }
     $('nvList').innerHTML = nv.map(e => `<option value="${esc(e.ten)}">${esc(e.ma)}</option>`).join('');
     $('maList').innerHTML = nv.filter(e => e.ma).map(e => `<option value="${esc(e.ma)}">${esc(e.ten)}</option>`).join('');
     renderCdTong(); renderCdHist(); renderCdPreview();
