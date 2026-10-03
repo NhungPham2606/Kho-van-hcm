@@ -127,11 +127,12 @@
       id: '', mauId: '', mauTen: '',
       nguoi: keep ? keep.nguoi : '', boPhan: keep ? keep.boPhan : 'VP.Hồ Chí Minh',
       ky: kyMacDinh(), items: [blankItem()], lyDo: '', ht: 'ck', tenTK: '', soTK: '', nh: '',
-      ngayLap: today(), ngayTrong: keep ? keep.ngayTrong : true, kho: keep ? keep.kho : 'A5', inTen: keep ? keep.inTen : true,
+      ngayLap: today(), ngayTrong: keep ? keep.ngayTrong : true, kho: keep ? keep.kho : 'A4', khoChon: keep ? keep.khoChon : false, inTen: keep ? keep.inTen : true,
     };
   }
   let d = null; try { d = JSON.parse(localStorage.getItem(LS_DRAFT) || 'null'); } catch (e) {}
   if (!d || !Array.isArray(d.items)) d = newDraft();
+  if (!d.khoChon) d.kho = 'A4';
   const saveDraft = () => { try { localStorage.setItem(LS_DRAFT, JSON.stringify(d)); } catch (e) {} };
   const tong = x => (x.items || []).reduce((s, it) => s + (Number(it.tien) || 0), 0);
 
@@ -222,7 +223,7 @@
   $('fNgayTrong').addEventListener('change', e => { d.ngayTrong = e.target.checked; changed(); });
   $('fInTen').addEventListener('change', e => { d.inTen = e.target.checked; changed(); });
   document.querySelectorAll('input[name=ht]').forEach(r => r.addEventListener('change', () => { d.ht = r.value; changed(); }));
-  document.querySelectorAll('input[name=kho]').forEach(r => r.addEventListener('change', () => { d.kho = r.value; changed(); }));
+  document.querySelectorAll('input[name=kho]').forEach(r => r.addEventListener('change', () => { d.kho = r.value; d.khoChon = true; changed(); }));
   $('fNguoi').addEventListener('change', () => { // chọn người quen -> điền bộ phận đã dùng
     const p = db.phieu.slice().reverse().find(x => x.nguoi === d.nguoi) || db.mau.find(x => x.nguoi === d.nguoi && x.boPhan);
     if (p && p.boPhan && !$('fBoPhan').value) { d.boPhan = p.boPhan; $('fBoPhan').value = p.boPhan; changed(); }
@@ -473,7 +474,10 @@
     doc.open();
     doc.write(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><base href="${esc(location.href)}"><title>In</title>
       <style>${css}</style><style>${pageCss} html, body { margin: 0; padding: 0; background: #fff; } #printArea { display: block !important; }
-      #printArea > * { box-shadow: none; } #printArea > * + * { break-before: page; page-break-before: always; } #printArea .phieu.p5 { page: pA5; }</style>
+      #printArea > * { box-shadow: none; } #printArea > * + * { break-before: page; page-break-before: always; } #printArea .phieu.p5 { page: pA5; }
+      #printArea .phieu { padding: 8mm 8mm 6mm 9mm !important; min-height: 0; } #printArea .phieu.a4 { padding: 15mm 15mm 10mm 18mm !important; }
+      #printArea .cdp, #printArea .ptp { padding-top: 9mm !important; padding-bottom: 0 !important; min-height: 0; }
+      #printArea .z5 { page: pA5; } #printArea > * { break-inside: avoid; }</style>
       </head><body><div id="printArea">${htmls.join('')}</div></body></html>`);
     doc.close();
     const imgs = [...doc.images].map(im => im.complete ? null : new Promise(ok => { im.onload = im.onerror = ok; })).filter(Boolean);
@@ -484,7 +488,7 @@
   }
   function inPhieu(list) {
     const kho = list[0].kho === 'A4' ? 'A4' : 'A5';
-    inTrang(list.map(phieuHtml), `@page { size: ${kho} portrait; margin: ${kho === 'A4' ? '10mm' : '6mm'}; }`);
+    inTrang(list.map(phieuHtml), `@page { size: ${kho} portrait; margin: 0; }`);
   }
   $('btnPrint').addEventListener('click', () => {
     const loi = kiemTra();
@@ -744,7 +748,7 @@
   const LS_CD = 'kvh-dntt-cd-draft';
   const blankRow = () => ({ ten: '', ma: '', cheDo: '', tien: 0, lyDo: '', nguoiThan: '', laGi: '', quanHe: '', gc: '', soTK: '', nh: '' });
   // bộ hồ sơ: inTT = Giấy ĐN thanh toán (A5) · inBM03 = Giấy ĐN hỗ trợ theo chế độ (1 tờ/NV) · inPT = Phiếu trình V/v thăm hỏi (1 tờ)
-  const newCd = keep => ({ id: '', inTT: keep ? keep.inTT !== false : true, inBM03: keep ? keep.inBM03 !== false : true, inPT: keep ? keep.inPT !== false : true,
+  const newCd = keep => ({ id: '', khoTT: keep && keep.khoTT ? keep.khoTT : 'A4', khoBM: keep && keep.khoBM ? keep.khoBM : 'A4', khoPT: keep && keep.khoPT ? keep.khoPT : 'A4', inTT: keep ? keep.inTT !== false : true, inBM03: keep ? keep.inBM03 !== false : true, inPT: keep ? keep.inPT !== false : true,
     boPhan: keep ? keep.boPhan : 'Bộ phận Hành chính HCM', donVi: keep ? keep.donVi : 'HÀNH CHÍNH CN HCM', noiKy: keep ? keep.noiKy : 'Hà Nội',
     ngayLap: today(), ngayTrong: keep ? keep.ngayTrong : true, dienCD: keep ? keep.dienCD : false,
     vv: '', vvTay: false, yk: '', ykTay: false, dienGiai: '', nguoiDN: keep ? keep.nguoiDN || '' : '', nguoiTT: keep && keep.nguoiTT ? keep.nguoiTT : 'Phạm Thị Nhung', giamDoc: keep && keep.giamDoc !== undefined ? keep.giamDoc : 'Phương Thu',
@@ -865,7 +869,7 @@
     const t = newDraft(d);
     return Object.assign(t, {
       id: r.ttId || '', mauTen: 'Công đoàn' + (r.ten ? ' – ' + r.ten : ''), nguoi: clean(x.nguoiTT) || 'Phạm Thị Nhung', boPhan: d.boPhan || t.boPhan,
-      ht: 'ck', ngayLap: x.ngayLap || today(), ngayTrong: x.ngayTrong,
+      ht: 'ck', ngayLap: x.ngayLap || today(), ngayTrong: x.ngayTrong, kho: x.khoTT === 'A5' ? 'A5' : 'A4',
       lyDo: m.nhom === 'Sự kiện' ? `Chi tiền ${(m.ten || 'hỗ trợ chế độ').charAt(0).toLowerCase() + (m.ten || 'hỗ trợ chế độ').slice(1)}_CN.HCM`
         : `Chi tiền thăm hỏi nhân viên${m.ten ? ' – ' + (m.ten.includes(' – ') ? m.ten.replace(' – ', ngoacNguoiThan(r) + ' – ') : m.ten + ngoacNguoiThan(r)) : ngoacNguoiThan(r)}_CN.HCM`,
       tenTK: r.ten || '', soTK: clean(r.soTK), nh: clean(r.nh),
@@ -876,8 +880,10 @@
   function cdBundle(x) {
     const rows = cdRows(x), list = rows.length ? rows : [blankRow()], pages = [];
     if (x.inTT) list.forEach(r => { const t = buildTT(x, r); pages.push({ ten: `1. Giấy ĐN thanh toán – ${r.ten || '(chưa có tên)'}`, kho: t.kho === 'A4' ? 'A4' : 'A5', html: phieuHtml(t).replace('class="phieu', `class="phieu${t.kho === 'A4' ? '' : ' p5'}`) }); });
-    if (x.inBM03) list.forEach(r => pages.push({ ten: `2. Giấy ĐN hỗ trợ – ${r.ten || '(chưa có tên)'}`, kho: 'A4', html: cdHtml(x, r) }));
-    if (x.inPT) pages.push({ ten: '3. Phiếu trình', kho: 'A4', html: ptHtml(x) });
+    // A5 cho 2 mẫu A4: thu nhỏ cả tờ (zoom 1/√2) và in lên trang A5
+    const z = (html, cls, kho) => kho === 'A5' ? html.replace(`class="${cls}"`, `class="${cls} z5"`) : html;
+    if (x.inBM03) list.forEach(r => pages.push({ ten: `2. Giấy ĐN hỗ trợ – ${r.ten || '(chưa có tên)'}`, kho: x.khoBM === 'A5' ? 'A5' : 'A4', html: z(cdHtml(x, r), 'cdp', x.khoBM) }));
+    if (x.inPT) pages.push({ ten: '3. Phiếu trình', kho: x.khoPT === 'A5' ? 'A5' : 'A4', html: z(ptHtml(x), 'ptp', x.khoPT) });
     return pages;
   }
   function renderCdPreview() {
@@ -898,7 +904,7 @@
     const pane = document.querySelector('[data-pane="cong-doan"]');
     pane.dataset.bm03 = c.inBM03 ? '1' : '0'; pane.dataset.pt = c.inPT ? '1' : '0';
     pane.dataset.tt = c.inTT ? '1' : '0'; pane.dataset.nt = c.inTT || c.inPT ? '1' : '0';
-    $('inTT').checked = !!c.inTT; $('inBM03').checked = !!c.inBM03; $('inPT').checked = !!c.inPT;
+    $('inTT').checked = !!c.inTT; $('khoTT').value = c.khoTT || 'A4'; $('khoBM').value = c.khoBM || 'A4'; $('khoPT').value = c.khoPT || 'A4'; $('inBM03').checked = !!c.inBM03; $('inPT').checked = !!c.inPT;
     autoPt();
     const opts = sel => mucChi().map(m => `<option value="${esc(m.id)}"${m.id === sel ? ' selected' : ''}>${esc(m.ten)}${m.cty ? ' — ' + vnd(m.cty) : ''}</option>`).join('');
     $('cdBody').innerHTML = c.rows.map((r, i) => `<tr data-i="${i}"><td class="stt">${i + 1}</td>
@@ -922,6 +928,7 @@
   function renderCdTong() { const t = cdRows(c).reduce((s, r) => s + (r.tien || 0), 0); $('cdTong').innerHTML = t ? `<b>${vnd(t)}</b>` : ''; }
   function cdChanged() { autoPt(); saveCd(); renderCdTong(); renderCdPreview(); }
   Object.entries(CF).forEach(([id, k]) => $(id).addEventListener('input', () => { c[k] = $(id).value; cdChanged(); }));
+  ['khoTT', 'khoBM', 'khoPT'].forEach(id => $(id).addEventListener('change', e => { c[id] = e.target.value; saveCd(); renderCdPreview(); }));
   [['inTT', 'inTT'], ['inBM03', 'inBM03'], ['inPT', 'inPT']].forEach(([id, k]) => $(id).addEventListener('change', e => { c[k] = e.target.checked; cdPv = 0; saveCd(); renderCd(); }));
   $('cVv').addEventListener('input', e => { c.vv = e.target.value; c.vvTay = true; cdChanged(); });
   $('cYk').addEventListener('input', e => { c.yk = e.target.value; c.ykTay = true; cdChanged(); });
@@ -986,7 +993,7 @@
       luuCd(); renderLists();
     }
     const pages = cdBundle(c);
-    inTrang(pages.map(p => p.html), '@page { size: A4 portrait; margin: 8mm 0 8mm 0; } @page pA5 { size: A5 portrait; margin: 6mm; }');
+    inTrang(pages.map(p => p.html), '@page { size: A4 portrait; margin: 0; } @page pA5 { size: A5 portrait; margin: 0; }');
     msg($('cdMsg'), `Đã gửi lệnh in ${pages.length} tờ (${pages.map(p => p.ten.split(' – ')[0]).filter((v, i, a) => a.indexOf(v) === i).join(', ')}) và lưu hồ sơ.`, true);
   });
   // gộp các khoản thành 1 Giấy đề nghị thanh toán (người đề nghị ứng tiền rồi xin thanh toán)

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Đề Nghị Thanh Toán</title>
 <link rel="icon" href="../assets/logo.png?v=2" type="image/png">
-<link rel="stylesheet" href="../assets/theme.css?v=20261003h">
+<link rel="stylesheet" href="../assets/theme.css?v=20261003j">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   .content.tk-wide { max-width: none; padding: 16px 20px; }
@@ -118,7 +118,10 @@
 
   /* ---- tờ phiếu (xem trước + in) — theo mẫu BM-01/KT-CPC1HN, khổ A5 ---- */
   .phieu { font-family: 'Times New Roman', Times, serif; color: #000; width: 148mm; min-height: 210mm; box-sizing: border-box; padding: 6mm 6mm 6mm 7mm; font-size: 11.5pt; line-height: 1.3; background: #fff; }
-  .phieu.a4 { width: 210mm; min-height: 297mm; padding: 14mm 16mm; font-size: 13pt; }
+  .phieu.a4 { width: 210mm; min-height: 297mm; padding: 14mm 16mm; font-size: 14pt; line-height: 1.45; }
+  .phieu.a4 table.ct td { height: 34px; font-size: 13pt; } .phieu.a4 table.ct th { height: 30px; font-size: 12pt; }
+  .phieu.a4 .ln, .phieu.a4 .ld, .phieu.a4 .bc { margin: 6px 0; } .phieu.a4 .ngay { margin-top: 16px; }
+  .cdp.z5, .ptp.z5 { zoom: .7071; }
   .phieu .hd { display: grid; grid-template-columns: 17mm 1fr auto; align-items: start; gap: 4px; }
   .phieu .hd .logo { width: 14mm; height: auto; margin-left: 2mm; }
   .phieu.a4 .hd { grid-template-columns: 24mm 1fr auto; }
@@ -175,12 +178,12 @@
   .tk .mau-in { flex-direction: column; align-items: flex-start; gap: 6px; }
   /* ---- Phiếu trình V/v thăm hỏi (mẫu Word "ĐỀ NGHỊ chi tiền ốm đau") ---- */
   .ptp { font-family: 'Times New Roman', Times, serif; color: #000; width: 210mm; min-height: 297mm; box-sizing: border-box; padding: 5mm 22mm 10mm 25mm; font-size: 12pt; line-height: 1.4; background: #fff; }
-  .ptp .top { display: grid; grid-template-columns: 17mm auto 1fr; column-gap: 2mm; align-items: start; margin-right: -6mm; }
+  .ptp .top { display: grid; grid-template-columns: 17mm auto 1fr; column-gap: 2mm; align-items: start; margin-right: -4mm; }
   .ptp .top img { width: 16mm; margin-top: 2mm; }
-  .ptp .cty { white-space: nowrap; text-align: center; font-size: 13pt; line-height: 1.3; }
-  .ptp .cty span { display: inline-block; border-bottom: 1px solid #000; padding: 0 6mm 1px; }
-  .ptp .qh { white-space: nowrap; text-align: center; font-size: 13pt; font-weight: 700; line-height: 1.35; }
-  .ptp .qh span { display: inline-block; border-bottom: 1px solid #000; font-size: 14pt; padding-bottom: 1px; }
+  .ptp .cty { white-space: nowrap; text-align: center; font-size: 12pt; line-height: 1.3; }
+  .ptp .cty span { display: inline-block; border-bottom: 1px solid #000; padding: 0 3mm 1px; }
+  .ptp .qh { white-space: nowrap; text-align: center; font-size: 12pt; font-weight: 700; line-height: 1.35; }
+  .ptp .qh span { display: inline-block; border-bottom: 1px solid #000; font-size: 13pt; padding-bottom: 1px; }
   .ptp h1 { text-align: center; font-size: 16pt; margin: 9mm 0 0; line-height: 1.2; }
   .ptp h2 { text-align: center; font-size: 14pt; margin: 0 0 6mm; }
   .ptp h2 span { border-bottom: 1px solid #000; padding: 0 2mm 1px; }
@@ -296,7 +299,7 @@
                   <div class="fl">Ngày trên phiếu
                     <label class="chk"><input type="checkbox" id="fNgayTrong"> Để trống ngày/tháng (ký tay, chỉ in năm)</label></div>
                   <div class="fl">Khổ giấy
-                    <div class="radio"><label><input type="radio" name="kho" value="A5" checked> A5 (như mẫu)</label><label><input type="radio" name="kho" value="A4"> A4</label></div></div>
+                    <div class="radio"><label><input type="radio" name="kho" value="A4" checked> A4</label><label><input type="radio" name="kho" value="A5"> A5 (như file Excel cũ)</label></div></div>
                   <div class="fl">Chữ ký
                     <label class="chk"><input type="checkbox" id="fInTen" checked> In tên người đề nghị dưới chữ ký</label></div>
                 </div>
@@ -323,9 +326,11 @@
               <div>
                 <div class="sec">① Bộ hồ sơ cần in <span class="hint" style="text-transform:none;letter-spacing:0;font-weight:400">— bấm "In bộ hồ sơ" là in liền các tờ đã tích, theo thứ tự</span></div>
                 <div class="radio mau-in">
-                  <label class="chk"><input type="checkbox" id="inTT"> <span><b>1. Giấy đề nghị thanh toán</b> <span class="hint">(BM-01/KT — mỗi nhân viên 1 tờ A5, tiền chuyển vào tài khoản của NV)</span></span></label>
+                  <label class="chk"><input type="checkbox" id="inTT"> <span><b>1. Giấy đề nghị thanh toán</b> <span class="hint">(BM-01/KT — mỗi nhân viên 1 tờ, tiền chuyển vào tài khoản của NV)</span></span></label>
+
                   <label class="chk"><input type="checkbox" id="inBM03"> <span><b>2. Giấy đề nghị hỗ trợ theo chế độ</b> <span class="hint">(BM-03/HC — mỗi nhân viên 1 tờ A4)</span></span></label>
                   <label class="chk"><input type="checkbox" id="inPT"> <span><b>3. Phiếu trình V/v thăm hỏi</b> <span class="hint">(1 tờ A4, các nhân viên trong bảng)</span></span></label>
+                  <div class="hint" style="font-size:12px;color:#374151">Khổ giấy: phiếu thanh toán <select id="khoTT" style="font-size:12px"><option value="A4">A4</option><option value="A5">A5</option></select> · giấy ĐN hỗ trợ <select id="khoBM" style="font-size:12px"><option value="A4">A4</option><option value="A5">A5</option></select> · phiếu trình <select id="khoPT" style="font-size:12px"><option value="A4">A4</option><option value="A5">A5</option></select></div>
                 </div>
                 <div class="fg">
                   <label class="only-bm03">Bộ phận đề xuất<input id="cBoPhan"></label>
@@ -421,8 +426,8 @@
   </div>
 </div>
 <div id="printArea"></div>
-<script src="../assets/flows.js?v=20261003h"></script>
-<script src="../assets/layout.js?v=20261003h"></script>
-<script src="app.js?v=20261003h"></script>
+<script src="../assets/flows.js?v=20261003j"></script>
+<script src="../assets/layout.js?v=20261003j"></script>
+<script src="app.js?v=20261003j"></script>
 </body>
 </html>
