@@ -750,7 +750,7 @@
   // bộ hồ sơ: inTT = Giấy ĐN thanh toán (A5) · inBM03 = Giấy ĐN hỗ trợ theo chế độ (1 tờ/NV) · inPT = Phiếu trình V/v thăm hỏi (1 tờ)
   const newCd = keep => ({ id: '', khoTT: keep && keep.khoTT ? keep.khoTT : 'A4', khoBM: keep && keep.khoBM ? keep.khoBM : 'A4', khoPT: keep && keep.khoPT ? keep.khoPT : 'A4', inTT: keep ? keep.inTT !== false : true, inBM03: keep ? keep.inBM03 !== false : true, inPT: keep ? keep.inPT !== false : true,
     boPhan: keep ? keep.boPhan : 'Bộ phận Hành chính HCM', donVi: keep ? keep.donVi : 'HÀNH CHÍNH CN HCM', noiKy: keep ? keep.noiKy : 'Hà Nội',
-    ngayLap: today(), ngayTrong: keep ? keep.ngayTrong : true, dienCD: keep ? keep.dienCD : false,
+    ngayLap: today(), ngayTrong: keep ? keep.ngayTrong : true,
     vv: '', vvTay: false, yk: '', ykTay: false, dienGiai: '', nguoiDN: keep ? keep.nguoiDN || '' : '', nguoiTT: keep && keep.nguoiTT ? keep.nguoiTT : 'Phạm Thị Nhung', giamDoc: keep && keep.giamDoc !== undefined ? keep.giamDoc : 'Phương Thu',
     rows: [blankRow()] });
   let c = null; try { c = JSON.parse(localStorage.getItem(LS_CD) || 'null'); } catch (e) {}
@@ -778,7 +778,6 @@
   function cdHtml(x, r) {
     const nd = x.ngayLap || today();
     const ngay = x.ngayTrong ? `${esc(x.noiKy)}, ngày&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tháng&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;năm ${nd.slice(0, 4)}` : `${esc(x.noiKy)}, ngày ${nd.slice(8, 10)} tháng ${nd.slice(5, 7)} năm ${nd.slice(0, 4)}`;
-    const cdTien = (cheDo(r.cheDo) || {}).cd || 0;
     const dl = t => `<div class="p" style="overflow:hidden;white-space:nowrap">${t}${DOTS}</div>`;
     return `<div class="cdp">
       <div class="ma">BM - 03/HC-CPC1HN<br>AD: 01/08/2015</div>
@@ -795,7 +794,7 @@
       <div class="ky2"><div>TM BCH CÔNG ĐOÀN BỘ PHẬN</div><div>PHỤ TRÁCH BỘ PHẬN</div></div>
       <div class="mt">II/ Ý kiến Công đoàn cơ sở :</div>
       ${dl('- Xác nhận: ')}${dl('')}
-      <div class="p">- Đề nghị hỗ trợ theo chế độ: ${x.dienCD && cdTien ? vnd(cdTien) : '…………..…'} đồng</div>
+      <div class="p">- Đề nghị hỗ trợ theo chế độ: …………..… đồng</div>
       <div class="kyr">TM BCH CÔNG ĐOÀN CƠ SỞ</div>
       <div class="mt">III/ Xét duyệt của Giám đốc:</div>
       <div class="p">- Quyết định hỗ trợ cho CBCNV:</div>${dl('')}
@@ -900,7 +899,7 @@
   const CF = { cBoPhan: 'boPhan', cDonVi: 'donVi', cNoiKy: 'noiKy', cNgay: 'ngayLap', cDienGiai: 'dienGiai', cNguoiDN: 'nguoiDN', cNguoiTT: 'nguoiTT', cGiamDoc: 'giamDoc' };
   function renderCd() {
     Object.entries(CF).forEach(([id, k]) => { if (document.activeElement !== $(id)) $(id).value = c[k] || ''; });
-    $('cNgayTrong').checked = !!c.ngayTrong; $('cDienCD').checked = !!c.dienCD;
+    $('cNgayTrong').checked = !!c.ngayTrong;
     const pane = document.querySelector('[data-pane="cong-doan"]');
     pane.dataset.bm03 = c.inBM03 ? '1' : '0'; pane.dataset.pt = c.inPT ? '1' : '0';
     pane.dataset.tt = c.inTT ? '1' : '0'; pane.dataset.nt = c.inTT || c.inPT ? '1' : '0';
@@ -934,7 +933,6 @@
   $('cYk').addEventListener('input', e => { c.yk = e.target.value; c.ykTay = true; cdChanged(); });
   $('cYkLai').addEventListener('click', () => { c.vvTay = false; c.ykTay = false; $('cVv').blur(); $('cYk').blur(); cdChanged(); });
   $('cNgayTrong').addEventListener('change', e => { c.ngayTrong = e.target.checked; cdChanged(); });
-  $('cDienCD').addEventListener('change', e => { c.dienCD = e.target.checked; cdChanged(); });
   function cdEdit(e) {
     const tr = e.target.closest('tr'), k = e.target.dataset.k; if (!tr || !k) return;
     const i = +tr.dataset.i, r = c.rows[i];
