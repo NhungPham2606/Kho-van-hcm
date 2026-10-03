@@ -462,11 +462,29 @@
     const r = luuPhieu();
     msg($('lpMsg'), r ? 'Đã lưu phiếu vào "Phiếu đã lập".' : 'Phiếu chưa có số tiền — chưa lưu.', !!r);
   });
+  function inTrang(htmls, pageCss) {
+    const old = document.getElementById('khungIn'); if (old) old.remove();
+    const f = document.createElement('iframe');
+    f.id = 'khungIn'; f.setAttribute('aria-hidden', 'true');
+    f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+    document.body.appendChild(f);
+    const css = [...document.querySelectorAll('style')].filter(st => st.id !== 'pageSize').map(st => st.textContent).join(' ');
+    const doc = f.contentDocument;
+    doc.open();
+    doc.write(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><base href="${esc(location.href)}"><title>In</title>
+      <style>${css}</style><style>${pageCss} html, body { margin: 0; padding: 0; background: #fff; } #printArea { display: block !important; }
+      #printArea > * { box-shadow: none; } #printArea > * + * { break-before: page; page-break-before: always; } #printArea .phieu.p5 { page: pA5; }</style>
+      </head><body><div id="printArea">${htmls.join('')}</div></body></html>`);
+    doc.close();
+    const imgs = [...doc.images].map(im => im.complete ? null : new Promise(ok => { im.onload = im.onerror = ok; })).filter(Boolean);
+    Promise.race([Promise.all(imgs), new Promise(ok => setTimeout(ok, 2500))]).then(() => {
+      try { f.contentWindow.focus(); f.contentWindow.print(); }
+      catch (e) { $('printArea').innerHTML = htmls.join(''); $('pageSize').textContent = pageCss; window.print(); }
+    });
+  }
   function inPhieu(list) {
     const kho = list[0].kho === 'A4' ? 'A4' : 'A5';
-    $('pageSize').textContent = `@page { size: ${kho} portrait; margin: ${kho === 'A4' ? '10mm' : '6mm'}; }`;
-    $('printArea').innerHTML = list.map(phieuHtml).join('');
-    window.print();
+    inTrang(list.map(phieuHtml), `@page { size: ${kho} portrait; margin: ${kho === 'A4' ? '10mm' : '6mm'}; }`);
   }
   $('btnPrint').addEventListener('click', () => {
     const loi = kiemTra();
@@ -968,9 +986,7 @@
       luuCd(); renderLists();
     }
     const pages = cdBundle(c);
-    $('pageSize').textContent = '@page { size: A4 portrait; margin: 8mm 0 8mm 0; } @page pA5 { size: A5 portrait; margin: 6mm; }';
-    $('printArea').innerHTML = pages.map(p => p.html).join('');
-    window.print();
+    inTrang(pages.map(p => p.html), '@page { size: A4 portrait; margin: 8mm 0 8mm 0; } @page pA5 { size: A5 portrait; margin: 6mm; }');
     msg($('cdMsg'), `Đã gửi lệnh in ${pages.length} tờ (${pages.map(p => p.ten.split(' – ')[0]).filter((v, i, a) => a.indexOf(v) === i).join(', ')}) và lưu hồ sơ.`, true);
   });
   // gộp các khoản thành 1 Giấy đề nghị thanh toán (người đề nghị ứng tiền rồi xin thanh toán)
