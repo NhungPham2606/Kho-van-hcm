@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Đề Nghị Thanh Toán</title>
 <link rel="icon" href="../assets/logo.png?v=2" type="image/png">
-<link rel="stylesheet" href="../assets/theme.css?v=20261003b">
+<link rel="stylesheet" href="../assets/theme.css?v=20261003c">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   .content.tk-wide { max-width: none; padding: 16px 20px; }
@@ -170,13 +170,50 @@
   .tk table.it select { width: 100%; font: inherit; font-size: 12px; padding: 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; }
   .tk table.dt input.cell { font: inherit; font-size: 12px; padding: 4px 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fffbeb; width: 100%; box-sizing: border-box; }
   .tk table.dt input.cell.r { text-align: right; width: 110px; }
+  [data-mau="bm03"] .only-pt, [data-mau="pt"] .only-bm03 { display: none !important; }
+  .tk .mau-in { flex-direction: column; align-items: flex-start; gap: 6px; }
+  /* ---- Phiếu trình V/v thăm hỏi (mẫu Word "ĐỀ NGHỊ chi tiền ốm đau") ---- */
+  .ptp { font-family: 'Times New Roman', Times, serif; color: #000; width: 210mm; min-height: 297mm; box-sizing: border-box; padding: 5mm 22mm 10mm 25mm; font-size: 12pt; line-height: 1.4; background: #fff; }
+  .ptp .top { display: grid; grid-template-columns: 17mm auto 1fr; column-gap: 2mm; align-items: start; margin-right: -6mm; }
+  .ptp .top img { width: 16mm; margin-top: 2mm; }
+  .ptp .cty { white-space: nowrap; text-align: center; font-size: 13pt; line-height: 1.3; }
+  .ptp .cty span { display: inline-block; border-bottom: 1px solid #000; padding: 0 6mm 1px; }
+  .ptp .qh { white-space: nowrap; text-align: center; font-size: 13pt; font-weight: 700; line-height: 1.35; }
+  .ptp .qh span { display: inline-block; border-bottom: 1px solid #000; font-size: 14pt; padding-bottom: 1px; }
+  .ptp h1 { text-align: center; font-size: 16pt; margin: 9mm 0 0; line-height: 1.2; }
+  .ptp h2 { text-align: center; font-size: 14pt; margin: 0 0 6mm; }
+  .ptp h2 span { border-bottom: 1px solid #000; padding: 0 2mm 1px; }
+  .ptp .kg { display: grid; grid-template-columns: 38mm 1fr; font-weight: 700; margin-left: 15mm; }
+  .ptp .kg i { font-style: normal; font-size: 11pt; }
+  .ptp .mt { font-weight: 700; margin-top: 5mm; }
+  .ptp .mt.n1 { display: grid; grid-template-columns: 12mm 1fr; }
+  .ptp .p { margin: 1mm 0; text-align: justify; }
+  .ptp .in1 { text-indent: 12mm; }
+  .ptp table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 1mm; }
+  .ptp th, .ptp td { border: 1px solid #000; padding: 3px 5px; vertical-align: middle; }
+  .ptp th { height: 9mm; font-weight: 700; }
+  .ptp td { text-align: center; }
+  .ptp td.nd { text-align: left; }
+  .ptp tr.tong td { font-weight: 700; }
+  .ptp .bc { font-style: italic; }
+  .ptp .km { text-align: center; margin-top: 1mm; }
+  .ptp .ngay { text-align: right; font-style: italic; padding-right: 2mm; }
+  .ptp .ky { display: grid; grid-template-columns: 1fr 1fr; font-weight: 700; font-style: italic; }
+  .ptp .ky > div { padding-left: 12mm; }
+  .ptp .ky > div:last-child { padding-left: 50mm; }
+  .ptp .ten { display: grid; grid-template-columns: 1fr 1fr; font-style: italic; margin-top: 18mm; }
+  .ptp .ten > div { padding-left: 12mm; }
+  .ptp .ten > div:last-child { padding-left: 45mm; }
+  .ptp .dl { overflow: hidden; white-space: nowrap; margin: 1mm 0; letter-spacing: -.5px; }
+  .ptp .ngay2 { text-align: right; font-style: italic; padding-right: 8mm; }
   #printArea { display: none; }
   @media print {
     body { background: #fff !important; }
     .app { display: none !important; }
     #printArea { display: block; }
     #printArea .phieu { box-shadow: none; padding-top: 0; min-height: 0; }
-    #printArea .phieu + .phieu, #printArea .cdp + .cdp { page-break-before: always; }
+    #printArea .phieu + .phieu, #printArea .cdp + .cdp, #printArea .ptp + .ptp { page-break-before: always; }
+    #printArea .ptp { min-height: 0; padding-top: 0; }
     #printArea .cdp { min-height: 0; padding-top: 0; }
   }
 </style>
@@ -273,28 +310,39 @@
           </div>
 
           <!-- ====================== CHẾ ĐỘ CÔNG ĐOÀN ====================== -->
-          <div data-pane="cong-doan" class="tk-card-body" hidden>
+          <div data-pane="cong-doan" class="tk-card-body" data-mau="bm03" hidden>
             <div class="lp">
               <div>
-                <div class="sec">① Bộ phận đề xuất</div>
+                <div class="sec">① Mẫu in</div>
+                <div class="radio mau-in">
+                  <label><input type="radio" name="mauIn" value="bm03"> <span><b>Giấy đề nghị hỗ trợ theo chế độ</b> <span class="hint">(BM-03/HC — mỗi nhân viên 1 tờ)</span></span></label>
+                  <label><input type="radio" name="mauIn" value="pt"> <span><b>Phiếu trình V/v thăm hỏi</b> <span class="hint">(1 tờ, gộp các nhân viên vào bảng)</span></span></label>
+                </div>
                 <div class="fg">
-                  <label>Bộ phận đề xuất<input id="cBoPhan"></label>
-                  <label>Đơn vị (dòng in đậm góc trái)<input id="cDonVi"></label>
-                  <label>Nơi ký (dòng ngày tháng)<input id="cNoiKy"></label>
+                  <label class="only-bm03">Bộ phận đề xuất<input id="cBoPhan"></label>
+                  <label class="only-bm03">Đơn vị (dòng in đậm góc trái)<input id="cDonVi"></label>
+                  <label class="only-bm03">Nơi ký (dòng ngày tháng)<input id="cNoiKy"></label>
                   <label>Ngày lập<input id="cNgay" type="date"></label>
                   <div class="fl">Ngày trên phiếu<label class="chk"><input type="checkbox" id="cNgayTrong"> Để trống ngày/tháng (ký tay)</label></div>
-                  <div class="fl">Mục II (Công đoàn cơ sở)<label class="chk"><input type="checkbox" id="cDienCD"> Điền sẵn mức Quỹ CĐ</label></div>
+                  <div class="fl only-bm03">Mục II (Công đoàn cơ sở)<label class="chk"><input type="checkbox" id="cDienCD"> Điền sẵn mức Quỹ CĐ</label></div>
+                </div>
+                <div class="fg only-pt" style="margin-top:12px">
+                  <label class="wide">Tiêu đề (dòng V/v — tự tạo theo chế độ, sửa được)<input id="cVv"></label>
+                  <label class="wide">Diễn giải sự việc (vd: nhập viện phẫu thuật mổ kết hợp xương đòn phải)<input id="cDienGiai"></label>
+                  <label class="wide">Ý kiến của chuyên viên (tự tạo — sửa được) <a class="hint" id="cYkLai" style="cursor:pointer;color:#1a56db">↻ tạo lại câu tự động</a><textarea id="cYk" rows="3"></textarea></label>
+                  <label>Người đề nghị (in dưới chữ ký, để trống nếu ký tay)<input id="cNguoiDN" list="nguoiList"></label>
+                  <label>Giám đốc (in dưới chữ ký)<input id="cGiamDoc"></label>
                 </div>
 
-                <div class="sec">② Nhân viên được hỗ trợ — mỗi dòng in thành 1 tờ</div>
-                <table class="it"><thead><tr><th>STT</th><th style="min-width:170px">Họ tên</th><th style="width:110px">Mã NV</th><th style="min-width:230px">Chế độ</th><th style="width:130px">Số tiền (Cty)</th><th>Lý do (in trên phiếu)</th><th></th></tr></thead>
+                <div class="sec">② Nhân viên được hỗ trợ<span class="only-bm03"> — mỗi dòng in thành 1 tờ</span><span class="only-pt"> — mỗi dòng là 1 dòng trong bảng</span></div>
+                <table class="it"><thead><tr><th>STT</th><th style="min-width:170px">Họ tên</th><th style="width:110px">Mã NV</th><th class="only-pt" style="min-width:170px">Người thân (nếu có)</th><th class="only-pt" style="width:80px">NV là</th><th style="min-width:230px">Chế độ</th><th style="width:130px">Số tiền (Cty)</th><th class="only-bm03">Lý do (in trên phiếu)</th><th class="only-pt">Ghi chú</th><th></th></tr></thead>
                   <tbody id="cdBody"></tbody>
                   <tfoot><tr><td></td><td colspan="3"><button class="b sm" type="button" id="cdAdd">+ Thêm nhân viên</button> <span class="hint">Gõ tên/mã — gợi ý từ danh sách NV ở trang KPIs và các lần trước.</span></td><td style="text-align:right" id="cdTong"></td><td colspan="2"></td></tr></tfoot>
                 </table>
                 <datalist id="nvList"></datalist><datalist id="maList"></datalist>
 
                 <div class="actions">
-                  <button class="b pri" type="button" id="cdPrint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>In đề nghị (A4)</button>
+                  <button class="b pri" type="button" id="cdPrint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>In (A4)</button>
                   <button class="b ok" type="button" id="cdToTT" title="Tạo Giấy đề nghị thanh toán gộp các khoản trên">→ Lập phiếu thanh toán</button>
                   <button class="b" type="button" id="cdSave">Lưu</button>
                   <button class="b" type="button" id="cdNew">Đề nghị mới</button>
@@ -305,7 +353,7 @@
                 <div class="tw" style="max-height:340px"><table class="dt"><thead><tr><th>Ngày</th><th>Nhân viên</th><th>Chế độ</th><th class="r">Số tiền</th><th></th></tr></thead><tbody id="cdHist"></tbody></table></div>
               </div>
               <div class="pv-wrap">
-                <div class="pv-head"><span>Xem trước tờ <select id="cdPvSel" style="font-size:12px"></select></span><span>Khổ A4</span></div>
+                <div class="pv-head"><span>Xem trước <span class="only-bm03">tờ <select id="cdPvSel" style="font-size:12px"></select></span></span><span>Khổ A4</span></div>
                 <div class="pv-paper" id="cdPaper"><div id="cdPv"></div></div>
               </div>
             </div>
@@ -363,8 +411,8 @@
   </div>
 </div>
 <div id="printArea"></div>
-<script src="../assets/flows.js?v=20261003b"></script>
-<script src="../assets/layout.js?v=20261003b"></script>
-<script src="app.js?v=20261003b"></script>
+<script src="../assets/flows.js?v=20261003c"></script>
+<script src="../assets/layout.js?v=20261003c"></script>
+<script src="app.js?v=20261003c"></script>
 </body>
 </html>

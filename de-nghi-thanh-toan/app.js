@@ -590,11 +590,15 @@
   const mucChi = () => (db.cfg && Array.isArray(db.cfg.mucChi) && db.cfg.mucChi.length) ? db.cfg.mucChi : MUC_CHI_GOC;
   const cheDo = id => mucChi().find(x => x.id === id);
   const LS_CD = 'kvh-dntt-cd-draft';
-  const blankRow = () => ({ ten: '', ma: '', cheDo: '', tien: 0, lyDo: '' });
-  const newCd = keep => ({ id: '', boPhan: keep ? keep.boPhan : 'Bộ phận Hành chính HCM', donVi: keep ? keep.donVi : 'HÀNH CHÍNH CN HCM', noiKy: keep ? keep.noiKy : 'Hà Nội',
-    ngayLap: today(), ngayTrong: keep ? keep.ngayTrong : true, dienCD: keep ? keep.dienCD : false, rows: [blankRow()] });
+  const blankRow = () => ({ ten: '', ma: '', cheDo: '', tien: 0, lyDo: '', nguoiThan: '', quanHe: '', gc: '' });
+  // mauIn: 'bm03' = Giấy đề nghị hỗ trợ theo chế độ (1 tờ/NV) · 'pt' = Phiếu trình V/v thăm hỏi (1 tờ, bảng nhiều dòng)
+  const newCd = keep => ({ id: '', mauIn: keep ? keep.mauIn || 'bm03' : 'bm03',
+    boPhan: keep ? keep.boPhan : 'Bộ phận Hành chính HCM', donVi: keep ? keep.donVi : 'HÀNH CHÍNH CN HCM', noiKy: keep ? keep.noiKy : 'Hà Nội',
+    ngayLap: today(), ngayTrong: keep ? keep.ngayTrong : true, dienCD: keep ? keep.dienCD : false,
+    vv: '', vvTay: false, yk: '', ykTay: false, dienGiai: '', nguoiDN: keep ? keep.nguoiDN || '' : '', giamDoc: keep && keep.giamDoc !== undefined ? keep.giamDoc : 'Phương Thu',
+    rows: [blankRow()] });
   let c = null; try { c = JSON.parse(localStorage.getItem(LS_CD) || 'null'); } catch (e) {}
-  if (!c || !Array.isArray(c.rows)) c = newCd();
+  c = (!c || !Array.isArray(c.rows)) ? newCd() : Object.assign(newCd(), c);
   let cdPv = 0;
   const saveCd = () => { try { localStorage.setItem(LS_CD, JSON.stringify(c)); } catch (e) {} };
   const cdRows = x => (x.rows || []).filter(r => r.ten || r.ma || r.tien);
@@ -641,27 +645,83 @@
       <div class="ngay">${ngay}</div><div class="tgd">TỔNG GIÁM ĐỐC</div>
     </div>`;
   }
+  // ---- Phiếu trình V/v thăm hỏi
+  const XUNG = ['Ông', 'Bà', 'Anh', 'Chị', 'Em', 'Cháu', 'Cô', 'Chú', 'Bác', 'Cụ'];
+  function noiDungPt(r) {
+    const nv = `${r.ten}${r.ma ? ' – Mã NV ' + r.ma : ''}`;
+    if (!clean(r.nguoiThan)) return nv;
+    const w = clean(r.nguoiThan).split(' '), x = XUNG.find(t => t.toLowerCase() === (w[0] || '').toLowerCase());
+    const ten = x ? `${x} : ${w.slice(1).join(' ')}` : clean(r.nguoiThan);
+    return `${ten} (${clean(r.quanHe) || 'Người thân'} : ${nv})`;
+  }
+  function autoPt() {
+    const rows = cdRows(c);
+    if (!c.vvTay) {
+      const chuDe = [...new Set(rows.map(r => ((cheDo(r.cheDo) || {}).ten || '').split(' – ')[0].split(' (')[0]).filter(Boolean))];
+      c.vv = 'V/v thăm hỏi ' + (chuDe.length ? chuDe.join(', ') : 'CBNV') + ' CN HCM';
+    }
+    if (!c.ykTay) {
+      const ai = rows.map(r => clean(r.nguoiThan) ? `người thân CBNV ${r.ten} là ${clean(r.nguoiThan)}` : `CBNV ${r.ten}`);
+      c.yk = `Thăm hỏi động viên tinh thần ${ai.join('; ') || 'CBNV'}${clean(c.dienGiai) ? ' ' + clean(c.dienGiai) : ''}, chuyên viên kính đề nghị Ban Lãnh Đạo và Phòng Kế Toán duyệt chi cho việc như sau:`;
+    }
+    ['cVv', 'cYk'].forEach(id => { if (document.activeElement !== $(id)) $(id).value = c[id === 'cVv' ? 'vv' : 'yk'] || ''; });
+  }
+  function ptHtml(x) {
+    const rows = cdRows(x), list = rows.length ? rows : [blankRow()];
+    const t = rows.reduce((s, r) => s + (r.tien || 0), 0);
+    const nd = x.ngayLap || today(), nam = nd.slice(0, 4);
+    const ngay = x.ngayTrong ? `TP.HCM, ngày&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tháng&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;năm ${nam}` : `TP.HCM, ngày ${nd.slice(8, 10)} tháng ${nd.slice(5, 7)} năm ${nam}`;
+    const dl = () => `<div class="dl">${'.'.repeat(400)}</div>`;
+    const ngay2 = `<div class="ngay2">Tp. HCM, ngày&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tháng&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;năm&nbsp; ${nam}</div>`;
+    return `<div class="ptp">
+      <div class="top"><img src="../assets/logo.svg?v=2" alt="CPC1HN">
+        <div class="cty">CÔNG TY CỔ PHẦN<br><span>DƯỢC PHẨM CPC1 HÀ NỘI</span></div>
+        <div class="qh">CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM<br><span>Độc lập – Tự do – Hạnh phúc</span></div></div>
+      <h1>PHIẾU TRÌNH</h1><h2><span>${esc(x.vv)}</span></h2>
+      <div class="kg"><i>Kính gửi:</i><div>- BAN LÃNH ĐẠO CÔNG TY<br>- PHÒNG KẾ TOÁN</div></div>
+      <div class="mt n1"><span>1.</span><span>Ý kiến của chuyên viên:</span></div>
+      <div class="p in1">${esc(x.yk)}</div>
+      <table><colgroup><col style="width:11%"><col style="width:37%"><col style="width:24%"><col style="width:28%"></colgroup>
+        <thead><tr><th>STT</th><th>Nội dung</th><th>Đồng</th><th>Ghi chú</th></tr></thead>
+        <tbody>${list.map((r, i) => `<tr><td>${rows.length ? i + 1 : ''}</td><td class="nd">${esc(r.ten || r.nguoiThan ? noiDungPt(r) : '')}</td><td>${r.tien ? vnd(r.tien) : ''}</td><td>${esc(r.gc || '')}</td></tr>`).join('')}
+        <tr class="tong"><td></td><td>Tổng cộng</td><td>${t ? vnd(t) : ''}</td><td></td></tr></tbody></table>
+      <div class="bc">(Bằng chữ: ${t ? esc(bangChu(t)) + './' : ''})</div>
+      <div class="km">Kính mong Ban Lãnh Đạo, Phòng Kế Toán xem xét, phê duyệt!</div>
+      <div class="ngay">${ngay}</div>
+      <div class="ky"><div>Người đề Nghị</div><div>Giám đốc</div></div>
+      <div class="ten"><div>${esc(x.nguoiDN)}</div><div>${esc(x.giamDoc)}</div></div>
+      <div class="mt">2. Ý kiến của Ban Lãnh Đạo:</div>${dl()}${dl()}${dl()}${ngay2}
+      <div class="mt" style="margin-top:8mm">3. Ý kiến của Phòng Kế Toán:</div>${dl()}${dl()}${dl()}${ngay2}
+    </div>`;
+  }
+  const cdPages = x => x.mauIn === 'pt' ? [ptHtml(x)] : cdRows(x).map(r => cdHtml(x, r));
   function renderCdPreview() {
     const rows = cdRows(c), list = rows.length ? rows : [blankRow()];
     if (cdPv >= list.length) cdPv = 0;
     $('cdPvSel').innerHTML = list.map((r, i) => `<option value="${i}"${i === cdPv ? ' selected' : ''}>${i + 1}. ${esc(r.ten || '(chưa có tên)')}</option>`).join('');
-    const pv = $('cdPv'); pv.innerHTML = cdHtml(c, list[cdPv]);
+    const pv = $('cdPv'); pv.innerHTML = c.mauIn === 'pt' ? ptHtml(c) : cdHtml(c, list[cdPv]);
     const el = pv.firstElementChild, w = el.offsetWidth, h = el.offsetHeight, sc = w > 560 ? 560 / w : 1;
     el.style.transformOrigin = 'top left'; el.style.transform = sc < 1 ? `scale(${sc})` : '';
     $('cdPaper').style.width = Math.round(w * sc) + 'px'; $('cdPaper').style.height = Math.round(h * sc) + 'px';
   }
   $('cdPvSel').addEventListener('change', e => { cdPv = +e.target.value; renderCdPreview(); });
-  const CF = { cBoPhan: 'boPhan', cDonVi: 'donVi', cNoiKy: 'noiKy', cNgay: 'ngayLap' };
+  const CF = { cBoPhan: 'boPhan', cDonVi: 'donVi', cNoiKy: 'noiKy', cNgay: 'ngayLap', cDienGiai: 'dienGiai', cNguoiDN: 'nguoiDN', cGiamDoc: 'giamDoc' };
   function renderCd() {
     Object.entries(CF).forEach(([id, k]) => { if (document.activeElement !== $(id)) $(id).value = c[k] || ''; });
     $('cNgayTrong').checked = !!c.ngayTrong; $('cDienCD').checked = !!c.dienCD;
+    document.querySelector('[data-pane="cong-doan"]').dataset.mau = c.mauIn;
+    document.querySelectorAll('input[name=mauIn]').forEach(r => { r.checked = r.value === c.mauIn; });
+    autoPt();
     const opts = sel => mucChi().map(m => `<option value="${esc(m.id)}"${m.id === sel ? ' selected' : ''}>${esc(m.ten)}${m.cty ? ' — ' + vnd(m.cty) : ''}</option>`).join('');
     $('cdBody').innerHTML = c.rows.map((r, i) => `<tr data-i="${i}"><td class="stt">${i + 1}</td>
       <td><input data-k="ten" list="nvList" value="${esc(r.ten)}" placeholder="Họ tên"></td>
       <td><input data-k="ma" list="maList" value="${esc(r.ma)}" placeholder="Mã NV"></td>
+      <td class="only-pt"><input data-k="nguoiThan" value="${esc(r.nguoiThan)}" placeholder="vd: Ông Nguyễn Văn A"></td>
+      <td class="only-pt"><input data-k="quanHe" value="${esc(r.quanHe)}" placeholder="Con"></td>
       <td><select data-k="cheDo"><option value="">— chọn chế độ —</option>${opts(r.cheDo)}</select></td>
       <td><input class="money" data-k="tien" inputmode="numeric" value="${r.tien ? vnd(r.tien) : ''}"></td>
-      <td><input data-k="lyDo" value="${esc(r.lyDo)}"></td>
+      <td class="only-bm03"><input data-k="lyDo" value="${esc(r.lyDo)}"></td>
+      <td class="only-pt"><input data-k="gc" value="${esc(r.gc)}"></td>
       <td class="x"><button type="button" data-del="${i}" title="Xóa dòng">×</button></td></tr>`).join('');
     const nv = nvGoiY();
     $('nvList').innerHTML = nv.map(e => `<option value="${esc(e.ten)}">${esc(e.ma)}</option>`).join('');
@@ -669,8 +729,12 @@
     renderCdTong(); renderCdHist(); renderCdPreview();
   }
   function renderCdTong() { const t = cdRows(c).reduce((s, r) => s + (r.tien || 0), 0); $('cdTong').innerHTML = t ? `<b>${vnd(t)}</b>` : ''; }
-  function cdChanged() { saveCd(); renderCdTong(); renderCdPreview(); }
+  function cdChanged() { autoPt(); saveCd(); renderCdTong(); renderCdPreview(); }
   Object.entries(CF).forEach(([id, k]) => $(id).addEventListener('input', () => { c[k] = $(id).value; cdChanged(); }));
+  document.querySelectorAll('input[name=mauIn]').forEach(r => r.addEventListener('change', () => { c.mauIn = r.value; saveCd(); renderCd(); }));
+  $('cVv').addEventListener('input', e => { c.vv = e.target.value; c.vvTay = true; cdChanged(); });
+  $('cYk').addEventListener('input', e => { c.yk = e.target.value; c.ykTay = true; cdChanged(); });
+  $('cYkLai').addEventListener('click', () => { c.vvTay = false; c.ykTay = false; $('cVv').blur(); $('cYk').blur(); cdChanged(); });
   $('cNgayTrong').addEventListener('change', e => { c.ngayTrong = e.target.checked; cdChanged(); });
   $('cDienCD').addEventListener('change', e => { c.dienCD = e.target.checked; cdChanged(); });
   function cdEdit(e) {
@@ -712,13 +776,14 @@
   $('cdPrint').addEventListener('click', () => {
     const rows = cdRows(c);
     if (!rows.length) { msg($('cdMsg'), 'Chưa có nhân viên nào.'); return; }
-    const thieu = rows.filter(r => !r.ten || !r.tien || !r.lyDo);
-    if (thieu.length && !confirm(`${thieu.length} dòng còn thiếu tên / số tiền / lý do. Vẫn in?`)) return;
+    const thieu = rows.filter(r => !r.ten || !r.tien || (c.mauIn !== 'pt' && !r.lyDo));
+    if (thieu.length && !confirm(`${thieu.length} dòng còn thiếu tên / số tiền${c.mauIn !== 'pt' ? ' / lý do' : ''}. Vẫn in?`)) return;
     luuCd();
+    const pages = cdPages(c);
     $('pageSize').textContent = '@page { size: A4 portrait; margin: 8mm 0 8mm 0; }';
-    $('printArea').innerHTML = rows.map(r => cdHtml(c, r)).join('');
+    $('printArea').innerHTML = pages.join('');
     window.print();
-    msg($('cdMsg'), `Đã gửi lệnh in ${rows.length} tờ và lưu đề nghị.`, true);
+    msg($('cdMsg'), `Đã gửi lệnh in ${pages.length} tờ và lưu đề nghị.`, true);
   });
   // gộp các khoản thành 1 Giấy đề nghị thanh toán (người đề nghị ứng tiền rồi xin thanh toán)
   $('cdToTT').addEventListener('click', () => {
@@ -740,7 +805,7 @@
   function renderCdHist() {
     const list = (db.cd || []).slice().sort((a, b) => (b.ngayLap || '').localeCompare(a.ngayLap || '') || (b.sua || '').localeCompare(a.sua || ''));
     $('cdHist').innerHTML = list.map(x => `<tr><td>${esc(isoToVN(x.ngayLap))}</td><td class="wrap">${x.rows.map(r => esc(r.ten) + (r.ma ? ` <span class="muted">${esc(r.ma)}</span>` : '')).join('<br>')}</td>
-      <td class="wrap">${x.rows.map(r => esc((cheDo(r.cheDo) || {}).ten || r.lyDo)).join('<br>')}</td><td class="r money">${vnd(x.tong)}</td>
+      <td class="wrap"><span class="muted">${x.mauIn === 'pt' ? 'Phiếu trình' : 'Giấy ĐN BM-03'}</span><br>${x.rows.map(r => esc((cheDo(r.cheDo) || {}).ten || r.lyDo)).join('<br>')}</td><td class="r money">${vnd(x.tong)}</td>
       <td class="act"><button class="b sm" type="button" data-cdopen="${x.id}">Mở</button> <button class="b del sm" type="button" data-cddel="${x.id}">Xóa</button></td></tr>`).join('')
       || '<tr><td colspan="5" class="muted">Chưa có đề nghị nào.</td></tr>';
   }
