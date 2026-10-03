@@ -806,7 +806,7 @@
   }
   // ---- Phiếu trình V/v thăm hỏi
   const XUNG = ['Ông', 'Bà', 'Anh', 'Chị', 'Em', 'Cháu', 'Cô', 'Chú', 'Bác', 'Cụ'];
-  // "Người thân là" (quan hệ của người thân với NV) -> NV là gì của người thân (dùng trong bảng phiếu trình)
+  // gợi ý cho ô "Người thân là" (quan hệ của người thân với NV)
   const NGUOC = { 'con': 'Bố/Mẹ', 'con trai': 'Bố/Mẹ', 'con gái': 'Bố/Mẹ', 'bố': 'Con', 'mẹ': 'Con', 'cha': 'Con', 'bố vợ': 'Con rể', 'mẹ vợ': 'Con rể',
     'bố chồng': 'Con dâu', 'mẹ chồng': 'Con dâu', 'vợ': 'Chồng', 'chồng': 'Vợ' };
   const boXung = s => { const w = clean(s).split(' '); return XUNG.some(t => t.toLowerCase() === (w[0] || '').toLowerCase()) ? w.slice(1).join(' ') : clean(s); };
@@ -816,7 +816,7 @@
     if (!clean(r.nguoiThan)) return nv;
     const w = clean(r.nguoiThan).split(' '), x = XUNG.find(t => t.toLowerCase() === (w[0] || '').toLowerCase());
     const ten = x ? `${x} : ${w.slice(1).join(' ')}` : clean(r.nguoiThan);
-    const nvLa = clean(r.quanHe) || NGUOC[clean(r.laGi).toLowerCase()] || 'Người thân';
+    const nvLa = clean(r.quanHe) || clean(r.laGi) || 'Người thân'; // ghi đúng quan hệ người thân đã nhập (vd: Con)
     return `${ten} (${capHoa(nvLa)} : ${nv})`;
   }
   // "(con Lê Phúc Khang)" chèn vào lý do phiếu thanh toán
