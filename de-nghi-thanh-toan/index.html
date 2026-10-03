@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Đề Nghị Thanh Toán</title>
 <link rel="icon" href="../assets/logo.png?v=2" type="image/png">
-<link rel="stylesheet" href="../assets/theme.css?v=20261003a">
+<link rel="stylesheet" href="../assets/theme.css?v=20261003b">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   .content.tk-wide { max-width: none; padding: 16px 20px; }
@@ -119,8 +119,11 @@
   /* ---- tờ phiếu (xem trước + in) — theo mẫu BM-01/KT-CPC1HN, khổ A5 ---- */
   .phieu { font-family: 'Times New Roman', Times, serif; color: #000; width: 148mm; min-height: 210mm; box-sizing: border-box; padding: 6mm 6mm 6mm 7mm; font-size: 11.5pt; line-height: 1.3; background: #fff; }
   .phieu.a4 { width: 210mm; min-height: 297mm; padding: 14mm 16mm; font-size: 13pt; }
-  .phieu .hd { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 6px; }
-  .phieu .hd h1 { margin: 6px 0 0; text-align: center; font-size: 16pt; font-weight: 700; letter-spacing: .02em; padding-left: 20mm; }
+  .phieu .hd { display: grid; grid-template-columns: 17mm 1fr auto; align-items: start; gap: 4px; }
+  .phieu .hd .logo { width: 14mm; height: auto; margin-left: 2mm; }
+  .phieu.a4 .hd { grid-template-columns: 24mm 1fr auto; }
+  .phieu.a4 .hd .logo { width: 20mm; }
+  .phieu .hd h1 { margin: 6px 0 0; text-align: center; font-size: 16pt; font-weight: 700; letter-spacing: .02em; }
   .phieu .hd .ma { font-size: 9pt; font-style: italic; text-align: center; line-height: 1.35; white-space: nowrap; }
   .phieu .kg { display: grid; grid-template-columns: 30mm 1fr; margin-top: 10px; font-weight: 700; font-size: 10.5pt; }
   .phieu.a4 .kg { grid-template-columns: 45mm 1fr; font-size: 12pt; }
@@ -360,8 +363,8 @@
   </div>
 </div>
 <div id="printArea"></div>
-<script src="../assets/flows.js?v=20261003a"></script>
-<script src="../assets/layout.js?v=20261003a"></script>
-<script src="app.js?v=20261003a"></script>
+<script src="../assets/flows.js?v=20261003b"></script>
+<script src="../assets/layout.js?v=20261003b"></script>
+<script src="app.js?v=20261003b"></script>
 </body>
 </html>

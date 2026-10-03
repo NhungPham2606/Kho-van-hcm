@@ -155,7 +155,7 @@
       : `Tp.Hồ Chí Minh, ngày ${nd.slice(8, 10)} tháng ${nd.slice(5, 7)} năm ${nd.slice(0, 4)}`;
     const box = on => `<span class="box">${on ? '☑' : '☐'}</span>`;
     return `<div class="phieu${x.kho === 'A4' ? ' a4' : ''}">
-      <div class="hd"><h1>GIẤY ĐỀ NGHỊ THANH TOÁN</h1><div class="ma">BM-01/KT-CPC1HN<br>AD: 18/09/2020</div></div>
+      <div class="hd"><img class="logo" src="../assets/logo.svg?v=2" alt="CPC1HN"><h1>GIẤY ĐỀ NGHỊ THANH TOÁN</h1><div class="ma">BM-01/KT-CPC1HN<br>AD: 18/09/2020</div></div>
       <div class="kg"><div>KÍNH GỬI:</div><div>- BAN GIÁM ĐỐC<br>- PHÒNG KẾ TOÁN</div></div>
       <div class="ln" style="margin-top:8px">Tên tôi là: ${esc(x.nguoi)}</div>
       <div class="ln">Bộ phận công tác: ${esc(x.boPhan)}</div>
@@ -359,81 +359,99 @@
     msg($('lpMsg'), `Đã lưu mẫu <b>${esc(m.ten)}</b>.`, true);
   });
 
-  function xuatExcel(list) {
-    if (!window.XLSX) { alert('Chưa tải được thư viện Excel — kiểm tra mạng rồi thử lại.'); return; }
-    const wb = XLSX.utils.book_new(), used = {};
-    list.forEach(x => {
-      const ws = sheetPhieu(x);
-      let name = clean(x.mauTen || 'Phieu').replace(/[\\\/?*\[\]:]/g, ' ').slice(0, 28) || 'Phieu';
-      if (used[name]) name = name.slice(0, 25) + ' ' + (++used[name]); else used[name] = 1;
-      XLSX.utils.book_append_sheet(wb, ws, name);
-    });
-    const x = list[0];
-    const ten = clean(x.mauTen || x.tenTK || 'phieu').replace(/[\\\/?*\[\]:"<>|]/g, ' ').slice(0, 40);
-    XLSX.writeFile(wb, `ĐNTT ${ten} ${isoToVN(x.ngayLap || today()).replace(/\//g, '.')}.xlsx`);
+  // Xuất Excel bằng ExcelJS (chèn được logo + đặt khổ A5 như file mẫu)
+  const EXCELJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+  const loadScript = src => new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => fail(new Error('không tải được ' + src)); document.head.appendChild(s); });
+  async function logoBase64() {
+    try {
+      const blob = await fetch('../assets/logo.png?v=2').then(r => { if (!r.ok) throw new Error(r.status); return r.blob(); });
+      return await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(blob); });
+    } catch (e) { return null; }
   }
-  function sheetPhieu(x) {
-    const TNR = (o = {}) => Object.assign({ name: 'Times New Roman', sz: 12 }, o);
-    const thin = { style: 'thin', color: { rgb: '000000' } };
+  async function xuatExcel(list) {
+    try {
+      if (!window.ExcelJS) await loadScript(EXCELJS_URL);
+      const wb = new ExcelJS.Workbook(), used = {};
+      const logo = await logoBase64();
+      const imgId = logo ? wb.addImage({ base64: logo, extension: 'png' }) : null;
+      list.forEach(x => {
+        let name = clean(x.mauTen || 'Phieu').replace(/[\\\/?*\[\]:]/g, ' ').slice(0, 28) || 'Phieu';
+        if (used[name]) name = name.slice(0, 25) + ' ' + (++used[name]); else used[name] = 1;
+        sheetPhieu(wb, name, x, imgId);
+      });
+      const buf = await wb.xlsx.writeBuffer();
+      const x = list[0];
+      const ten = clean(x.mauTen || x.tenTK || 'phieu').replace(/[\\\/?*\[\]:"<>|]/g, ' ').slice(0, 40);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      a.download = `ĐNTT ${ten} ${isoToVN(x.ngayLap || today()).replace(/\//g, '.')}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    } catch (e) { alert('Không xuất được Excel: ' + e.message + '. Kiểm tra mạng rồi thử lại.'); }
+  }
+  function sheetPhieu(wb, name, x, imgId) {
+    const ws = wb.addWorksheet(name, {
+      pageSetup: { paperSize: 11, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+        margins: { left: 0.16, right: 0.16, top: 0.18, bottom: 0.18, header: 0.1, footer: 0.1 } },
+    });
+    ws.columns = [1.57, 6.29, 13.14, 18.71, 15, 19.14].map(w => ({ width: w }));
+    const thin = { style: 'thin', color: { argb: 'FF000000' } };
     const box = { top: thin, bottom: thin, left: thin, right: thin };
-    const ws = {}, merges = [], heights = {};
-    const C = 'ABCDEF';
-    const put = (ref, v, s = {}) => {
-      const cell = typeof v === 'number' ? { v, t: 'n' } : { v: v ?? '', t: 's' };
-      cell.s = Object.assign({ font: TNR(), alignment: { vertical: 'center' } }, s);
-      ws[ref] = cell;
+    const put = (ref, v, o = {}) => {
+      const cell = ws.getCell(ref);
+      cell.value = v;
+      cell.font = Object.assign({ name: 'Times New Roman', size: 12 }, o.font || {});
+      cell.alignment = Object.assign({ vertical: 'middle' }, o.align || {});
+      if (o.border) cell.border = box;
+      if (o.numFmt) cell.numFmt = o.numFmt;
+      return cell;
     };
-    const merge = (a, b) => merges.push(XLSX.utils.decode_range(a + ':' + b));
-    let r = 1;
-    put('C1', 'GIẤY ĐỀ NGHỊ THANH TOÁN', { font: TNR({ sz: 16, bold: true }), alignment: { horizontal: 'center', vertical: 'center' } }); merge('C1', 'E2');
-    put('F1', 'BM-01/KT-CPC1HN', { font: TNR({ sz: 9, italic: true }), alignment: { horizontal: 'center' } });
-    put('F2', 'AD: 18/09/2020', { font: TNR({ sz: 10, italic: true }), alignment: { horizontal: 'center' } });
-    heights[4] = 6.75;
-    put('B5', 'KÍNH GỬI:  ', { font: TNR({ sz: 10, bold: true }) }); put('D5', '- BAN GIÁM ĐỐC', { font: TNR({ sz: 11, bold: true }) });
-    put('D6', '- PHÒNG KẾ TOÁN', { font: TNR({ sz: 11, bold: true }) });
+    const h = (r, v) => { ws.getRow(r).height = v; };
+    [1, 5, 6, 7, 8, 9].forEach(r => h(r, 15.75)); h(2, 16.5); h(4, 6.75);
+    if (imgId !== null) ws.addImage(imgId, { tl: { col: 1.15, row: 0 }, ext: { width: 56, height: 56 }, editAs: 'oneCell' });
+    put('C1', 'GIẤY ĐỀ NGHỊ THANH TOÁN', { font: { size: 16, bold: true }, align: { horizontal: 'center' } }); ws.mergeCells('C1:E2');
+    put('F1', 'BM-01/KT-CPC1HN', { font: { size: 9, italic: true }, align: { horizontal: 'center' } });
+    put('F2', 'AD: 18/09/2020', { font: { size: 10, italic: true }, align: { horizontal: 'center' } });
+    put('B5', 'KÍNH GỬI:  ', { font: { size: 10, bold: true } }); put('D5', '- BAN GIÁM ĐỐC', { font: { size: 11, bold: true } });
+    put('D6', '- PHÒNG KẾ TOÁN', { font: { size: 11, bold: true } });
     put('B7', 'Tên tôi là: ' + (x.nguoi || ''));
-    put('B8', 'Bộ phận công tác: ' + (x.boPhan || ''), { font: TNR({ sz: 11 }) });
+    put('B8', 'Bộ phận công tác: ' + (x.boPhan || ''), { font: { size: 11 } });
     put('B9', 'Xin được thanh toán các hóa đơn chứng từ sau:');
-    const hdr = { font: TNR({ sz: 11, bold: true }), alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: box };
-    ['STT', 'Ngày tháng', 'Hóa đơn/Chứng từ', 'Thành tiền', 'Ghi chú'].forEach((h, i) => put(C[i + 1] + 10, h, hdr));
-    heights[10] = 22.5;
+    ['STT', 'Ngày tháng', 'Hóa đơn/Chứng từ', 'Thành tiền', 'Ghi chú'].forEach((t, i) => put('BCDEF'[i] + 10, t, { font: { size: 11, bold: true }, align: { horizontal: 'center', wrapText: true }, border: true }));
+    h(10, 22.5);
     const items = (x.items || []).filter(it => it.ngay || it.ct || it.tien || it.gc);
     const list = items.length ? items : [blankItem()];
-    r = 11;
-    const cen = { alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: box };
+    let r = 11;
+    const cen = { align: { horizontal: 'center', wrapText: true }, border: true };
     list.forEach((it, i) => {
       put('B' + r, items.length ? i + 1 : '', cen);
-      put('C' + r, isoToVN(it.ngay), Object.assign({}, cen, { font: TNR({ sz: 11 }) }));
+      put('C' + r, isoToVN(it.ngay), Object.assign({ font: { size: 11 } }, cen));
       put('D' + r, it.ct || '', cen);
-      if (it.tien) put('E' + r, Number(it.tien), Object.assign({}, cen, { numFmt: '#,##0', alignment: { horizontal: 'right', vertical: 'center' } })); else put('E' + r, '', cen);
-      put('F' + r, it.gc || '', Object.assign({}, cen, { font: TNR({ sz: 10 }), alignment: { horizontal: 'left', vertical: 'center', wrapText: true } }));
-      heights[r] = 30; r++;
+      put('E' + r, it.tien ? Number(it.tien) : '', { align: { horizontal: 'right' }, border: true, numFmt: '#,##0' });
+      put('F' + r, it.gc || '', { font: { size: 10 }, align: { horizontal: 'left', wrapText: true }, border: true });
+      h(r, 30); r++;
     });
     const t = tong(x);
-    put('B' + r, '', { border: box });
-    put('C' + r, 'Tổng cộng', { font: TNR({ sz: 14, bold: true, italic: true }), alignment: { horizontal: 'center', vertical: 'center' }, border: box }); put('D' + r, '', { border: box }); merge('C' + r, 'D' + r);
-    ws['E' + r] = { t: 'n', v: t, f: `SUM(E11:E${r - 1})`, s: { font: TNR({ bold: true }), numFmt: '#,##0', alignment: { horizontal: 'right', vertical: 'center' }, border: box } };
-    put('F' + r, '', { border: box }); heights[r] = 29.25; r++;
-    put('B' + r, `(Bằng chữ: ${t ? bangChu(t) : ''})`, { font: TNR({ italic: true }), alignment: { vertical: 'center', wrapText: true } }); merge('B' + r, 'F' + r); heights[r] = 26.25; r++;
-    put('B' + r, 'Lý do thanh toán: ' + (x.lyDo || ''), { alignment: { vertical: 'center', wrapText: true } }); merge('B' + r, 'F' + r);
-    heights[r] = Math.max(20, Math.ceil(('Lý do thanh toán: ' + (x.lyDo || '')).length / 70) * 18); r++;
-    put('B' + r, 'Hình thức nhận tiền: '); put('D' + r, 'Tiền mặt ' + (x.ht === 'tm' ? '☑' : '☐')); put('E' + r, 'Chuyển khoản ' + (x.ht === 'ck' ? '☑' : '☐')); heights[r] = 20.25; r++;
+    put('B' + r, '', { border: true });
+    put('C' + r, 'Tổng cộng', { font: { size: 14, bold: true, italic: true }, align: { horizontal: 'center' }, border: true }); put('D' + r, '', { border: true }); ws.mergeCells(`C${r}:D${r}`);
+    put('E' + r, { formula: `SUM(E11:E${r - 1})`, result: t }, { font: { bold: true }, align: { horizontal: 'right' }, border: true, numFmt: '#,##0' });
+    put('F' + r, '', { border: true }); h(r, 29.25); r++;
+    put('B' + r, `(Bằng chữ: ${t ? bangChu(t) : ''})`, { font: { italic: true }, align: { wrapText: true } }); ws.mergeCells(`B${r}:F${r}`); h(r, 26.25); r++;
+    const ld = 'Lý do thanh toán: ' + (x.lyDo || '');
+    put('B' + r, ld, { align: { wrapText: true } }); ws.mergeCells(`B${r}:F${r}`); h(r, Math.max(20, Math.ceil(ld.length / 70) * 18)); r++;
+    put('B' + r, 'Hình thức nhận tiền: '); put('D' + r, 'Tiền mặt ' + (x.ht === 'tm' ? '☑' : '☐')); put('E' + r, 'Chuyển khoản ' + (x.ht === 'ck' ? '☑' : '☐')); h(r, 20.25); r++;
     [['- Tên Tài khoản nhận tiền: ', x.tenTK], ['- Số tài khoản: ', x.soTK], ['- Tại Ngân hàng: ', x.nh]].forEach(([l, v]) => {
-      put('B' + r, l + (v || ''), { alignment: { vertical: 'center', wrapText: true } }); merge('B' + r, 'F' + r); heights[r] = 21; r++;
+      put('B' + r, l + (v || ''), { align: { wrapText: true } }); ws.mergeCells(`B${r}:F${r}`); h(r, 21); r++;
     });
     r++;
     const nd = x.ngayLap || today();
-    put('D' + r, x.ngayTrong ? `Tp.Hồ Chí Minh, ngày      tháng      năm ${nd.slice(0, 4)}` : `Tp.Hồ Chí Minh, ngày ${nd.slice(8, 10)} tháng ${nd.slice(5, 7)} năm ${nd.slice(0, 4)}`, { font: TNR({ italic: true }), alignment: { horizontal: 'right' } });
-    merge('D' + r, 'F' + r); r++;
-    const ky = { font: TNR({ sz: 11, bold: true }), alignment: { horizontal: 'center' } };
-    put('B' + r, 'Người đề nghị', ky); merge('B' + r, 'C' + r); put('D' + r, 'Phụ trách bộ phận', ky); put('E' + r, 'Kế toán trưởng', ky); put('F' + r, 'Thủ trưởng đv', ky);
+    put('D' + r, x.ngayTrong ? `Tp.Hồ Chí Minh, ngày      tháng      năm ${nd.slice(0, 4)}` : `Tp.Hồ Chí Minh, ngày ${nd.slice(8, 10)} tháng ${nd.slice(5, 7)} năm ${nd.slice(0, 4)}`, { font: { italic: true }, align: { horizontal: 'right' } });
+    ws.mergeCells(`D${r}:F${r}`); r++;
+    const ky = { font: { size: 11, bold: true }, align: { horizontal: 'center' } };
+    put('B' + r, 'Người đề nghị', ky); ws.mergeCells(`B${r}:C${r}`); put('D' + r, 'Phụ trách bộ phận', ky); put('E' + r, 'Kế toán trưởng', ky); put('F' + r, 'Thủ trưởng đv', ky);
     r += 6;
-    if (x.inTen) { put('B' + r, x.nguoi || '', ky); merge('B' + r, 'C' + r); }
-    ws['!ref'] = `A1:F${r}`;
-    ws['!merges'] = merges;
-    ws['!cols'] = [1.57, 6.29, 13.14, 18.71, 15, 19.14].map(w => ({ wch: w }));
-    ws['!rows'] = Array.from({ length: r }, (_, i) => heights[i + 1] ? { hpt: heights[i + 1] } : {});
-    ws['!margins'] = { left: 0.16, right: 0.16, top: 0.18, bottom: 0.18, header: 0.1, footer: 0.1 };
+    if (x.inTen) { put('B' + r, x.nguoi || '', ky); ws.mergeCells(`B${r}:C${r}`); }
+    ws.pageSetup.printArea = `A1:F${r}`;
     return ws;
   }
 
