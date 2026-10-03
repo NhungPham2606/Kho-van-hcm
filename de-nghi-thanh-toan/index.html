@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Đề Nghị Thanh Toán</title>
 <link rel="icon" href="../assets/logo.png?v=2" type="image/png">
-<link rel="stylesheet" href="../assets/theme.css?v=20261003c">
+<link rel="stylesheet" href="../assets/theme.css?v=20261003d">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   .content.tk-wide { max-width: none; padding: 16px 20px; }
@@ -170,7 +170,8 @@
   .tk table.it select { width: 100%; font: inherit; font-size: 12px; padding: 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; }
   .tk table.dt input.cell { font: inherit; font-size: 12px; padding: 4px 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fffbeb; width: 100%; box-sizing: border-box; }
   .tk table.dt input.cell.r { text-align: right; width: 110px; }
-  [data-mau="bm03"] .only-pt, [data-mau="pt"] .only-bm03 { display: none !important; }
+  [data-bm03="0"] .only-bm03, [data-pt="0"] .only-pt { display: none !important; }
+  [data-bm03="0"][data-pt="1"] .only-pt.only-bm03, [data-bm03="1"][data-pt="0"] .only-pt.only-bm03 { display: revert !important; }
   .tk .mau-in { flex-direction: column; align-items: flex-start; gap: 6px; }
   /* ---- Phiếu trình V/v thăm hỏi (mẫu Word "ĐỀ NGHỊ chi tiền ốm đau") ---- */
   .ptp { font-family: 'Times New Roman', Times, serif; color: #000; width: 210mm; min-height: 297mm; box-sizing: border-box; padding: 5mm 22mm 10mm 25mm; font-size: 12pt; line-height: 1.4; background: #fff; }
@@ -212,7 +213,8 @@
     .app { display: none !important; }
     #printArea { display: block; }
     #printArea .phieu { box-shadow: none; padding-top: 0; min-height: 0; }
-    #printArea .phieu + .phieu, #printArea .cdp + .cdp, #printArea .ptp + .ptp { page-break-before: always; }
+    #printArea > * + * { page-break-before: always; break-before: page; }
+    #printArea .phieu.p5 { page: pA5; }
     #printArea .ptp { min-height: 0; padding-top: 0; }
     #printArea .cdp { min-height: 0; padding-top: 0; }
   }
@@ -310,13 +312,14 @@
           </div>
 
           <!-- ====================== CHẾ ĐỘ CÔNG ĐOÀN ====================== -->
-          <div data-pane="cong-doan" class="tk-card-body" data-mau="bm03" hidden>
+          <div data-pane="cong-doan" class="tk-card-body" data-bm03="1" data-pt="1" hidden>
             <div class="lp">
               <div>
-                <div class="sec">① Mẫu in</div>
+                <div class="sec">① Bộ hồ sơ cần in <span class="hint" style="text-transform:none;letter-spacing:0;font-weight:400">— bấm "In bộ hồ sơ" là in liền các tờ đã tích, theo thứ tự</span></div>
                 <div class="radio mau-in">
-                  <label><input type="radio" name="mauIn" value="bm03"> <span><b>Giấy đề nghị hỗ trợ theo chế độ</b> <span class="hint">(BM-03/HC — mỗi nhân viên 1 tờ)</span></span></label>
-                  <label><input type="radio" name="mauIn" value="pt"> <span><b>Phiếu trình V/v thăm hỏi</b> <span class="hint">(1 tờ, gộp các nhân viên vào bảng)</span></span></label>
+                  <label class="chk"><input type="checkbox" id="inTT"> <span><b>1. Giấy đề nghị thanh toán</b> <span class="hint">(BM-01/KT — gộp các khoản, khổ A5)</span></span></label>
+                  <label class="chk"><input type="checkbox" id="inBM03"> <span><b>2. Giấy đề nghị hỗ trợ theo chế độ</b> <span class="hint">(BM-03/HC — mỗi nhân viên 1 tờ A4)</span></span></label>
+                  <label class="chk"><input type="checkbox" id="inPT"> <span><b>3. Phiếu trình V/v thăm hỏi</b> <span class="hint">(1 tờ A4, các nhân viên trong bảng)</span></span></label>
                 </div>
                 <div class="fg">
                   <label class="only-bm03">Bộ phận đề xuất<input id="cBoPhan"></label>
@@ -330,7 +333,7 @@
                   <label class="wide">Tiêu đề (dòng V/v — tự tạo theo chế độ, sửa được)<input id="cVv"></label>
                   <label class="wide">Diễn giải sự việc (vd: nhập viện phẫu thuật mổ kết hợp xương đòn phải)<input id="cDienGiai"></label>
                   <label class="wide">Ý kiến của chuyên viên (tự tạo — sửa được) <a class="hint" id="cYkLai" style="cursor:pointer;color:#1a56db">↻ tạo lại câu tự động</a><textarea id="cYk" rows="3"></textarea></label>
-                  <label>Người đề nghị (in dưới chữ ký, để trống nếu ký tay)<input id="cNguoiDN" list="nguoiList"></label>
+                  <label>Người đề nghị (in dưới chữ ký phiếu trình)<input id="cNguoiDN" list="nguoiList"></label>
                   <label>Giám đốc (in dưới chữ ký)<input id="cGiamDoc"></label>
                 </div>
 
@@ -342,8 +345,8 @@
                 <datalist id="nvList"></datalist><datalist id="maList"></datalist>
 
                 <div class="actions">
-                  <button class="b pri" type="button" id="cdPrint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>In (A4)</button>
-                  <button class="b ok" type="button" id="cdToTT" title="Tạo Giấy đề nghị thanh toán gộp các khoản trên">→ Lập phiếu thanh toán</button>
+                  <button class="b pri" type="button" id="cdPrint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>In bộ hồ sơ</button>
+                  <button class="b ok" type="button" id="cdToTT" title="Mở Giấy đề nghị thanh toán ở tab Lập phiếu để sửa chi tiết (người nhận, tài khoản…)">Sửa phiếu thanh toán ở tab Lập phiếu</button>
                   <button class="b" type="button" id="cdSave">Lưu</button>
                   <button class="b" type="button" id="cdNew">Đề nghị mới</button>
                 </div>
@@ -353,7 +356,7 @@
                 <div class="tw" style="max-height:340px"><table class="dt"><thead><tr><th>Ngày</th><th>Nhân viên</th><th>Chế độ</th><th class="r">Số tiền</th><th></th></tr></thead><tbody id="cdHist"></tbody></table></div>
               </div>
               <div class="pv-wrap">
-                <div class="pv-head"><span>Xem trước <span class="only-bm03">tờ <select id="cdPvSel" style="font-size:12px"></select></span></span><span>Khổ A4</span></div>
+                <div class="pv-head"><span>Xem trước tờ <select id="cdPvSel" style="font-size:12px"></select></span><span id="cdPvKho"></span></div>
                 <div class="pv-paper" id="cdPaper"><div id="cdPv"></div></div>
               </div>
             </div>
@@ -411,8 +414,8 @@
   </div>
 </div>
 <div id="printArea"></div>
-<script src="../assets/flows.js?v=20261003c"></script>
-<script src="../assets/layout.js?v=20261003c"></script>
-<script src="app.js?v=20261003c"></script>
+<script src="../assets/flows.js?v=20261003d"></script>
+<script src="../assets/layout.js?v=20261003d"></script>
+<script src="app.js?v=20261003d"></script>
 </body>
 </html>
