@@ -11,6 +11,7 @@ window.KVH_ICONS = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   chart: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  doc: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/>',
 };
 
 window.KVH_MENU = [
@@ -63,6 +64,18 @@ window.KVH_MENU = [
       { ten: 'Danh sách NV', href: 'kpi/#danh-sach' },
       { ten: 'Nạp file', href: 'kpi/#nap-du-lieu' },
       { ten: 'Quy tắc', href: 'kpi/#cai-dat' },
+    ],
+  },
+  {
+    ten: 'Đề Nghị Thanh Toán', icon: 'doc', trangThai: 'Khi cần',
+    moTa: 'Lập Giấy đề nghị thanh toán (BM-01/KT) từ mẫu đơn vị nhận tiền có sẵn, tự tính tổng + bằng chữ; đề nghị hỗ trợ chế độ Công đoàn (BM-03/HC). In A5/A4, xuất Excel.',
+    muc: [
+      { ten: 'Lập phiếu thanh toán', href: 'de-nghi-thanh-toan/#lap-phieu' },
+      { ten: 'Chế độ Công đoàn', href: 'de-nghi-thanh-toan/#cong-doan' },
+      { ten: 'Mẫu đơn vị nhận tiền', href: 'de-nghi-thanh-toan/#mau' },
+      { ten: 'Phiếu đã lập', href: 'de-nghi-thanh-toan/#da-lap' },
+      { ten: 'Nạp file mẫu Excel', href: 'de-nghi-thanh-toan/#nap-mau' },
+      { ten: 'Mức chi Công đoàn', href: 'de-nghi-thanh-toan/#muc-chi' },
     ],
   },
   // Vi du dong cong viec tiep theo (bo "//" khi co trang):

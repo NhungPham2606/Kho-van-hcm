@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="vi" data-base="../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Đề Nghị Thanh Toán</title>
+<link rel="icon" href="../assets/logo.png?v=2" type="image/png">
+<link rel="stylesheet" href="../assets/theme.css?v=20261003a">
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<style>
+  .content.tk-wide { max-width: none; padding: 16px 20px; }
+  .tk { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; color: #333; }
+  .tk .tk-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
+  .tk .tk-card-body { padding: 16px; }
+  .tk .tk-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 14px 16px; border-bottom: 1px solid #f3f4f6; }
+  .tk .tk-card-head h3 { margin: 0; font-size: 14px; font-weight: 600; color: #1f2937; }
+  .tk .tk-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-bottom: 10px; }
+  .tk .tk-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .tk .tk-lbl { font-size: 11px; color: #6b7280; margin-right: 4px; }
+  .tk .b { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 500; padding: 7px 14px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff; color: #374151; cursor: pointer; text-decoration: none; white-space: nowrap; transition: all .15s; line-height: 1.3; }
+  .tk .b svg { width: 15px; height: 15px; }
+  .tk .b:hover { background: #f9fafb; }
+  .tk .b.pri { background: #1a56db; border-color: #1a56db; color: #fff; } .tk .b.pri:hover { background: #1343b0; }
+  .tk .b.ok { background: #0e9f6e; border-color: #0e9f6e; color: #fff; } .tk .b.ok:hover { background: #0b7a56; }
+  .tk .b.del { background: #e02424; border-color: #e02424; color: #fff; } .tk .b.del:hover { background: #b91c1c; }
+  .tk .b.sm { padding: 5px 10px; font-size: 12px; }
+  .tk .b.sm svg { width: 13px; height: 13px; }
+  .tk .tk-banner { display: inline-block; font-size: 12px; color: #065f46; background: #ecfdf5; padding: 6px 12px; border-radius: 8px; }
+  .tk .tk-sync { font-size: 11px; color: #9ca3af; margin-top: 8px; }
+  .tk .tk-err { margin-top: 12px; padding: 10px 14px; background: #fee2e2; color: #991b1b; border-radius: 8px; font-size: 12px; }
+  .tk .tk-okmsg { margin-top: 12px; padding: 10px 14px; background: #ecfdf5; color: #065f46; border-radius: 8px; font-size: 12px; }
+  .tk .tk-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tk .tk-stat { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; }
+  .tk .tk-stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #9ca3af; font-weight: 500; }
+  .tk .tk-stat .v { font-size: 24px; font-weight: 700; margin-top: 4px; color: #1f2937; }
+  .tk .tk-stat.blue .v { color: #1a56db; }
+  .tk .tk-stat.green .v { color: #0e9f6e; font-size: 18px; }
+  .tk .tk-search { position: relative; min-width: 180px; max-width: 220px; flex: 1; }
+  .tk .tk-search input { width: 100%; box-sizing: border-box; font: inherit; font-size: 12px; padding: 7px 10px 7px 30px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; outline: none; }
+  .tk .tk-search input:focus { border-color: #1a56db; box-shadow: 0 0 0 2px #1a56db22; }
+  .tk .tk-search svg { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: #9ca3af; }
+  .tk .tw { overflow: auto; max-height: calc(100vh - 380px); }
+  .tk table.dt { border-collapse: collapse; width: 100%; font-size: 12px; }
+  .tk table.dt th { position: sticky; top: 0; background: #f9fafb; color: #4b5563; text-align: left; font-weight: 600; padding: 8px 10px; border-bottom: 2px solid #e5e7eb; white-space: nowrap; z-index: 1; }
+  .tk table.dt td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; white-space: nowrap; color: #374151; }
+  .tk table.dt tbody tr:hover td { background: #eff6ff; }
+  .tk table.dt tr:last-child td { border-bottom: none; }
+  .tk table.dt .r { text-align: right; }
+  .tk table.dt td.name { font-weight: 600; }
+  .tk table.dt td.note { font-size: 11px; color: #6b7280; white-space: normal; min-width: 200px; max-width: 420px; }
+  .tk table.dt tr.total td { background: #f0f9ff; font-weight: 700; }
+  .tk table.dt tr.total td:first-child { color: #1e40af; }
+  .tk table.dt td.money { color: #1a56db; font-weight: 700; }
+  .tk table.dt td.bold { font-weight: 700; }
+  .tk table.dt td.over { color: #065f46; font-weight: 700; }
+  .tk table.dt td.pair { background: #ede9fe; color: #6d28d9; font-weight: 700; }
+  .tk .tk-foot { padding: 10px 16px; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+  .tk .tk-zone { border: 2px dashed #d1d5db; border-radius: 10px; padding: 32px 24px; text-align: center; cursor: pointer; background: #f9fafb; transition: all .2s; }
+  .tk .tk-zone:hover, .tk .tk-zone.drag { border-color: #1a56db; background: #eff6ff; }
+  .tk .tk-zone svg { width: 36px; height: 36px; margin-bottom: 10px; }
+  .tk .tk-zone h4 { margin: 0 0 6px; font-size: 14px; font-weight: 600; color: #374151; }
+  .tk .tk-zone p { margin: 0 auto; font-size: 12px; color: #6b7280; max-width: 720px; line-height: 1.6; }
+  .tk .tk-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; padding: 12px; background: #f9fafb; border-radius: 8px; }
+  .tk .tk-form .f { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #6b7280; }
+  .tk select, .tk input[type=date], .tk input[type=text] { font: inherit; font-size: 12px; padding: 7px 8px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; outline: none; }
+  .tk select { min-width: 230px; }
+  .tk select:focus, .tk input:focus { border-color: #1a56db; }
+  .tk .tk-legend { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #6b7280; }
+  .tk .tk-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: #ede9fe; border: 1px solid #c4b5fd; }
+  .tk .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; background: #f3f4f6; color: #4b5563; border-radius: 20px; padding: 2px 9px; }
+  .tk .chip button { border: 0; background: none; color: #991b1b; font-weight: 700; cursor: pointer; padding: 0; }
+  .tk .tk-notes { font-size: 12px; color: #6b7280; line-height: 1.7; }
+  .tk .muted { font-size: 11px; color: #9ca3af; }
+  @media (max-width: 900px) { .tk .tw { max-height: none; } }
+  /* ---- riêng trang Đề nghị thanh toán ---- */
+  .tk .lp { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
+  @media (max-width: 1250px) { .tk .lp { grid-template-columns: minmax(0, 1fr); } }
+  .tk .fg { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .tk .fg label, .tk .fl { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #6b7280; }
+  .tk .fg label.wide { grid-column: 1 / -1; }
+  .tk .fg input, .tk .fg select, .tk .fg textarea { font: inherit; font-size: 13px; padding: 7px 9px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #1f2937; min-width: 0; }
+  .tk .fg input:focus, .tk .fg select:focus, .tk .fg textarea:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 2px #1a56db22; }
+  .tk .sec { font-size: 11px; font-weight: 700; color: #1a56db; text-transform: uppercase; letter-spacing: .05em; margin: 18px 0 8px; }
+  .tk .sec:first-child { margin-top: 0; }
+  .tk .mau-pick { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tk .mau-pick input { flex: 1; min-width: 240px; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid #1a56db66; border-radius: 6px; background: #eff6ff; }
+  .tk .mau-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .tk .mau-chips button { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 20px; border: 1px solid #e5e7eb; background: #f9fafb; color: #374151; cursor: pointer; }
+  .tk .mau-chips button:hover { border-color: #1a56db; color: #1a56db; background: #eff6ff; }
+  .tk .mau-chips button.on { border-color: #1a56db; background: #1a56db; color: #fff; }
+  .tk table.it { border-collapse: collapse; width: 100%; font-size: 12px; }
+  .tk table.it th { background: #f9fafb; color: #4b5563; text-align: left; font-weight: 600; padding: 7px 8px; border-bottom: 2px solid #e5e7eb; white-space: nowrap; }
+  .tk table.it td { padding: 4px 4px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  .tk table.it input { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fffbeb; color: #1f2937; }
+  .tk table.it input:focus { outline: none; border-color: #1a56db; background: #fff; box-shadow: 0 0 0 2px #1a56db22; }
+  .tk table.it input.money { text-align: right; font-weight: 600; }
+  .tk table.it td.stt { width: 34px; text-align: center; color: #6b7280; }
+  .tk table.it td.x { width: 30px; text-align: center; }
+  .tk table.it td.x button { border: 0; background: none; color: #e02424; font-size: 16px; cursor: pointer; line-height: 1; }
+  .tk table.it tfoot td { padding: 8px; font-weight: 700; background: #f0f9ff; }
+  .tk .chu { margin-top: 8px; padding: 8px 12px; background: #f0f9ff; border-radius: 8px; font-size: 13px; color: #1e3a8a; }
+  .tk .chu i { color: #6b7280; font-style: normal; font-size: 11px; margin-right: 6px; }
+  .tk .hint { font-size: 11px; color: #9ca3af; }
+  .tk .hint a { color: #1a56db; cursor: pointer; }
+  .tk .radio { display: flex; gap: 16px; align-items: center; font-size: 13px; color: #1f2937; padding: 6px 0; }
+  .tk .radio label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  .tk .chk, .tk .fg label.chk { display: inline-flex; flex-direction: row; gap: 6px; align-items: center; font-size: 12px; color: #374151; cursor: pointer; padding: 7px 0; }
+  .tk .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; padding-top: 14px; border-top: 1px solid #f3f4f6; }
+  .tk .pv-wrap { position: sticky; top: 12px; }
+  .tk .pv-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; color: #6b7280; }
+  .tk .pv-paper { background: #fff; box-shadow: 0 2px 12px #0000001f; border: 1px solid #e5e7eb; overflow: hidden; }
+  .tk table.dt td.wrap { white-space: normal; min-width: 220px; max-width: 420px; }
+  .tk table.dt td.act { white-space: nowrap; text-align: right; }
+  .tk .edit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; padding: 12px; background: #f9fafb; border-radius: 8px; margin-bottom: 14px; }
+  .tk .edit-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #6b7280; }
+  .tk .edit-grid label.wide { grid-column: 1 / -1; }
+  .tk .edit-grid input, .tk .edit-grid select, .tk .edit-grid textarea { font: inherit; font-size: 12px; padding: 7px 8px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; }
+
+  /* ---- tờ phiếu (xem trước + in) — theo mẫu BM-01/KT-CPC1HN, khổ A5 ---- */
+  .phieu { font-family: 'Times New Roman', Times, serif; color: #000; width: 148mm; min-height: 210mm; box-sizing: border-box; padding: 6mm 6mm 6mm 7mm; font-size: 11.5pt; line-height: 1.3; background: #fff; }
+  .phieu.a4 { width: 210mm; min-height: 297mm; padding: 14mm 16mm; font-size: 13pt; }
+  .phieu .hd { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 6px; }
+  .phieu .hd h1 { margin: 6px 0 0; text-align: center; font-size: 16pt; font-weight: 700; letter-spacing: .02em; padding-left: 20mm; }
+  .phieu .hd .ma { font-size: 9pt; font-style: italic; text-align: center; line-height: 1.35; white-space: nowrap; }
+  .phieu .kg { display: grid; grid-template-columns: 30mm 1fr; margin-top: 10px; font-weight: 700; font-size: 10.5pt; }
+  .phieu.a4 .kg { grid-template-columns: 45mm 1fr; font-size: 12pt; }
+  .phieu .ln { margin: 3px 0; }
+  .phieu table.ct { width: 100%; border-collapse: collapse; margin-top: 4px; table-layout: fixed; }
+  .phieu table.ct th, .phieu table.ct td { border: 1px solid #000; padding: 3px 4px; vertical-align: middle; }
+  .phieu table.ct th { font-weight: 700; font-size: 10.5pt; text-align: center; height: 24px; }
+  .phieu table.ct td { text-align: center; height: 26px; font-size: 11pt; word-wrap: break-word; }
+  .phieu table.ct td.tien { text-align: right; }
+  .phieu table.ct td.gc { text-align: left; font-size: 10pt; }
+  .phieu table.ct tr.tong td { font-weight: 700; height: 26px; }
+  .phieu table.ct tr.tong td.lbl { font-style: italic; font-size: 12.5pt; }
+  .phieu .bc { margin: 6px 0 4px; }
+  .phieu .bc b { font-weight: 400; font-style: italic; }
+  .phieu .ld { margin: 6px 0; white-space: pre-wrap; }
+  .phieu .ht { display: grid; grid-template-columns: 1fr auto auto; gap: 16px; margin: 6px 0 2px; }
+  .phieu .box { font-family: 'Segoe UI Symbol', 'Arial Unicode MS', sans-serif; font-size: 1.05em; }
+  .phieu .ngay { text-align: right; font-style: italic; margin: 10px 0 4px; }
+  .phieu .ky { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; text-align: center; font-weight: 700; font-size: 10.5pt; }
+  .phieu.a4 .ky { font-size: 12pt; }
+  .phieu .ky .nm { font-weight: 700; margin-top: 22mm; }
+  .phieu.a4 .ky .nm { margin-top: 26mm; }
+  .tk .pv-paper .phieu { transform-origin: top left; }
+  /* ---- tờ Giấy đề nghị hỗ trợ theo chế độ — mẫu BM-03/HC-CPC1HN, khổ A4 ---- */
+  .cdp { font-family: 'Times New Roman', Times, serif; color: #000; width: 210mm; min-height: 297mm; box-sizing: border-box; padding: 5mm 20mm 10mm 25mm; font-size: 14pt; line-height: 1.45; background: #fff; }
+  .cdp .ma { text-align: right; font-size: 10pt; font-style: italic; line-height: 1.2; }
+  .cdp .top { display: grid; grid-template-columns: 21mm auto 1fr; column-gap: 2mm; margin-right: -8mm; align-items: start; margin-top: 2mm; }
+  .cdp .top img { width: 20mm; margin-top: 4mm; }
+  .cdp .cty { white-space: nowrap; text-align: center; font-size: 12pt; line-height: 1.3; }
+  .cdp .cty b { display: block; margin-top: 4px; }
+  .cdp .qh { white-space: nowrap; text-align: center; font-size: 12.5pt; font-weight: 700; line-height: 1.35; }
+  .cdp .qh span { display: inline-block; border-bottom: 1px solid #000; padding-bottom: 1px; }
+  .cdp h1 { text-align: center; font-size: 18pt; margin: 9mm 0 0; line-height: 1.2; }
+  .cdp h2 { text-align: center; font-size: 13pt; margin: 0 0 6mm; }
+  .cdp .mt { font-weight: 700; margin-top: 3mm; }
+  .cdp .p { margin: 1.5mm 0; text-align: justify; }
+  .cdp .in1 { text-indent: 9mm; }
+  .cdp .in2 { padding-left: 9mm; }
+  .cdp .it { font-style: italic; }
+  .cdp .ky2 { display: grid; grid-template-columns: 1fr 1fr; text-align: center; font-weight: 700; font-size: 12pt; margin-top: 2mm; height: 30mm; }
+  .cdp .kyr { text-align: right; font-weight: 700; font-size: 12pt; margin: 1mm 8mm 0 0; height: 26mm; }
+  .cdp .ngay { text-align: right; font-style: italic; font-size: 13pt; margin-top: 2mm; padding-right: 10mm; }
+  .cdp .tgd { text-align: right; font-weight: 700; font-size: 12pt; padding-right: 20mm; }
+  .tk table.it select { width: 100%; font: inherit; font-size: 12px; padding: 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fff; }
+  .tk table.dt input.cell { font: inherit; font-size: 12px; padding: 4px 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fffbeb; width: 100%; box-sizing: border-box; }
+  .tk table.dt input.cell.r { text-align: right; width: 110px; }
+  #printArea { display: none; }
+  @media print {
+    body { background: #fff !important; }
+    .app { display: none !important; }
+    #printArea { display: block; }
+    #printArea .phieu { box-shadow: none; padding-top: 0; min-height: 0; }
+    #printArea .phieu + .phieu, #printArea .cdp + .cdp { page-break-before: always; }
+    #printArea .cdp { min-height: 0; padding-top: 0; }
+  }
+</style>
+<style id="pageSize">@page { size: A5 portrait; margin: 6mm; }</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar" aria-label="Menu"></aside>
+  <div class="sb-overlay"></div>
+  <div class="main">
+    <div class="main-bar">
+      <button class="menu-btn" type="button" aria-label="Mở menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <nav class="crumbs" aria-label="Đường dẫn"><a href="../">Trang chủ</a><span>›</span><span aria-current="page">Đề Nghị Thanh Toán</span></nav>
+    </div>
+    <main class="content tk-wide">
+      <div class="tk" id="tk" data-owner="NhungPham2606" data-repo="BAO-CAO-GIAO-HANG" data-dir="de-nghi-thanh-toan">
+
+        <div class="tk-card">
+          <div class="tk-card-head">
+            <div class="tk-row" id="tkTabs">
+              <a class="b sm" href="#lap-phieu" data-tab="lap-phieu">Lập phiếu thanh toán</a>
+              <a class="b sm" href="#cong-doan" data-tab="cong-doan">Chế độ Công đoàn</a>
+              <a class="b sm" href="#mau" data-tab="mau">Mẫu đơn vị nhận tiền</a>
+              <a class="b sm" href="#da-lap" data-tab="da-lap">Phiếu đã lập</a>
+              <a class="b sm" href="#nap-mau" data-tab="nap-mau">Nạp file mẫu Excel</a>
+              <a class="b sm" href="#muc-chi" data-tab="muc-chi">Mức chi Công đoàn</a>
+            </div>
+            <div class="tk-sync" id="tkSync" style="margin:0"></div>
+          </div>
+
+          <!-- ====================== LẬP PHIẾU ====================== -->
+          <div data-pane="lap-phieu" class="tk-card-body">
+            <div class="lp">
+              <div>
+                <div class="sec">① Chọn mẫu có sẵn</div>
+                <div class="mau-pick">
+                  <input id="mauSearch" list="mauList" placeholder="Gõ vài chữ: thang máy, lavie, nhất tín, vietbox… rồi chọn" autocomplete="off">
+                  <datalist id="mauList"></datalist>
+                  <button class="b sm" type="button" id="btnNew">Phiếu mới (trống)</button>
+                </div>
+                <div class="mau-chips" id="mauChips"></div>
+                <div class="hint" id="mauEmpty" hidden>Chưa có mẫu nào — vào tab <a href="#nap-mau">Nạp file mẫu Excel</a> để nạp file "BM 01_ĐN thanh toán", hoặc điền tay rồi bấm "Lưu làm mẫu".</div>
+
+                <div class="sec">② Người đề nghị</div>
+                <div class="fg">
+                  <label>Tên tôi là<input id="fNguoi" list="nguoiList"></label>
+                  <label>Bộ phận công tác<input id="fBoPhan"></label>
+                  <label>Kỳ thanh toán (tự thay "Tháng …" trong lý do)<input id="fKy" type="month"></label>
+                </div>
+                <datalist id="nguoiList"></datalist>
+
+                <div class="sec">③ Hóa đơn / chứng từ</div>
+                <table class="it"><thead><tr><th>STT</th><th style="width:150px">Ngày tháng</th><th>Hóa đơn/Chứng từ</th><th style="width:150px">Thành tiền</th><th>Ghi chú</th><th></th></tr></thead>
+                  <tbody id="itBody"></tbody>
+                  <tfoot><tr><td></td><td colspan="2"><button class="b sm" type="button" id="btnAddRow">+ Thêm dòng</button> <span class="hint" id="lastHint"></span></td><td style="text-align:right" id="tongTien"></td><td colspan="2" style="font-weight:400" class="hint">Có thể dán (Ctrl+V) nhiều dòng copy từ Excel: Ngày · Chứng từ · Tiền · Ghi chú</td></tr></tfoot>
+                </table>
+                <div class="chu"><i>Bằng chữ:</i><span id="bangChu"></span></div>
+
+                <div class="sec">④ Lý do &amp; nhận tiền</div>
+                <div class="fg">
+                  <label class="wide">Lý do thanh toán<textarea id="fLyDo" rows="2"></textarea></label>
+                  <div class="fl wide">Hình thức nhận tiền
+                    <div class="radio"><label><input type="radio" name="ht" value="ck" checked> Chuyển khoản</label><label><input type="radio" name="ht" value="tm"> Tiền mặt</label></div></div>
+                  <label class="wide">Tên tài khoản nhận tiền<input id="fTenTK"></label>
+                  <label>Số tài khoản<input id="fSoTK"></label>
+                  <label style="grid-column: span 2">Tại ngân hàng<input id="fNH"></label>
+                </div>
+
+                <div class="sec">⑤ Ngày lập &amp; in</div>
+                <div class="fg">
+                  <label>Ngày lập phiếu<input id="fNgay" type="date"></label>
+                  <div class="fl">Ngày trên phiếu
+                    <label class="chk"><input type="checkbox" id="fNgayTrong"> Để trống ngày/tháng (ký tay, chỉ in năm)</label></div>
+                  <div class="fl">Khổ giấy
+                    <div class="radio"><label><input type="radio" name="kho" value="A5" checked> A5 (như mẫu)</label><label><input type="radio" name="kho" value="A4"> A4</label></div></div>
+                  <div class="fl">Chữ ký
+                    <label class="chk"><input type="checkbox" id="fInTen" checked> In tên người đề nghị dưới chữ ký</label></div>
+                </div>
+
+                <div class="actions">
+                  <button class="b pri" type="button" id="btnPrint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>In phiếu</button>
+                  <button class="b ok" type="button" id="btnExcel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Xuất Excel</button>
+                  <button class="b" type="button" id="btnSave">Lưu phiếu</button>
+                  <button class="b" type="button" id="btnSaveMau">Lưu làm mẫu</button>
+                </div>
+                <div id="lpMsg"></div>
+              </div>
+
+              <div class="pv-wrap">
+                <div class="pv-head"><span>Xem trước (đúng như khi in)</span><span id="pvKho"></span></div>
+                <div class="pv-paper" id="pvPaper"><div id="pv"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ====================== CHẾ ĐỘ CÔNG ĐOÀN ====================== -->
+          <div data-pane="cong-doan" class="tk-card-body" hidden>
+            <div class="lp">
+              <div>
+                <div class="sec">① Bộ phận đề xuất</div>
+                <div class="fg">
+                  <label>Bộ phận đề xuất<input id="cBoPhan"></label>
+                  <label>Đơn vị (dòng in đậm góc trái)<input id="cDonVi"></label>
+                  <label>Nơi ký (dòng ngày tháng)<input id="cNoiKy"></label>
+                  <label>Ngày lập<input id="cNgay" type="date"></label>
+                  <div class="fl">Ngày trên phiếu<label class="chk"><input type="checkbox" id="cNgayTrong"> Để trống ngày/tháng (ký tay)</label></div>
+                  <div class="fl">Mục II (Công đoàn cơ sở)<label class="chk"><input type="checkbox" id="cDienCD"> Điền sẵn mức Quỹ CĐ</label></div>
+                </div>
+
+                <div class="sec">② Nhân viên được hỗ trợ — mỗi dòng in thành 1 tờ</div>
+                <table class="it"><thead><tr><th>STT</th><th style="min-width:170px">Họ tên</th><th style="width:110px">Mã NV</th><th style="min-width:230px">Chế độ</th><th style="width:130px">Số tiền (Cty)</th><th>Lý do (in trên phiếu)</th><th></th></tr></thead>
+                  <tbody id="cdBody"></tbody>
+                  <tfoot><tr><td></td><td colspan="3"><button class="b sm" type="button" id="cdAdd">+ Thêm nhân viên</button> <span class="hint">Gõ tên/mã — gợi ý từ danh sách NV ở trang KPIs và các lần trước.</span></td><td style="text-align:right" id="cdTong"></td><td colspan="2"></td></tr></tfoot>
+                </table>
+                <datalist id="nvList"></datalist><datalist id="maList"></datalist>
+
+                <div class="actions">
+                  <button class="b pri" type="button" id="cdPrint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>In đề nghị (A4)</button>
+                  <button class="b ok" type="button" id="cdToTT" title="Tạo Giấy đề nghị thanh toán gộp các khoản trên">→ Lập phiếu thanh toán</button>
+                  <button class="b" type="button" id="cdSave">Lưu</button>
+                  <button class="b" type="button" id="cdNew">Đề nghị mới</button>
+                </div>
+                <div id="cdMsg"></div>
+
+                <div class="sec" style="margin-top:22px">Đề nghị Công đoàn đã lập</div>
+                <div class="tw" style="max-height:340px"><table class="dt"><thead><tr><th>Ngày</th><th>Nhân viên</th><th>Chế độ</th><th class="r">Số tiền</th><th></th></tr></thead><tbody id="cdHist"></tbody></table></div>
+              </div>
+              <div class="pv-wrap">
+                <div class="pv-head"><span>Xem trước tờ <select id="cdPvSel" style="font-size:12px"></select></span><span>Khổ A4</span></div>
+                <div class="pv-paper" id="cdPaper"><div id="cdPv"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ====================== MỨC CHI CÔNG ĐOÀN ====================== -->
+          <div data-pane="muc-chi" class="tk-card-body" hidden>
+            <p class="tk-notes" style="margin-top:0">Danh mục mức chi thăm hỏi, quà tặng CBNV áp dụng từ 1/1/2026 (theo file "Chế độ bổ sung Công đoàn-ĐX 1.1.2026"). Sửa trực tiếp trong bảng — tự lưu. Cột <b>Lý do in trên phiếu</b> là câu in ở dòng "Lý do:".</p>
+            <div class="tw"><table class="dt"><thead><tr><th>Nhóm</th><th>Chế độ</th><th>Lý do in trên phiếu</th><th class="r">Mức chi Công ty</th><th class="r">Mức chi Quỹ CĐ</th><th>Ghi chú</th><th></th></tr></thead><tbody id="mcBody"></tbody></table></div>
+            <div class="tk-row" style="margin-top:12px"><button class="b sm" type="button" id="mcAdd">+ Thêm chế độ</button><button class="b sm" type="button" id="mcReset">Khôi phục mức chi mặc định 1/1/2026</button><span id="mcMsg"></span></div>
+          </div>
+
+          <!-- ====================== MẪU ====================== -->
+          <div data-pane="mau" class="tk-card-body" hidden>
+            <div class="edit-grid" id="mauForm">
+              <label>Tên mẫu (gợi nhớ)<input id="mTen" placeholder="vd Thang máy, Lavie…"></label>
+              <label>Người đề nghị<input id="mNguoi" list="nguoiList"></label>
+              <label>Hình thức<select id="mHT"><option value="ck">Chuyển khoản</option><option value="tm">Tiền mặt</option></select></label>
+              <label class="wide">Lý do thanh toán (ghi "Tháng 8/2026" — khi lập phiếu sẽ tự đổi theo kỳ)<textarea id="mLyDo" rows="2"></textarea></label>
+              <label class="wide">Tên tài khoản nhận tiền<input id="mTenTK"></label>
+              <label>Số tài khoản<input id="mSoTK"></label>
+              <label style="grid-column: span 2">Tại ngân hàng<input id="mNH"></label>
+              <label>Ghi chú mặc định (cột Ghi chú)<input id="mGhiChu"></label>
+              <div class="tk-row" style="align-items:flex-end"><button class="b pri sm" type="button" id="mSave">Lưu mẫu</button><button class="b sm" type="button" id="mClear">Làm mới</button></div>
+            </div>
+            <div id="mMsg"></div>
+            <div class="tk-row" style="margin-bottom:10px"><div class="tk-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input id="mSearch" placeholder="Tìm mẫu…"></div><span class="muted" id="mCount"></span></div>
+            <div class="tw"><table class="dt"><thead><tr><th>Tên mẫu</th><th>Lý do thanh toán</th><th>Đơn vị nhận tiền</th><th>Số TK</th><th>Ngân hàng</th><th class="r">Lần gần nhất</th><th></th></tr></thead><tbody id="mauBody"></tbody></table></div>
+          </div>
+
+          <!-- ====================== ĐÃ LẬP ====================== -->
+          <div data-pane="da-lap" class="tk-card-body" hidden>
+            <div class="tk-row" style="margin-bottom:10px"><div class="tk-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input id="pSearch" placeholder="Tìm lý do, đơn vị, số HĐ…"></div><span class="muted" id="pCount"></span></div>
+            <div class="tw"><table class="dt"><thead><tr><th>Ngày lập</th><th>Mẫu</th><th>Lý do thanh toán</th><th>Đơn vị nhận tiền</th><th>Chứng từ</th><th class="r">Tổng tiền</th><th></th></tr></thead><tbody id="phieuBody"></tbody></table></div>
+          </div>
+
+          <!-- ====================== NẠP MẪU ====================== -->
+          <div data-pane="nap-mau" class="tk-card-body" hidden>
+            <div class="tk-zone" id="zone" tabindex="0" role="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+              <h4>Kéo thả file "BM 01_ĐN thanh toán.xlsx" vào đây</h4>
+              <p>Mỗi sheet trong file (Thang máy, Lavie, Nhất Tín, Vietbox…) thành <b>1 mẫu</b>: người đề nghị, lý do, tên tài khoản, số tài khoản, ngân hàng và số tiền lần gần nhất. Mẫu trùng tên sẽ được cập nhật. Chỉ cần nạp 1 lần — sau này lập phiếu trên web là tự lưu thêm.</p>
+            </div>
+            <input type="file" id="fileMau" accept=".xlsx,.xls" hidden>
+            <div id="napMsg"></div>
+            <div class="tk-notes" style="margin-top:14px">
+              <div>• Danh sách mẫu và phiếu đã lập lưu trong <b>kho riêng tư</b> của Kho vận HCM trên GitHub (khi máy đã kết nối ở Báo cáo giao hàng → Cập nhật dữ liệu), nên máy khác cũng thấy. Chưa kết nối thì chỉ lưu trên trình duyệt của máy này.</div>
+              <div>• Trang web công khai <b>không chứa</b> số tài khoản nào — tất cả nằm trong dữ liệu riêng của bạn.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <footer class="site-foot">Kho vận HCM · Trang nội bộ. Mẫu BM-01/KT-CPC1HN.</footer>
+  </div>
+</div>
+<div id="printArea"></div>
+<script src="../assets/flows.js?v=20261003a"></script>
+<script src="../assets/layout.js?v=20261003a"></script>
+<script src="app.js?v=20261003a"></script>
+</body>
+</html>
