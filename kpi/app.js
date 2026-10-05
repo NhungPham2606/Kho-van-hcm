@@ -334,10 +334,12 @@
       } catch (err) { bad.push(`${esc(f.name)}: ${esc(err.message)}`); }
     }
     if (ok.length) {
-      // kỳ = tháng ghi trong đa số file
-      const cnt = {}; ok.forEach(p => { if (p.thang) { const kk = `${p.nam}-${pad2(p.thang)}`; cnt[kk] = (cnt[kk] || 0) + 1; } });
-      const k = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || cur();
+      // kỳ = kỳ đang mở (file hay ghi nhầm tháng do chép mẫu tháng trước); chưa có kỳ nào thì lấy tháng ghi trong đa số file
+      const kyFile = p => p.thang ? `${p.nam}-${pad2(p.thang)}` : '';
+      const cnt = {}; ok.forEach(p => { const kk = kyFile(p); if (kk) cnt[kk] = (cnt[kk] || 0) + 1; });
+      const k = cur() || Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0];
       if (!k) { note('Không xác định được kỳ (tháng) trong file — bấm "Tạo kỳ mới" trước.'); return; }
+      const khacKy = ok.filter(p => kyFile(p) && kyFile(p) !== k);
       const e = ensureKy(k);
       // mỗi nhân viên giữ 1 file (file nạp sau thay file trước); khóa = mã NV đã khớp, không khớp thì theo mã/tên trong file
       const R = e.roster || [];
@@ -345,7 +347,7 @@
       const byKey = {}; (e.files || []).forEach(x => { byKey[key(x)] = x; }); ok.forEach(p => { byKey[key(p)] = p; });
       e.files = Object.values(byKey); sel = k; touch(k); renderAll();
       const lech = ok.filter(p => !K.matchFile(R, p)).length;
-      note(`Đã nạp ${ok.length} file vào kỳ <b>${kyLabel(k)}</b>${lech ? ` · <b>${lech}</b> file chưa khớp được nhân viên nào (xem tab "File KPIs đã nạp")` : ''}${bad.length ? `<br>Không đọc được ${bad.length} file:<br>${bad.join('<br>')}` : ''}`, !bad.length);
+      note(`Đã nạp ${ok.length} file vào kỳ <b>${kyLabel(k)}</b>${lech ? ` · <b>${lech}</b> file chưa khớp được nhân viên nào (xem tab "File KPIs đã nạp")` : ''}${khacKy.length ? `<br>⚠ ${khacKy.length} file ghi tháng khác kỳ đang mở (vẫn nạp vào kỳ ${kyLabel(k)} — nếu muốn nạp kỳ khác, chọn kỳ đó trước): ${khacKy.map(p => `${esc(p.fileName)} (tháng ${p.thang}/${p.nam})`).join(', ')}` : ''}${bad.length ? `<br>Không đọc được ${bad.length} file:<br>${bad.join('<br>')}` : ''}`, !bad.length && !khacKy.length);
     } else note(`Không đọc được file nào:<br>${bad.join('<br>')}`);
   }
   function wireZone(zone, input, handler) {
