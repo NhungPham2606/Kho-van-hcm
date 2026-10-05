@@ -848,7 +848,7 @@
       <div class="mt n1"><span>1.</span><span>Ý kiến của chuyên viên:</span></div>
       <div class="p in1">${esc(x.yk)}</div>
       <table><colgroup><col style="width:11%"><col style="width:37%"><col style="width:24%"><col style="width:28%"></colgroup>
-        <thead><tr><th>STT</th><th>Nội dung</th><th>Đồng</th><th>Ghi chú</th></tr></thead>
+        <thead><tr><th>STT</th><th>Nội dung</th><th>Số tiền</th><th>Ghi chú</th></tr></thead>
         <tbody>${list.map((r, i) => `<tr><td>${rows.length ? i + 1 : ''}</td><td class="nd">${esc(r.ten || r.nguoiThan ? noiDungPt(r) : '')}</td><td>${r.tien ? vnd(r.tien) : ''}</td><td>${esc(r.gc || '')}</td></tr>`).join('')}
         <tr class="tong"><td></td><td>Tổng cộng</td><td>${t ? vnd(t) : ''}</td><td></td></tr></tbody></table>
       <div class="bc">(Bằng chữ: ${t ? esc(bangChu(t)) + './' : ''})</div>
