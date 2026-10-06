@@ -339,7 +339,7 @@
 
   // ------------------------------------------------------------ 2b') tự động đủ công (2 sếp: Phương Thu, Đinh Minh Tuấn)
   // như các tháng trước: T2–T6 = X, T7 = S, CN trống, ngày lễ = L. Chỉ điền ô đang trống.
-  CC.AUTO_DEFAULT = ['010205', '013862'];
+  CC.AUTO_DEFAULT = ['010205', '013862', '010947']; // 2 sếp + Huỳnh Thị Hồng Phú (nấu ăn)
   CC.isAuto = r => r.t === 'nv' && (r.tuDong ?? CC.AUTO_DEFAULT.includes(r.ma));
   CC.holidays = sh => {
     if (sh.le) return sh.le;
