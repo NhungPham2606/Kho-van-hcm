@@ -433,11 +433,11 @@
       const R = 4 + i;
       for (let c = 0; c < 13; c++) {
         const base = { border: B, alignment: { vertical: 'center', wrapText: c === 12, horizontal: [0, 1, 7, 10, 11].includes(c) ? 'center' : c >= 3 && c <= 9 ? 'right' : 'left' } };
-        if (kd === 'g') set(R, c, Object.assign({}, base, { font: { bold: true, italic: true }, fill: { patternType: 'solid', fgColor: { rgb: 'FFF2CC' } } }));
+        if (kd === 'g') set(R, c, Object.assign({}, base, { font: { bold: true }, alignment: { vertical: 'center', horizontal: 'center' } }));
         else if (kd === 't') set(R, c, Object.assign({}, base, { font: { bold: true } }));
         else set(R, c, base);
       }
-      if (kd === 'g') merges.push({ s: { r: R, c: 0 }, e: { r: R, c: 12 } });
+      if (kd === 'g') merges.push({ s: { r: R, c: 0 }, e: { r: R, c: 2 } }); // như mẫu: tên nhóm ở đầu dòng, gộp A:C
       if (kd === 't') merges.push({ s: { r: R, c: 0 }, e: { r: R, c: 8 } });
       if (kd === 'r') { [8, 9].forEach(c => { ws[XLSX.utils.encode_cell({ r: R, c })].z = '#,##0'; }); ws[XLSX.utils.encode_cell({ r: R, c: 6 })].z = '0.0%'; }
       if (kd === 't') ws[XLSX.utils.encode_cell({ r: R, c: 9 })].z = '#,##0';
