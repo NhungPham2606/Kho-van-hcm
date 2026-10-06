@@ -337,6 +337,15 @@
     return res;
   };
 
+  // ------------------------------------------------------------ 2a) đổi mã BCC sang mã công thức có tính (theo yêu cầu 06/10/2026)
+  CC.CODE_MAP = { 'x/p.s': 'C/P.s', 'x/p.c': 'S/P.c' };
+  CC.mapCode = v => CC.CODE_MAP[String(v || '').trim().toLowerCase()] || v;
+  CC.normCodes = sh => {
+    let n = 0;
+    sh.rows.forEach(r => { if (r.t === 'nv') r.d = r.d.map(v => { const m = CC.mapCode(v); if (m !== v) n++; return m; }); });
+    return n;
+  };
+
   // ------------------------------------------------------------ 2b') tự động đủ công (2 sếp: Phương Thu, Đinh Minh Tuấn)
   // như các tháng trước: T2–T6 = X, T7 = S, CN trống, ngày lễ = L. Chỉ điền ô đang trống.
   CC.AUTO_DEFAULT = ['010205', '013862', '010947']; // 2 sếp + Huỳnh Thị Hồng Phú (nấu ăn)
@@ -441,7 +450,7 @@
       if (r.t !== 'nv') return;
       const e = byMa[r.ma];
       if (!e) { if (!CC.isAuto(r)) bao.thieu.push({ ma: r.ma, ten: r.ten }); return; }
-      r.d = Array.from({ length: n }, (_, k) => e.d[k] || '');
+      r.d = Array.from({ length: n }, (_, k) => CC.mapCode(e.d[k] || ''));
       if (fold(e.ten) !== fold(r.ten)) bao.lech.push({ ma: r.ma, ten: r.ten, tenBCC: e.ten });
       bao.khop.push(r.ma);
       e._dung = true; e._team = curTeam;
@@ -469,7 +478,7 @@
         const t = mt && mt.x !== undefined ? sh.fx[mt.x] : stdTpl(i, n);
         return t ? { x: fxOf2(t) } : null;
       });
-      sh.rows.splice(pos, 0, { t: 'nv', ma: e.ma, ten: e.ten, pb: mate ? mate.pb : e.pb, cv: cleanCv(e.cv), d: Array.from({ length: n }, (_, k) => e.d[k] || ''), tail, moi: true });
+      sh.rows.splice(pos, 0, { t: 'nv', ma: e.ma, ten: e.ten, pb: mate ? mate.pb : e.pb, cv: cleanCv(e.cv), d: Array.from({ length: n }, (_, k) => CC.mapCode(e.d[k] || '')), tail, moi: true });
       bao.moi.push({ ma: e.ma, ten: e.ten, nhom: tIdx >= 0 ? sh.rows[tIdx].text : '' });
     });
     bcc.nv.forEach(e => { delete e._dung; delete e._team; });
