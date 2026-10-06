@@ -256,6 +256,8 @@
     ev = CC.evaluator(archive);
     renderTop(); renderBao();
     const sh = sheet(); if (!sh) return;
+    // sếp "tự động đủ công": ô trống được điền ngay khi mở tháng (cả tháng đã tạo từ trước)
+    if (CC.autoFill(sh)) { touch(sh.id); ev = CC.evaluator(archive); }
     const gv = $('fGroup').value, G = [...new Set(sh.rows.filter(r => r.t === 'team').map(r => r.text))];
     $('fGroup').innerHTML = '<option value="">Tất cả nhóm</option>' + G.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
     $('fGroup').value = G.includes(gv) ? gv : '';
