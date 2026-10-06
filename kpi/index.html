@@ -144,6 +144,7 @@
   .tk .xl.TS { background: #fce7f3; color: #be185d; }
   .tk table.dt tr.nonop td.name { color: #b91c1c; }
   .tk table.dt input.cell, .tk table.dt select.cell { width: 64px; font: inherit; font-size: 12px; padding: 4px 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #fffbeb; color: #1f2937; text-align: right; }
+  .tk table.dt input.cell.cc { background: #e0f2fe; border-color: #7dd3fc; color: #075985; font-weight: 600; }
   .tk table.dt input.cell.txt { width: 100%; min-width: 200px; text-align: left; }
   .tk table.dt select.cell { width: auto; text-align: left; background: #fff; }
   .tk table.dt input.cell:focus, .tk table.dt select.cell:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 2px #1a56db22; background: #fff; }
@@ -243,7 +244,7 @@
 
             <div data-pane="tong-hop">
               <div class="rep-title" id="titleTH"></div>
-              <div class="pick-bar no-snap"><span>Nhập <b>ngày phép</b> (tự trừ 5 điểm/ngày, nửa ngày làm tròn lên), <b>trừ khác</b> và <b>lý do</b> ngay trên bảng — tự lưu.</span><span class="muted">Điểm ban đầu và điểm trừ trong file lấy tự động từ file KPIs.</span></div>
+              <div class="pick-bar no-snap"><span>Nhập <b>ngày phép</b> (tự trừ 5 điểm/ngày, nửa ngày làm tròn lên), <b>trừ khác</b> và <b>lý do</b> ngay trên bảng — tự lưu.</span><span class="muted">Điểm ban đầu và điểm trừ trong file lấy tự động từ file KPIs.</span><span id="ccInfo" style="color:#075985"></span></div>
               <div class="tw"><table class="dt" id="thTable"><thead><tr>
                 <th class="r">STT</th><th>Mã NV</th><th style="min-width:170px">Họ và tên</th><th class="r">Điểm đánh giá<br>ban đầu</th>
                 <th class="r">Trừ trong<br>file</th><th class="r no-snap-col">Ngày<br>phép</th><th class="r no-snap-col">Trừ<br>khác</th><th class="r">Điểm trừ</th>
@@ -298,7 +299,8 @@
 </div>
 <script src="../assets/flows.js?v=20261006a"></script>
 <script src="../assets/layout.js?v=20261006a"></script>
-<script src="engine.js?v=20261003b"></script>
-<script src="app.js?v=20261005a"></script>
+<script src="../cham-cong/engine.js?v=20261006h"></script>
+<script src="engine.js?v=20261006a"></script>
+<script src="app.js?v=20261006a"></script>
 </body>
 </html>

@@ -163,11 +163,15 @@
   const ngayVN = s => /^\d{4}-\d{2}-\d{2}$/.test(s || '') ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : '';
 
   // roster + files + inputs -> bảng kết quả
-  function compute(roster, files, inputs, ky) {
+  // phepCC: { maNV: { so, ngay } } lấy từ bảng chấm công cùng tháng; số nhập tay (inputs.phep) được ưu tiên
+  function compute(roster, files, inputs, ky, phepCC) {
     const byMa = {};
     (files || []).forEach(f => { const e = matchFile(roster, f); if (e) byMa[e.ma] = f; });
     return roster.map(e => {
-      const f = byMa[e.ma], inp = (inputs || {})[e.ma] || {};
+      const f = byMa[e.ma], inp0 = (inputs || {})[e.ma] || {}, cc = (phepCC || {})[e.ma];
+      const tay = inp0.phep !== undefined && inp0.phep !== '';
+      const inp = tay || !cc || !cc.so ? inp0 : Object.assign({}, inp0, { phep: cc.so });
+      const phepNguon = tay ? 'tay' : cc && cc.so ? 'cc' : '', phepNgay = !tay && cc ? cc.ngay : '';
       const nop = !!f;
       const tPhep = truPhep(inp.phep || 0), tKhac = num(inp.truKhac || 0), tFile = nop ? f.truFile : 0;
       const ban = nop ? f.tongDiem : 0, tru = tFile + tPhep + tKhac, conLai = nop ? ban - tru : 0;
@@ -182,10 +186,10 @@
       }
       const muc = tv1 ? 0 : bang[loai];
       const lyDo = [!nop ? 'KHÔNG NỘP KPIS' : '', tFile ? `${f.truLyDo || 'Trừ trong file KPIs'} (-${tFile})` : '',
-        num(inp.phep) ? `Nghỉ phép ${String(num(inp.phep)).replace('.', ',')} ngày (-${tPhep})` : '',
+        num(inp.phep) ? `Nghỉ phép ${String(num(inp.phep)).replace('.', ',')} ngày${phepNgay ? ` (${phepNgay})` : ''} (-${tPhep})` : '',
         tKhac ? `${norm(inp.lyDo) || 'Trừ khác'} (-${tKhac})` : norm(inp.lyDo), tv1 ? 'Thử việc tháng đầu – không tính thưởng' : '']
         .filter(Boolean).join('; ');
-      return Object.assign({}, e, { nop, ts: false, file: f ? f.fileName : '', ban, tFile, tPhep, tKhac, tru, conLai, pct: conLai / 1000, loai, muc, thuong: muc, lyDo,
+      return Object.assign({}, e, { nop, ts: false, file: f ? f.fileName : '', ban, tFile, tPhep, tKhac, tru, conLai, pct: conLai / 1000, loai, muc, thuong: muc, lyDo, phepNguon,
         phep: inp.phep || '', truKhac: inp.truKhac || '', lyDoKhac: inp.lyDo || '' });
     });
   }

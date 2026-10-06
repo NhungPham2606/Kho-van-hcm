@@ -85,7 +85,45 @@
   let rows = null, startOpen = false;
   const TABS = ['tong-hop', 'dashboard', 'file-kpi', 'danh-sach', 'cai-dat'];
   const tab = () => TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'tong-hop';
-  function recompute() { const k = cur(); rows = k ? K.compute(archive[k].roster || [], archive[k].files || [], archive[k].inputs || {}, k) : null; }
+  // ---- ngày phép từ trang Chấm công (cột P của sheet tháng, theo Mã NV)
+  const CC_LS = 'kvh-chamcong-v1', ccRemote = {};
+  function ccSheet(k) {
+    let loc = null; try { loc = (JSON.parse(localStorage.getItem(CC_LS) || '{}'))[k] || null; } catch (e) {}
+    const rem = ccRemote[k] || null;
+    return loc && rem ? ((rem.savedAt || '') > (loc.savedAt || '') ? rem : loc) : (loc || rem);
+  }
+  async function pullCC(k) {
+    if (!token || !k || k in ccRemote) return;
+    ccRemote[k] = null;
+    try { const m = await gh(`/contents/cham-cong/${k}.json?ref=main&t=${Date.now()}`); ccRemote[k] = JSON.parse(b64dec(m.content || '') || 'null'); renderAll(); } catch (e) {}
+  }
+  function phepCC(k) {
+    const CC = window.CC; if (!CC) return {};
+    const sh0 = ccSheet(k); if (!sh0) return {};
+    const sh = JSON.parse(JSON.stringify(sh0));
+    if (sh.ky >= '2026-09' && CC.normCodes) CC.normCodes(sh);
+    if (CC.autoFill) CC.autoFill(sh);
+    const ev = CC.evaluator({ [sh.id]: sh }), out = {};
+    sh.rows.forEach((r, i) => {
+      if (r.t !== 'nv') return;
+      const so = Number(ev.tailVal(sh, 8 + i, CC.T.P)) || 0;
+      if (!so) return;
+      const ngay = r.d.map((v, j) => {
+        const p = String(v || '').toLowerCase().split('/').find(x => x === 'p' || x === 'p.s' || x === 'p.c');
+        return p ? `${j + 1}${p === 'p' ? '' : p === 'p.s' ? ' sáng' : ' chiều'}` : '';
+      }).filter(Boolean);
+      out[r.ma] = { so, ngay: ngay.length ? 'ngày ' + ngay.join(', ') + `/${sh.thang}` : '' };
+    });
+    return out;
+  }
+  let ccInfo = '';
+  function recompute() {
+    const k = cur(); if (!k) { rows = null; return; }
+    pullCC(k);
+    const pc = phepCC(k); const sh = ccSheet(k);
+    ccInfo = sh ? `Ngày phép lấy tự động từ bảng chấm công "${sh.ten}" (${Object.keys(pc).length} người có phép) — gõ số khác vào ô để sửa tay, xóa trống để lấy lại số từ chấm công.` : `Chưa có bảng chấm công tháng ${kyLabel(k)} (trang Chấm Công) — nhập ngày phép tay.`;
+    rows = K.compute(archive[k].roster || [], archive[k].files || [], archive[k].inputs || {}, k, pc);
+  }
   const groupsOf = list => { const g = []; list.forEach(e => { if (!g.includes(e.group)) g.push(e.group); }); return g; };
   function filt(list) {
     const g = $('fGroup').value, q = $('fSearch').value.trim().toLowerCase();
@@ -128,6 +166,7 @@
     $('stTien').textContent = vnd(tien) + 'đ'; $('stTienSub').textContent = `Kế toán ${vnd(L.filter(r => K.isKeToan(r.kv)).reduce((s, r) => s + r.thuong, 0))}đ · Kho/GH/LX ${vnd(L.filter(r => !K.isKeToan(r.kv)).reduce((s, r) => s + r.thuong, 0))}đ`;
   }
   function renderTH() {
+    $('ccInfo').textContent = ccInfo;
     const k = cur(), [y, m] = [k.slice(0, 4), Number(k.slice(5))];
     $('titleTH').innerHTML = `DANH SÁCH XÉT THƯỞNG KPIs THÁNG ${m} NĂM ${y}<br>Bộ phận: Kế toán - Kho vận CN Hồ Chí Minh`;
     const L = filt(rows); let html = '', stt = 0, g = null;
@@ -137,7 +176,7 @@
       const tsO = archiveTs(r.ma) || {};
       html += `<tr class="${r.ts ? 'tsan' : r.nop ? '' : 'nonop'}" data-ma="${esc(r.ma)}"><td class="r">${stt}</td><td>${esc(r.ma)}</td><td class="name">${esc(r.ten)}${r.ts ? ' <span class="src">(nghỉ thai sản)</span>' : r.nop ? '' : ' <span class="src">(chưa nộp)</span>'}</td>
         <td class="r">${r.nop ? fmtD(r.ban) : ''}</td><td class="r">${fmtD(r.tFile)}</td>
-        <td class="r"><input class="cell" type="number" min="0" step="0.5" data-f="phep" value="${esc(r.phep)}" title="Số ngày nghỉ phép"></td>
+        <td class="r"><input class="cell${r.phepNguon === 'cc' ? ' cc' : ''}" type="number" min="0" step="0.5" data-f="phep" value="${esc(r.phep)}" title="${r.phepNguon === 'cc' ? 'Lấy từ bảng chấm công — gõ số khác để sửa tay' : 'Số ngày nghỉ phép'}"></td>
         <td class="r"><input class="cell" type="number" min="0" step="1" data-f="truKhac" value="${esc(r.truKhac)}" title="Điểm trừ khác"></td>
         <td class="r bold">${fmtD(r.tru)}</td><td class="r bold">${r.nop ? fmtD(r.conLai) : 0}</td><td class="r">${r.nop ? (r.pct * 100).toFixed(1).replace('.', ',') + '%' : '0%'}</td>
         <td><span class="xl ${r.loai}">${r.loai}</span></td><td class="r">${vnd(r.muc)}</td><td class="r money">${vnd(r.thuong)}</td>
