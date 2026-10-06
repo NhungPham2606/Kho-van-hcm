@@ -88,7 +88,8 @@
   const cur = () => archive[sel] ? sel : (ids()[0] || '');
   const sheet = () => archive[cur()];
   let startOpen = false, pending = null, ev = null, lastBao = null;
-  const TABS = ['bang-cong', 'phep', 'nhan-vien', 'huong-dan'];
+  const TABS = ['bang-cong', 'phep', 'doi-chieu', 'nhan-vien', 'huong-dan'];
+  let lc = null; // kết quả đối chiếu phiếu của sheet đang mở
   const tab = () => TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'bang-cong';
   const FR = 8; // dòng Excel của rows[0]
   const teamOf = sh => { const out = []; let t = ''; sh.rows.forEach((r, i) => { if (r.t === 'team') t = r.text; out[i] = t; }); return out; };
@@ -155,6 +156,7 @@
       <tr><th class="stk c0"></th><th class="stk c1"></th><th class="stk c2"></th>${days.map(k => `<th class="${wd(k) === 0 ? 'sun' : ''}">${wd(k) === 0 ? 'CN' : 'T' + (wd(k) + 1)}</th>`).join('')}${SUM.map(() => '<th></th>').join('')}<th></th></tr>`;
     let html = '', stt = 0;
     const missing = new Set((lastBao && lastBao.ky === sh.id ? lastBao.thieu : []).map(x => x.ma));
+    const issCell = new Set(lc.issues.map(x => x.i + '|' + x.k));
     filtIdx(sh).forEach(i => {
       const r = sh.rows[i];
       if (r.t === 'team') { html += `<tr class="grp"><td class="stk c0"></td><td class="stk c1"></td><td class="stk c2">${esc(r.text)}</td><td colspan="${n + SUM.length + 1}"></td></tr>`; return; }
@@ -163,8 +165,9 @@
       const unk = new Set(unknownCodes(sh, r)), bb = r.tail && r.tail[T.BB];
       html += `<tr data-i="${i}" class="${missing.has(r.ma) || !r.d.some(v => v) ? 'miss' : ''}${r.moi ? ' new' : ''}"><td class="stk c0">${stt}</td><td class="stk c1">${esc(r.ma)}</td><td class="stk c2" title="${esc(r.cv)} · ${esc(r.pb)}">${esc(r.ten)}</td>`;
       days.forEach(k => {
-        const v = r.d[k] || '', cls = ['d', wd(k) === 0 ? 'sun' : '', r.hl && r.hl[k] ? 'hl' : '', r.cm && r.cm[k] ? 'cm' : '', unk.has(k) ? 'unk' : '', codeClass(v)].filter(Boolean).join(' ');
-        const tip = [r.cm && r.cm[k], unk.has(k) ? `Mã "${v}" không có trong công thức của dòng này → không được tính.` : ''].filter(Boolean).join('\n');
+        const ps = lc.cell[i + '|' + k] || [];
+        const v = r.d[k] || '', cls = ['d', wd(k) === 0 ? 'sun' : '', r.hl && r.hl[k] ? 'hl' : '', r.cm && r.cm[k] ? 'cm' : '', unk.has(k) ? 'unk' : (issCell.has(i + '|' + k) ? 'iss' : ''), ps.length ? 'lv' : '', codeClass(v)].filter(Boolean).join(' ');
+        const tip = [r.cm && r.cm[k], ...ps.map(CC.leaveText), unk.has(k) ? `Mã "${v}" không có trong công thức của dòng này → không được tính.` : ''].filter(Boolean).join('\n');
         html += `<td class="${cls}" data-k="${k}"${tip ? ` title="${esc(tip)}"` : ''}>${esc(v)}</td>`;
       });
       SUM.forEach((s, j) => { html += `<td class="num${j === 0 || j === 4 ? ' b' : ''}">${fmt(tv(sh, i, s[1]))}</td>`; });
@@ -222,6 +225,26 @@
       ${b.lech.length ? `<div class="warn"><h4>Tên khác nhau giữa BCC và bảng: ${b.lech.length}</h4>${li(b.lech, x => `${esc(x.ma)}: bảng "${esc(x.ten)}" · BCC "${esc(x.tenBCC)}"`)}</div>` : ''}
       ${b.unk && b.unk.length ? `<div class="bad"><h4>Mã công không được công thức tính: ${b.unk.length} ô</h4>${li(b.unk, x => `${esc(x.ten)} — ngày ${x.ngay}: <b>${esc(x.ma)}</b>`)}<div class="muted">Viền đỏ trên bảng; bấm vào ô để đổi mã (vd X/P.c → S/P.c).</div></div>` : ''}`;
   }
+  const ttCls = t => /duyet/.test(CC.fold(t)) ? 'tt-ok' : /huy|tu choi/.test(CC.fold(t)) ? 'tt-no' : 'tt-new';
+  const dcShown = () => { const moi = $('dcMoiTao').checked, sh = sheet(), keep = new Set(filtIdx(sh)); return lc.issues.filter(x => keep.has(x.i) && (moi || x.kieu !== 'phieu' || /duyet|chinh sua/.test(CC.fold(x.p.tt)))); };
+  function renderDC() {
+    const sh = sheet(), L = dcShown();
+    $('dcCount').hidden = !lc.issues.length; $('dcCount').textContent = lc.issues.length;
+    const np = (sh.phieu || []).length;
+    $('dcInfo').innerHTML = np ? `Đã nối <b>${np}</b> dòng phiếu (file "${esc(sh.phieuFile || '')}", ngày ${sh.phieuNgay ? sh.phieuNgay.join('–') : ''}) với bảng công. <b>${L.length}</b> việc cần xem.` : 'Chưa nạp file phiếu nghỉ cho tháng này — bấm "Nạp file phiếu nghỉ".';
+    $('dcNghiViec').innerHTML = lc.nghiViec.length ? `<div class="tk-notes"><b>Đăng ký nghỉ việc:</b><br>${lc.nghiViec.map(x => `• ${esc(x.ma)} — ${esc(x.ten)}: nghỉ từ <b>${esc(x.ngay || x.kt)}</b> <span class="${ttCls(x.tt)}">(${esc(x.tt)})</span>${x.ly ? ` · ${esc(x.ly)}` : ''}`).join('<br>')}</div>` : '';
+    $('dcBody').innerHTML = L.length ? L.map((x, j) => `<tr data-j="${j}"><td>${esc(x.ma)}</td><td class="name">${esc(x.ten)}</td><td class="r">${x.k + 1}/${sh.thang}</td><td><b>${esc(x.code) || '<span class="muted">(trống)</span>'}</b></td>
+      <td>${x.kieu === 'phieu' ? 'Có phiếu, mã công chưa thể hiện' : '<span style="color:#b91c1c">Mã nghỉ nhưng không có phiếu</span>'}</td>
+      <td class="wrap">${x.p ? `<span class="${ttCls(x.p.tt)}">${esc(x.p.tt)}</span> · ${esc(x.p.loai)}${x.p.buoi === 's' ? ' (sáng)' : x.p.buoi === 'c' ? ' (chiều)' : ''}${x.p.ly ? ' · ' + esc(x.p.ly) : ''} <span class="muted">#${esc(x.p.mp)}</span>` : '<span class="muted">Không có phiếu nào ngày này</span>'}</td>
+      <td><b>${esc(x.goiY)}</b></td><td>${x.goiY ? `<button class="b sm pri" type="button" data-apply="${j}">Áp dụng</button>` : ''}</td></tr>`).join('')
+      : `<tr><td colspan="8" style="text-align:center;color:#9ca3af;padding:20px">${np ? 'Phiếu và mã công đã khớp.' : 'Chưa có dữ liệu phiếu.'}</td></tr>`;
+  }
+  function applyIssue(x) {
+    const sh = sheet(), r = sh.rows[x.i];
+    r.d[x.k] = x.goiY;
+    const t = CC.leaveText(x.p); r.cm = r.cm || {};
+    if (!(r.cm[x.k] || '').includes(t)) r.cm[x.k] = (r.cm[x.k] ? r.cm[x.k] + '\n' : '') + t;
+  }
   function renderTabs() {
     const t = tab();
     document.querySelectorAll('#tkTabs [data-tab]').forEach(a => a.classList.toggle('pri', a.dataset.tab === t));
@@ -235,7 +258,8 @@
     const gv = $('fGroup').value, G = [...new Set(sh.rows.filter(r => r.t === 'team').map(r => r.text))];
     $('fGroup').innerHTML = '<option value="">Tất cả nhóm</option>' + G.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
     $('fGroup').value = G.includes(gv) ? gv : '';
-    renderStats(); renderBC(); renderPhep(); renderNV(); renderTabs();
+    lc = CC.leaveCheck(sh);
+    renderStats(); renderBC(); renderPhep(); renderDC(); renderNV(); renderTabs();
   }
   const keepScroll = fn => { const y = window.scrollY, tw = document.querySelector('.tw.cc'), sx = tw && tw.scrollLeft, sy = tw && tw.scrollTop; fn(); window.scrollTo(0, y); const t2 = document.querySelector('.tw.cc'); if (t2) { t2.scrollLeft = sx; t2.scrollTop = sy; } };
 
@@ -302,7 +326,17 @@
     renderTabs();
   });
   $('fGroup').addEventListener('change', () => keepScroll(renderAll));
-  $('fSearch').addEventListener('input', () => { renderStats(); renderBC(); renderPhep(); renderNV(); });
+  $('fSearch').addEventListener('input', () => { renderStats(); renderBC(); renderPhep(); renderDC(); renderNV(); });
+  $('dcMoiTao').addEventListener('change', renderDC);
+  $('dcBody').addEventListener('click', e => {
+    const b = e.target.closest('[data-apply]'); if (!b) return;
+    applyIssue(dcShown()[+b.dataset.apply]); touch(cur()); keepScroll(renderAll);
+  });
+  $('dcApplyAll').addEventListener('click', () => {
+    const L = dcShown().filter(x => x.goiY); if (!L.length) return;
+    if (!confirm(`Đổi mã công ${L.length} ô theo gợi ý từ phiếu (kèm ghi chú lý do vào ô)?`)) return;
+    L.forEach(applyIssue); touch(cur()); keepScroll(renderAll);
+  });
   document.addEventListener('click', e => {
     const t = e.target.closest('[data-ky],[data-rm],[data-rmma],[data-build]'); if (!t) return;
     if (t.dataset.ky) { sel = t.dataset.ky; persist(); renderAll(); return; }
@@ -312,6 +346,19 @@
   });
   $('btnBcc').addEventListener('click', () => $('fileBcc').click());
   $('btnMaster').addEventListener('click', () => $('fileMaster').click());
+  $('btnLeave').addEventListener('click', () => $('fileLeave').click());
+  $('btnHoliday').addEventListener('click', () => {
+    const sh = sheet(); if (!sh) return;
+    const v = prompt(`Các ngày lễ trong ${sh.ten} (cách nhau bằng dấu phẩy, vd 1,2):`, sh.thang === 9 ? '1,2' : ''); if (!v) return;
+    const days = [...new Set(v.split(/[,;\s]+/).map(Number).filter(n => n >= 1 && n <= sh.n))].sort((a, b) => a - b);
+    if (!days.length) { alert('Không đọc được ngày nào.'); return; }
+    const res = CC.applyHoliday(sh, days);
+    touch(sh.id); keepScroll(renderAll);
+    const ppl = l => [...new Map(l.map(x => [x.ma, x])).values()];
+    msg($('tkMsg'), `Ngày lễ ${days.join(', ')}/${sh.thang}: điền <b>L</b> ${ppl(res.L).length} người, <b>Ro</b> (thử việc) ${ppl(res.Ro).length} người${res.Ro.length ? ` (${ppl(res.Ro).map(x => esc(x.ten)).join(', ')})` : ''}.`
+      + (res.giu.length ? `<br>Giữ mã sẵn có: ${res.giu.map(x => `${esc(x.ten)} ngày ${x.ngay} = ${esc(x.code)}`).join('; ')}.` : '')
+      + (res.boQua.length ? `<br>Bỏ qua: ${ppl(res.boQua).map(x => `${esc(x.ten)} (${esc(x.ly)})`).join('; ')}.` : ''), true);
+  });
   $('startCancel').addEventListener('click', () => { startOpen = false; pending = null; $('bccConfirm').innerHTML = ''; renderTop(); });
   $('baoClose').addEventListener('click', () => { lastBao = null; renderAll(); });
   $('tkDelete').addEventListener('click', () => {
@@ -382,6 +429,22 @@
       $('baoCard').scrollIntoView({ behavior: 'smooth' });
     } catch (err) { msg($('startMsg'), esc(err.message)); }
   }
+  async function importLeave(file) {
+    try {
+      const wb = XLSX.read(await readBuf(file), { type: 'array', cellDates: true });
+      const lv = CC.parseLeave(XLSX, wb, file.name);
+      if (!lv.rows.length) throw new Error('File không có dòng phiếu nào.');
+      if (!Object.keys(archive).length) throw new Error('Nạp file tổng hoặc file BCC trước, rồi mới nạp file phiếu.');
+      const res = CC.attachLeave(archive, lv);
+      res.gan.forEach(g => touch(g.id));
+      const nv = CC.mainSheets(archive).pop(); if (nv) touch(nv.id);
+      const main = res.gan.filter(g => !archive[g.id].phu).sort((a, b) => b.n - a.n)[0];
+      if (main) sel = main.id;
+      startOpen = false; location.hash = '#doi-chieu'; renderAll();
+      $('leaveInfo').textContent = `"${file.name}": ${lv.rows.length} dòng phiếu.`;
+      note(`Đã nối file phiếu "${esc(file.name)}" (${lv.rows.length} dòng): ${res.gan.map(g => `${esc(g.ten)} ${g.n} dòng`).join(', ')}${res.thieuThang.length ? ` · bỏ qua ${res.thieuThang.map(t => `${t.n} dòng tháng ${t.ky.slice(5)}/${t.ky.slice(0, 4)} (chưa có bảng công)`).join(', ')}` : ''}. Xem tab "Đối chiếu phiếu".`, true);
+    } catch (err) { note('File phiếu nghỉ: ' + esc(err.message)); console.error(err); }
+  }
   function wireZone(zone, input, handler) {
     zone.addEventListener('click', () => input.click());
     zone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
@@ -392,13 +455,16 @@
   }
   wireZone($('zoneMaster'), $('fileMaster'), importMaster);
   wireZone($('zoneBcc'), $('fileBcc'), importBcc);
+  wireZone($('zoneLeave'), $('fileLeave'), importLeave);
   // thả file ở bất kỳ đâu: file nhiều sheet "Chấm công T…" -> file tổng, còn lại -> BCC
   document.addEventListener('dragover', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
   document.addEventListener('drop', e => {
     if (e.defaultPrevented || !e.dataTransfer || !e.dataTransfer.files[0]) return;
     e.preventDefault();
     const f = e.dataTransfer.files[0];
-    if (/ch[aấ]m c[oô]ng|final/i.test(f.name) && !/^bcc/i.test(f.name)) importMaster(f); else importBcc(f);
+    const fn = CC.fold(f.name);
+    if (/dang k|lich lam viec|phieu|nghi phep/.test(fn)) importLeave(f);
+    else if (/cham cong|final/.test(fn) && !/^bcc/.test(fn)) importMaster(f); else importBcc(f);
   });
 
   // ------------------------------------------------------------ xuất Excel

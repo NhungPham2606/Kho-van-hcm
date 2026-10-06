@@ -211,6 +211,156 @@
     return { thang, nam, n, nv, fileName: fileName || '', sheet: sn };
   };
 
+  // ------------------------------------------------------------ 2b) file phiếu đăng ký lịch làm việc (nghỉ phép, không lương, công tác…)
+  // "Danh sách đăng kí lịch làm việc dd_mm_yyyy đến dd_mm_yyyy.xlsx": mỗi dòng = 1 ngày của 1 phiếu
+  const LOAI = [
+    [/^nghi phep/, 'P'], [/khong luong/, 'Ro'], [/hoc|dao tao|cong tac/, 'CT'], [/om/, 'Ô'],
+    [/viec rieng/, 'R'], [/online/, 'On'], [/ban giao nghi viec|^nghi viec/, 'NV'], [/lam bu/, 'BU'],
+  ];
+  CC.leaveCode = loai => { const f = fold(loai); const m = LOAI.find(([re]) => re.test(f)); return m ? m[1] : ''; };
+  const toDate = v => {
+    if (v instanceof Date) return v;
+    const s = norm(v); let m;
+    if ((m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/))) return new Date(+m[3], +m[2] - 1, +m[1]);
+    if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) return new Date(+m[1], +m[2] - 1, +m[3]);
+    if (/^\d{5}(\.\d+)?$/.test(s)) { const d = new Date(Math.round((+s - 25569) * 864e5)); return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); }
+    return null;
+  };
+  CC.parseLeave = (XLSX, wb, fileName) => {
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const a = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+    const hr = a.findIndex(r => r.some(v => fold(v) === 'ma nhan vien') && r.some(v => fold(v) === 'ngay nghi'));
+    if (hr < 0) throw new Error('Không thấy cột "Mã nhân viên" và "Ngày nghỉ" — có phải file danh sách đăng ký lịch làm việc không?');
+    const H = a[hr].map(fold), ci = n => H.indexOf(n);
+    const c = { mp: ci('ma phieu'), ma: ci('ma nhan vien'), ten: ci('nhan vien'), loai: ci('loai'), ngay: ci('ngay nghi'), so: ci('so buoi nghi'), buoi: ci('loai nghi'), ly: ci('ly do'), gc: ci('ghi chu'), tt: ci('trang thai'), kt: ci('ket thuc') };
+    const out = [];
+    for (let r = hr + 1; r < a.length; r++) {
+      const row = a[r]; let ma = norm(row[c.ma]); if (!/^\d{3,}$/.test(ma)) continue;
+      if (ma.length < 6) ma = ma.padStart(6, '0');
+      const d = toDate(row[c.ngay]); if (!d) continue;
+      const bf = fold(row[c.buoi]);
+      const kt = c.kt >= 0 ? toDate(row[c.kt]) : null;
+      out.push({ ma, ten: norm(row[c.ten]), loai: norm(row[c.loai]), code: CC.leaveCode(row[c.loai]), nam: d.getFullYear(), thang: d.getMonth() + 1, ngay: d.getDate(),
+        buoi: /sang/.test(bf) ? 's' : /chieu/.test(bf) ? 'c' : /ca ngay/.test(bf) ? 'ca' : '', so: Number(row[c.so]) || 0,
+        ly: norm(row[c.ly]), gc: c.gc >= 0 ? norm(row[c.gc]) : '', tt: norm(row[c.tt]), mp: norm(row[c.mp]), kt: kt ? `${pad2(kt.getDate())}/${pad2(kt.getMonth() + 1)}/${kt.getFullYear()}` : '' });
+    }
+    // khoảng ngày file bao phủ: lấy theo tên file "dd_mm_yyyy đến dd_mm_yyyy", không có thì theo ngày nhỏ/lớn nhất
+    let tu = null, den = null, m;
+    if ((m = norm(fileName).match(/(\d{1,2})[_\-.](\d{1,2})[_\-.](\d{4}).*?(\d{1,2})[_\-.](\d{1,2})[_\-.](\d{4})/))) { tu = new Date(+m[3], +m[2] - 1, +m[1]); den = new Date(+m[6], +m[5] - 1, +m[4]); }
+    else if (out.length) { const ds = out.map(p => new Date(p.nam, p.thang - 1, p.ngay)).sort((x, y) => x - y); tu = ds[0]; den = ds[ds.length - 1]; }
+    return { rows: out, fileName: fileName || '', tu, den };
+  };
+  const huy = p => /huy|tu choi/.test(fold(p.tt));
+  CC.leaveText = p => `Phiếu ${p.mp}: ${p.loai}${p.buoi === 's' ? ' (sáng)' : p.buoi === 'c' ? ' (chiều)' : p.buoi === 'ca' ? ' (cả ngày)' : ''} · ${p.tt}${p.ly ? ' · ' + p.ly : ''}${p.gc ? ' · ' + p.gc : ''}`;
+  // mã gợi ý theo phiếu + mã đang có (dùng đúng các mã mà công thức mẫu có đếm)
+  CC.suggestCode = (p, cur) => {
+    const L = p.code, cu = fold(cur), work = ['x', 's', 'c'].includes(cu) || /(^|\/)(x|s|c)$|^(x|s|c)\//.test(cu);
+    if (!['P', 'Ro', 'CT', 'Ô', 'R', 'On'].includes(L)) return '';
+    if (p.buoi !== 's' && p.buoi !== 'c') return L;
+    if (L === 'P') return p.buoi === 's' ? (work ? 'C/P.s' : 'P.s') : 'S/P.c';
+    if (L === 'Ro') return p.buoi === 's' ? (work ? 'Ro.s/C' : 'Ro.s') : 'S/Ro.c';
+    if (L === 'CT') return p.buoi === 's' ? (work ? 'CT.s/C' : 'CT.s') : 'CT/2';
+    if (L === 'R') return 'R.s';
+    return L + '/2';
+  };
+  // mã công đã thể hiện loại nghỉ của phiếu chưa
+  const parts = code => fold(code).split('/').map(x => x.replace(/\.(s|c)$/, '').replace(/2$/, ''));
+  const covers = (code, p) => {
+    const L = fold(p.code);
+    if (p.buoi === 's' || p.buoi === 'c') return parts(code).includes(L) && fold(code) !== L;
+    return fold(code) === L;
+  };
+  const NEEDS = ['p', 'ro', 'r', 'o', 'ct', 'on'];
+  // đối chiếu phiếu của sheet với mã công: trả về danh sách việc cần xem
+  CC.leaveCheck = sh => {
+    const list = sh.phieu || [], byMa = {};
+    sh.rows.forEach((r, i) => { if (r.t === 'nv') byMa[r.ma] = i; });
+    const cell = {}, issues = [], nghiViec = {};
+    list.forEach(p => {
+      if (p.code === 'NV' && !huy(p)) { const o = nghiViec[p.ma] = nghiViec[p.ma] || { ma: p.ma, ten: p.ten, tt: p.tt, ly: p.ly, kt: p.kt }; if (p.so > 0) o.ngay = `${pad2(p.ngay)}/${pad2(p.thang)}/${p.nam}`; return; }
+      const i = byMa[p.ma]; if (i === undefined || p.ngay > sh.n) return;
+      (cell[i + '|' + (p.ngay - 1)] = cell[i + '|' + (p.ngay - 1)] || []).push(p);
+    });
+    Object.entries(cell).forEach(([key, ps]) => {
+      const [i, k] = key.split('|').map(Number), r = sh.rows[i], code = r.d[k] || '';
+      const act = ps.filter(p => !huy(p) && ['P', 'Ro', 'CT', 'Ô', 'R', 'On'].includes(p.code));
+      act.forEach(p => {
+        if (covers(code, p)) return;
+        issues.push({ i, k, ma: r.ma, ten: r.ten, code, p, goiY: CC.suggestCode(p, code), kieu: 'phieu' });
+      });
+    });
+    // mã nghỉ trên bảng nhưng không có phiếu (còn hiệu lực) trên hệ thống — chỉ trong khoảng ngày file phiếu bao phủ
+    const [pTu, pDen] = sh.phieuNgay || [1, sh.n];
+    sh.rows.forEach((r, i) => {
+      if (r.t !== 'nv') return;
+      r.d.forEach((code, k) => {
+        if (k + 1 < pTu || k + 1 > pDen) return;
+        if (!code || !parts(code).some(x => NEEDS.includes(x))) return;
+        const ps = (cell[i + '|' + k] || []).filter(p => !huy(p));
+        if (ps.length) return;
+        const all = cell[i + '|' + k] || [];
+        issues.push({ i, k, ma: r.ma, ten: r.ten, code, p: all[0] || null, goiY: '', kieu: 'khongPhieu' });
+      });
+    });
+    issues.sort((a, b) => a.i - b.i || a.k - b.k);
+    return { cell, issues, nghiViec: Object.values(nghiViec) };
+  };
+  // gắn phiếu vào các sheet tháng tương ứng (ghi đè phiếu cũ của tháng đó)
+  CC.attachLeave = (archive, lv) => {
+    const byKy = {};
+    lv.rows.forEach(p => { (byKy[`${p.nam}-${pad2(p.thang)}`] = byKy[`${p.nam}-${pad2(p.thang)}`] || []).push(p); });
+    const res = { gan: [], thieuThang: [] };
+    Object.entries(byKy).forEach(([ky, ps]) => {
+      const shs = Object.values(archive).filter(s => s.ky === ky);
+      if (!shs.length) { res.thieuThang.push({ ky, n: ps.length }); return; }
+      shs.forEach(sh => {
+        const mas = new Set(sh.rows.filter(r => r.t === 'nv').map(r => r.ma));
+        sh.phieu = ps.filter(p => mas.has(p.ma));
+        const first = new Date(sh.nam, sh.thang - 1, 1), last = new Date(sh.nam, sh.thang - 1, sh.n);
+        const a = lv.tu && lv.tu > first ? lv.tu.getDate() : 1, b = lv.den && lv.den < last ? lv.den.getDate() : sh.n;
+        sh.phieuNgay = [a, b];
+        // phiếu nghỉ việc của tháng sau vẫn giữ để báo
+        sh.phieuFile = lv.fileName; sh.savedAt = new Date().toISOString();
+        res.gan.push({ id: sh.id, ten: sh.ten, n: sh.phieu.length });
+      });
+    });
+    // nghỉ việc ở tháng chưa có sheet -> gắn vào sheet chính mới nhất để báo trước
+    const latest = CC.mainSheets(archive).pop();
+    if (latest) {
+      const mas = new Set(latest.rows.filter(r => r.t === 'nv').map(r => r.ma));
+      const extra = lv.rows.filter(p => p.code === 'NV' && `${p.nam}-${pad2(p.thang)}` > latest.ky && mas.has(p.ma));
+      if (extra.length) latest.phieu = (latest.phieu || []).concat(extra);
+    }
+    return res;
+  };
+
+  // ------------------------------------------------------------ 2c) ngày lễ: L cho nhân viên chính thức, Ro cho thử việc
+  // (như các tháng trước: thử việc = nhận việc chưa đủ tvThang tháng tính tới ngày lễ; chưa nhận việc -> để trống)
+  CC.startDate = (row, sh) => {
+    const bb = row.tail && row.tail[T.BB] && row.tail[T.BB].v;
+    const m = fold(bb).match(/nhan viec\s*(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})/);
+    if (m) { let y = +m[3]; if (y < 100) y += 2000; return new Date(y, +m[2] - 1, +m[1]); }
+    return null;
+  };
+  CC.applyHoliday = (sh, days, tvThang = 2) => {
+    const res = { L: [], Ro: [], giu: [], boQua: [] };
+    sh.rows.forEach(r => {
+      if (r.t !== 'nv') return;
+      const others = r.d.some((v, k) => v && !days.includes(k + 1));
+      if (!others) { res.boQua.push({ ma: r.ma, ten: r.ten, ly: 'trống cả tháng' }); return; }
+      const st = CC.startDate(r, sh);
+      days.forEach(d => {
+        const k = d - 1, hol = new Date(sh.nam, sh.thang - 1, d);
+        if (r.d[k]) { if (fold(r.d[k]) !== 'l') res.giu.push({ ma: r.ma, ten: r.ten, ngay: d, code: r.d[k] }); return; }
+        if (st && st > hol) { res.boQua.push({ ma: r.ma, ten: r.ten, ly: `chưa nhận việc (${pad2(st.getDate())}/${pad2(st.getMonth() + 1)})`, ngay: d }); return; }
+        const lim = new Date(hol); lim.setMonth(lim.getMonth() - tvThang);
+        const code = st && st > lim ? 'Ro' : 'L';
+        r.d[k] = code; res[code].push({ ma: r.ma, ten: r.ten, ngay: d });
+      });
+    });
+    return res;
+  };
+
   // ------------------------------------------------------------ 3) dựng / cập nhật sheet tháng từ BCC
   // archive: { id: sheet }; trả về { sheet, bao }
   CC.mainSheets = archive => Object.values(archive).filter(s => !s.phu).sort((a, b) => a.ky < b.ky ? -1 : 1);
