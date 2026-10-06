@@ -498,6 +498,10 @@
     ws.mergeCells(sg, 2, sg, 3); put(sg, 2, 'NGƯỜI CHẤM CÔNG', B);
     put(sg, 18, 'PHÒNG TÔ CHỨC HÀNH CHÍNH', B);
     ws.mergeCells(sg, tc(T.P), sg, tc(T.AY)); put(sg, tc(T.P), 'GIÁM ĐỐC CHI NHÁNH', B);
+    // tô cột Chủ nhật như file gốc: định dạng có điều kiện WEEKDAY(ngày)=1 (dòng Team: xanh đậm, còn lại: xám)
+    const sunRule = argb => ({ type: 'expression', formulae: [`WEEKDAY(${L(DAY0)}$7)=1`], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb } } } });
+    sh.rows.forEach((row, k) => { if (row.t === 'team') ws.addConditionalFormatting({ ref: `${L(DAY0)}${FIRST_ROW + k}:${L(lastDay)}${FIRST_ROW + k}`, rules: [Object.assign(sunRule('FF6AA84F'), { priority: 1, stopIfTrue: true })] }); });
+    ws.addConditionalFormatting({ ref: `${L(DAY0)}6:${L(lastDay)}${last}`, rules: [Object.assign(sunRule('FFBFBFBF'), { priority: 2 })] });
     ws.autoFilter = { from: { row: 7, column: 1 }, to: { row: last, column: lastCol } };
     ws.pageSetup.printArea = `A1:${L(lastCol)}${sg + 6}`;
     return ws;
