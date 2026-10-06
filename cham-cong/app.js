@@ -207,6 +207,7 @@
       const bb = r.tail && r.tail[T.BB];
       html += `<tr data-i="${i}"><td class="r">${stt}</td><td>${esc(r.ma)}</td><td><input class="cell w" data-f="ten" value="${esc(r.ten)}"></td><td><input class="cell w" data-f="pb" value="${esc(r.pb)}"></td>
         <td><input class="cell w" data-f="cv" value="${esc(r.cv)}"></td><td><input class="cell wide" data-f="bb" value="${esc(bb && bb.v !== undefined ? bb.v : '')}"></td>
+        <td style="text-align:center"><input type="checkbox" data-f="auto"${CC.isAuto(r) ? ' checked' : ''}></td>
         <td><button class="b sm del" type="button" data-rm="${i}">Xóa</button></td></tr>`;
     });
     $('nvBody').innerHTML = html;
@@ -218,7 +219,7 @@
     $('baoTitle').textContent = `Kết quả nạp file BCC — ${sh ? sh.ten : b.ky}${b.capNhat ? ' (cập nhật tháng đã có)' : ' (tạo tháng mới)'}`;
     const li = (arr, f) => arr.map(f).join('<br>');
     $('bao').innerHTML = `
-      <div class="ok"><h4>✓ Đã điền ngày công: ${b.khop.length} người</h4>Khớp theo Mã NV giữa file BCC và danh sách tháng${b.capNhat ? '' : ' trước'}.</div>
+      <div class="ok"><h4>✓ Đã điền ngày công: ${b.khop.length} người</h4>Khớp theo Mã NV giữa file BCC và danh sách tháng${b.capNhat ? '' : ' trước'}.${b.tuDong ? `<br>Tự động đủ công cho sếp: ${b.tuDong} ô.` : ''}</div>
       <div class="${b.moi.length ? 'warn' : 'ok'}"><h4>Người mới thêm vào: ${b.moi.length}</h4>${b.moi.length ? li(b.moi, x => `${esc(x.ma)} — ${esc(x.ten)} <span class="muted">→ ${esc(x.nhom)}</span>`) + '<div class="muted">Phép tồn = 0, Phép tháng = 0; kiểm tra lại Chức vụ / ghi chú ở tab Danh sách NV.</div>' : 'Không có.'}</div>
       <div class="${b.thieu.length ? 'warn' : 'ok'}"><h4>Có trong bảng nhưng không có trong BCC: ${b.thieu.length}</h4>${b.thieu.length ? li(b.thieu, x => `${esc(x.ma)} — ${esc(x.ten)} <button class="b sm del" type="button" data-rmma="${esc(x.ma)}" style="padding:1px 8px;margin-left:6px">Xóa khỏi tháng này</button>`) + '<div class="muted">Đang để trống ngày công — chấm tay trên bảng hoặc xóa nếu đã nghỉ việc.</div>' : 'Không có.'}</div>
       <div class="${b.boQua.length ? 'warn' : 'ok'}"><h4>Trong BCC nhưng không có ngày công nào (bỏ qua): ${b.boQua.length}</h4>${b.boQua.length ? li(b.boQua, x => `${esc(x.ma)} — ${esc(x.ten)} <span class="muted">(${esc(x.pb)})</span>`) : 'Không có.'}</div>
@@ -288,7 +289,8 @@
   $('nvBody').addEventListener('change', e => {
     const t = e.target; if (!t.dataset.f) return;
     const sh = sheet(), r = sh.rows[+t.closest('tr').dataset.i], v = t.value.trim();
-    if (t.dataset.f === 'bb') { const o = r.tail[T.BB] = Object.assign({}, r.tail[T.BB] || {}); if (v) o.v = v; else delete o.v; }
+    if (t.dataset.f === 'auto') { r.tuDong = t.checked; if (t.checked) CC.autoFill(sh); }
+    else if (t.dataset.f === 'bb') { const o = r.tail[T.BB] = Object.assign({}, r.tail[T.BB] || {}); if (v) o.v = v; else delete o.v; }
     else r[t.dataset.f] = v;
     touch(sh.id); keepScroll(renderAll);
   });

@@ -334,7 +334,7 @@
                 </div>
                 <datalist id="pbList"></datalist><datalist id="cvList"></datalist>
                 <div id="nMsg"></div>
-                <div class="tw"><table class="dt"><thead><tr><th class="r">STT</th><th>Mã NV</th><th>Họ và tên</th><th>Phòng ban</th><th>Chức vụ</th><th>Ghi chú</th><th></th></tr></thead><tbody id="nvBody"></tbody></table></div>
+                <div class="tw"><table class="dt"><thead><tr><th class="r">STT</th><th>Mã NV</th><th>Họ và tên</th><th>Phòng ban</th><th>Chức vụ</th><th>Ghi chú</th><th title="T2–T6 = X, T7 = S, CN trống, ngày lễ = L">Tự động đủ công</th><th></th></tr></thead><tbody id="nvBody"></tbody></table></div>
                 <p class="muted" style="margin-top:10px">Danh sách lưu riêng từng tháng. Tháng mới (nạp BCC) tự chép danh sách tháng trước; người nghỉ việc xóa ở đây (chỉ xóa trong tháng đang mở).</p>
               </div>
             </div>
@@ -348,6 +348,7 @@
                 <div>• Nạp lại BCC cho tháng đã có: chỉ ghi đè mã công những người có trong BCC, giữ nguyên phần sửa tay khác (ô tô vàng, ghi chú, phép).</div>
                 <div>• File Excel xuất ra giữ <b>công thức như file gốc</b> (TG, P, Ro, L&CT…, Phép tồn), Excel tự tính lại khi mở. Tháng cũ nạp từ file tổng giữ nguyên công thức từng dòng.</div>
                 <div style="margin-top:8px"><b>Mã công được công thức tính</b> (theo mẫu T8.26): X = 1 công · S, C = ½ công (sáng/chiều) · P = phép, P.s = ½ phép · S/P.c, C/P.s = ½ công + ½ phép · Ro = nghỉ không lương, Ro.s = ½ · S/Ro.c, Ro.s/C, C/Ro.s = ½ công + ½ Ro · L, CT = lễ/công tác (L/2, CT/2, CT.s = ½) · R = việc riêng có lương · T = tết · TS = thai sản · Ô = ốm · B = bù · On = online.</div>
+                <div>• <b>Tự động đủ công</b> (2 sếp Phương Thu, Đinh Minh Tuấn — bật/tắt ở tab Danh sách NV): ô trống tự điền T2–T6 = X, T7 = S, CN trống, ngày lễ = L, như các tháng trước; không bị báo "thiếu trong BCC" hay lệch phiếu.</div>
                 <div>• <b>Ngày lễ</b> (nút "Ngày lễ…"): nhập các ngày lễ trong tháng (vd 1,2) → ô đang trống được điền <b>L</b> cho nhân viên chính thức, <b>Ro</b> cho nhân viên thử việc (ghi chú "Nhận việc dd.mm.yyyy" chưa đủ 2 tháng tính tới ngày lễ); người chưa nhận việc và người trống cả tháng bỏ qua; ô đã có mã (TS, X…) giữ nguyên.</div>
                 <div>• <b>File phiếu nghỉ</b> (đăng ký lịch làm việc): nối theo Mã NV + ngày. Tab "Đối chiếu phiếu" liệt kê ngày có phiếu mà mã công chưa thể hiện (kèm mã gợi ý, bấm Áp dụng — lý do phiếu được ghi vào ghi chú ô), ngày có mã P/Ro/CT/Ô/R/On mà không có phiếu, và người đăng ký nghỉ việc.</div>
                 <div>• Mã <b>không có</b> trong công thức (vd X/P.c, X/Ro.c, N, N.c) sẽ <b>không được tính</b> — trang tô viền đỏ để kiểm tra, đổi sang mã tương ứng (vd X/P.c → S/P.c) nếu cần.</div>
@@ -362,7 +363,7 @@
 </div>
 <script src="../assets/flows.js?v=20261006a"></script>
 <script src="../assets/layout.js?v=20261006a"></script>
-<script src="engine.js?v=20261006d"></script>
-<script src="app.js?v=20261006d"></script>
+<script src="engine.js?v=20261006e"></script>
+<script src="app.js?v=20261006e"></script>
 </body>
 </html>

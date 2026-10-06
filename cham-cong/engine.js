@@ -168,7 +168,9 @@
     const out = [];
     wb.worksheets.forEach((ws, i) => {
       const info = CC.parseSheetName(ws.name); if (!info) return;
-      out.push(parseMasterSheet(ws, info, i));
+      const sh = parseMasterSheet(ws, info, i);
+      CC.autoFill(sh); // sếp chưa chấm (vd sheet mới chép) -> đủ công
+      out.push(sh);
     });
     return out;
   };
@@ -283,6 +285,7 @@
     });
     Object.entries(cell).forEach(([key, ps]) => {
       const [i, k] = key.split('|').map(Number), r = sh.rows[i], code = r.d[k] || '';
+      if (CC.isAuto(r)) return; // sếp: tự động đủ công, phiếu chỉ để xem
       const act = ps.filter(p => !huy(p) && ['P', 'Ro', 'CT', 'Ô', 'R', 'On'].includes(p.code));
       act.forEach(p => {
         if (covers(code, p)) return;
@@ -292,7 +295,7 @@
     // mã nghỉ trên bảng nhưng không có phiếu (còn hiệu lực) trên hệ thống — chỉ trong khoảng ngày file phiếu bao phủ
     const [pTu, pDen] = sh.phieuNgay || [1, sh.n];
     sh.rows.forEach((r, i) => {
-      if (r.t !== 'nv') return;
+      if (r.t !== 'nv' || CC.isAuto(r)) return;
       r.d.forEach((code, k) => {
         if (k + 1 < pTu || k + 1 > pDen) return;
         if (!code || !parts(code).some(x => NEEDS.includes(x))) return;
@@ -334,6 +337,31 @@
     return res;
   };
 
+  // ------------------------------------------------------------ 2b') tự động đủ công (2 sếp: Phương Thu, Đinh Minh Tuấn)
+  // như các tháng trước: T2–T6 = X, T7 = S, CN trống, ngày lễ = L. Chỉ điền ô đang trống.
+  CC.AUTO_DEFAULT = ['010205', '013862'];
+  CC.isAuto = r => r.t === 'nv' && (r.tuDong ?? CC.AUTO_DEFAULT.includes(r.ma));
+  CC.holidays = sh => {
+    if (sh.le) return sh.le;
+    const nv = sh.rows.filter(r => r.t === 'nv' && !CC.isAuto(r)), out = [];
+    for (let k = 0; k < sh.n; k++) { const c = nv.filter(r => fold(r.d[k]) === 'l').length; if (nv.length && c >= nv.length * 0.3) out.push(k + 1); }
+    return out;
+  };
+  CC.autoFill = sh => {
+    const le = CC.holidays(sh); let n = 0;
+    sh.rows.forEach(r => {
+      if (!CC.isAuto(r)) return;
+      if (r.d.length < sh.n) r.d = r.d.concat(Array(sh.n - r.d.length).fill(''));
+      for (let k = 0; k < sh.n; k++) {
+        if (r.d[k]) continue;
+        const wd = new Date(sh.nam, sh.thang - 1, k + 1).getDay();
+        const v = le.includes(k + 1) ? 'L' : wd === 0 ? '' : wd === 6 ? 'S' : 'X';
+        if (v) { r.d[k] = v; n++; }
+      }
+    });
+    return n;
+  };
+
   // ------------------------------------------------------------ 2c) ngày lễ: L cho nhân viên chính thức, Ro cho thử việc
   // (như các tháng trước: thử việc = nhận việc chưa đủ tvThang tháng tính tới ngày lễ; chưa nhận việc -> để trống)
   CC.startDate = (row, sh) => {
@@ -344,8 +372,10 @@
   };
   CC.applyHoliday = (sh, days, tvThang = 2) => {
     const res = { L: [], Ro: [], giu: [], boQua: [] };
+    sh.le = [...new Set((sh.le || []).concat(days))].sort((a, b) => a - b);
     sh.rows.forEach(r => {
       if (r.t !== 'nv') return;
+      if (CC.isAuto(r)) { days.forEach(d => { if (!r.d[d - 1] || /^(x|s)$/.test(fold(r.d[d - 1]))) { r.d[d - 1] = 'L'; res.L.push({ ma: r.ma, ten: r.ten, ngay: d }); } }); return; }
       const others = r.d.some((v, k) => v && !days.includes(k + 1));
       if (!others) { res.boQua.push({ ma: r.ma, ten: r.ten, ly: 'trống cả tháng' }); return; }
       const st = CC.startDate(r, sh);
@@ -410,7 +440,7 @@
       team[i] = curTeam;
       if (r.t !== 'nv') return;
       const e = byMa[r.ma];
-      if (!e) { bao.thieu.push({ ma: r.ma, ten: r.ten }); return; }
+      if (!e) { if (!CC.isAuto(r)) bao.thieu.push({ ma: r.ma, ten: r.ten }); return; }
       r.d = Array.from({ length: n }, (_, k) => e.d[k] || '');
       if (fold(e.ten) !== fold(r.ten)) bao.lech.push({ ma: r.ma, ten: r.ten, tenBCC: e.ten });
       bao.khop.push(r.ma);
@@ -443,6 +473,7 @@
       bao.moi.push({ ma: e.ma, ten: e.ten, nhom: tIdx >= 0 ? sh.rows[tIdx].text : '' });
     });
     bcc.nv.forEach(e => { delete e._dung; delete e._team; });
+    bao.tuDong = CC.autoFill(sh);
     sh.savedAt = new Date().toISOString();
     sh.bcc = { file: bcc.fileName, luc: sh.savedAt };
     return { sheet: sh, bao };
