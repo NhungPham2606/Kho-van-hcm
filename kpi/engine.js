@@ -16,6 +16,7 @@
   'use strict';
   const RULES = {
     diemPhepMoiNgay: 5,
+    phepKhongTru: 1.5,                    // nghỉ phép <= 1,5 ngày: không trừ; từ 2 ngày: trừ mọi ngày
     nguong: { C: 850, B: 901, A: 951 },  // điểm còn lại >= ngưỡng
     mucKho: { A: 1000000, B: 800000, C: 600000, D: 0 },
     mucKeToan: { A: 900000, B: 700000, C: 500000, D: 0 },
@@ -145,7 +146,7 @@
   }
 
   const isKeToan = kv => RULES.keToanKV.some(p => String(kv || '').toUpperCase().startsWith(p));
-  const truPhep = ngay => Math.ceil(num(ngay) - 1e-9) * RULES.diemPhepMoiNgay;
+  const truPhep = ngay => { const n = num(ngay); return n <= RULES.phepKhongTru + 1e-9 ? 0 : Math.ceil(n - 1e-9) * RULES.diemPhepMoiNgay; };
   function xepLoai(diem) {
     const n = RULES.nguong;
     return diem >= n.A ? 'A' : diem >= n.B ? 'B' : diem >= n.C ? 'C' : 'D';
@@ -186,7 +187,7 @@
       }
       const muc = tv1 ? 0 : bang[loai];
       const lyDo = [!nop ? 'KHÔNG NỘP KPIS' : '', tFile ? `${f.truLyDo || 'Trừ trong file KPIs'} (-${tFile})` : '',
-        num(inp.phep) ? `Nghỉ phép ${String(num(inp.phep)).replace('.', ',')} ngày${phepNgay ? ` (${phepNgay})` : ''} (-${tPhep})` : '',
+        num(inp.phep) ? `Nghỉ phép ${String(num(inp.phep)).replace('.', ',')} ngày${phepNgay ? ` (${phepNgay})` : ''} (${tPhep ? '-' + tPhep : 'không trừ'})` : '',
         tKhac ? `${norm(inp.lyDo) || 'Trừ khác'} (-${tKhac})` : norm(inp.lyDo), tv1 ? 'Thử việc tháng đầu – không tính thưởng' : '']
         .filter(Boolean).join('; ');
       return Object.assign({}, e, { nop, ts: false, file: f ? f.fileName : '', ban, tFile, tPhep, tKhac, tru, conLai, pct: conLai / 1000, loai, muc, thuong: muc, lyDo, phepNguon,
