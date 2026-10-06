@@ -11,6 +11,7 @@ window.KVH_ICONS = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   chart: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  calendar: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M8 13h2M14 13h2M8 17h2"/>',
   doc: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/>',
 };
 
@@ -76,6 +77,17 @@ window.KVH_MENU = [
       { ten: 'Phiếu đã lập', href: 'de-nghi-thanh-toan/#da-lap' },
       { ten: 'Nạp file mẫu Excel', href: 'de-nghi-thanh-toan/#nap-mau' },
       { ten: 'Mức chi Công đoàn', href: 'de-nghi-thanh-toan/#muc-chi' },
+    ],
+  },
+  {
+    ten: 'Chấm Công', icon: 'calendar', trangThai: 'Hằng tháng',
+    moTa: 'Thả file BCC xuất từ hệ thống mỗi tháng: tự dựng sheet "Chấm công Tm.yy" theo mẫu tháng trước (công thức, phép tồn), sửa trên web, xuất Excel đủ các tháng.',
+    muc: [
+      { ten: 'Bảng công', href: 'cham-cong/#bang-cong' },
+      { ten: 'Phép tồn', href: 'cham-cong/#phep' },
+      { ten: 'Danh sách NV', href: 'cham-cong/#nhan-vien' },
+      { ten: 'Nạp file', href: 'cham-cong/#nap-du-lieu' },
+      { ten: 'Hướng dẫn & mã công', href: 'cham-cong/#huong-dan' },
     ],
   },
   // Vi du dong cong viec tiep theo (bo "//" khi co trang):

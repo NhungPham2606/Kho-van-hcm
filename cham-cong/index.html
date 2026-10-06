@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tổng Hợp KPIs</title>
+<title>Chấm Công</title>
 <link rel="icon" href="../assets/logo.png?v=2" type="image/png">
-<link rel="stylesheet" href="../assets/theme.css?v=20261003a">
+<link rel="stylesheet" href="../assets/theme.css?v=20261006a">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   /* Bố cục + kiểu chữ y hệt trang "Thưởng Kho HCM" của app cũ (giao-hang-app/src/index.css) */
@@ -157,6 +157,47 @@
   @media (max-width: 900px) { .tk .two { grid-template-columns: 1fr; } }
   .tk table.dt tfoot td { background: #f0f9ff; font-weight: 700; border-top: 2px solid #e5e7eb; }
   .tk.snap .no-snap { display: none !important; }
+  /* ---- riêng trang Chấm công ---- */
+  .tk .tw.cc { max-height: calc(100vh - 330px); }
+  .tk table.cc { border-collapse: separate; border-spacing: 0; font-size: 12px; }
+  .tk table.cc th, .tk table.cc td { border-bottom: 1px solid #f3f4f6; border-right: 1px solid #f3f4f6; padding: 5px 6px; white-space: nowrap; }
+  .tk table.cc thead th { position: sticky; top: 0; background: #f9fafb; color: #4b5563; font-weight: 600; z-index: 2; text-align: center; border-bottom: 2px solid #e5e7eb; }
+  .tk table.cc thead tr:nth-child(2) th { top: 27px; font-weight: 500; font-size: 10.5px; color: #9ca3af; }
+  .tk table.cc th.sun, .tk table.cc td.sun { background: #fef2f2; }
+  .tk table.cc thead th.sun { color: #e02424; background: #fef2f2; }
+  .tk table.cc .stk { position: sticky; background: #fff; z-index: 1; }
+  .tk table.cc thead .stk { z-index: 3; background: #f9fafb; }
+  .tk table.cc .c0 { left: 0; min-width: 30px; text-align: right; }
+  .tk table.cc .c1 { left: 42px; min-width: 52px; }
+  .tk table.cc .c2 { left: 106px; min-width: 170px; border-right: 2px solid #e5e7eb; }
+  .tk table.cc td.d { text-align: center; min-width: 26px; padding: 4px 3px; cursor: text; font-weight: 600; color: #374151; position: relative; }
+  .tk table.cc td.d:hover { outline: 2px solid #1a56db55; outline-offset: -2px; }
+  .tk table.cc td.d.hl { background: #fef08a; }
+  .tk table.cc td.d.cm::after { content: ''; position: absolute; top: 0; right: 0; border-left: 6px solid transparent; border-top: 6px solid #e02424; }
+  .tk table.cc td.d.unk { box-shadow: inset 0 0 0 2px #e02424; color: #b91c1c; }
+  .tk table.cc td.d input { width: 46px; font: inherit; font-size: 12px; text-align: center; padding: 2px; border: 1px solid #1a56db; border-radius: 4px; }
+  .tk table.cc .k-P { color: #1d4ed8; } .tk table.cc .k-Ro { color: #b91c1c; } .tk table.cc .k-L { color: #047857; }
+  .tk table.cc .k-half { color: #92400e; } .tk table.cc .k-N { color: #9ca3af; }
+  .tk table.cc td.num { text-align: right; font-variant-numeric: tabular-nums; min-width: 38px; }
+  .tk table.cc td.num.b { font-weight: 700; color: #1a56db; }
+  .tk table.cc tr.grp td { background: #ecfdf5; color: #065f46; font-weight: 700; }
+  .tk table.cc tr.grp td.stk { background: #ecfdf5; }
+  .tk table.cc tbody tr:hover td { background: #eff6ff; }
+  .tk table.cc tbody tr:hover td.hl { background: #fde047; }
+  .tk table.cc tr.miss td.c2 { color: #9ca3af; }
+  .tk table.cc tr.new td.c2::after { content: ' mới'; font-size: 10px; color: #0e9f6e; font-weight: 700; }
+  .tk table.cc td.note { font-size: 11px; color: #6b7280; white-space: normal; min-width: 160px; max-width: 260px; }
+  .tk .bao { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .tk .bao > div { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; font-size: 12px; line-height: 1.7; }
+  .tk .bao h4 { margin: 0 0 4px; font-size: 12.5px; }
+  .tk .bao .warn h4 { color: #b45309; } .tk .bao .ok h4 { color: #047857; } .tk .bao .bad h4 { color: #b91c1c; }
+  .tk .confirm { margin-top: 14px; padding: 14px; border-radius: 8px; background: #eff6ff; border: 1px solid #bfdbfe; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+  .tk .confirm input[type=number] { width: 80px; font: inherit; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 6px; }
+  .tk .confirm select { min-width: 0; }
+  .tk table.dt input.cell.w { width: 150px; text-align: left; background: #fff; }
+  .tk table.dt input.cell.wide { width: 220px; text-align: left; background: #fff; }
+  .tk .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: #6b7280; padding: 8px 16px; border-bottom: 1px solid #f3f4f6; }
+  .tk .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
 </style>
 </head>
 <body>
@@ -166,22 +207,21 @@
   <div class="main">
     <div class="main-bar">
       <button class="menu-btn" type="button" aria-label="Mở menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-      <nav class="crumbs" aria-label="Đường dẫn"><a href="../">Trang chủ</a><span>›</span><span aria-current="page">Tổng Hợp KPIs</span></nav>
+      <nav class="crumbs" aria-label="Đường dẫn"><a href="../">Trang chủ</a><span>›</span><span aria-current="page">Chấm Công</span></nav>
     </div>
     <main class="content tk-wide">
-      <div class="tk" id="tk" data-owner="NhungPham2606" data-repo="BAO-CAO-GIAO-HANG" data-dir="kpi">
+      <div class="tk" id="tk" data-owner="NhungPham2606" data-repo="BAO-CAO-GIAO-HANG" data-dir="cham-cong">
 
         <div class="tk-card" id="tkTop" hidden>
           <div class="tk-card-body">
             <div class="tk-bar">
-              <div class="tk-row"><span class="tk-lbl">Kỳ đã lưu:</span><span class="tk-row" id="tkChips"></span></div>
+              <div class="tk-row"><span class="tk-lbl">Tháng đã lưu:</span><span class="tk-row" id="tkChips"></span></div>
               <div class="tk-row">
-                <button class="b" type="button" id="btnFiles">Nạp file KPI</button>
-                <button class="b" type="button" id="btnNewKy">Tạo kỳ mới</button>
-                <button class="b del" type="button" id="tkDelete">Xóa kỳ này</button>
-                <button class="b pri" type="button" id="tkSnap" title="Tải ảnh PNG của tab đang mở"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Xuất ảnh</button>
-                <button class="b" type="button" id="tkSnapCopy">Sao chép ảnh</button>
-                <button class="b ok" type="button" id="tkExport"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Xuất Excel</button>
+                <button class="b pri" type="button" id="btnBcc">Nạp file BCC tháng</button>
+                <button class="b" type="button" id="btnMaster">Nạp file tổng</button>
+                <button class="b del" type="button" id="tkDelete">Xóa tháng này</button>
+                <button class="b" type="button" id="tkExportOne">Xuất Excel tháng này</button>
+                <button class="b ok" type="button" id="tkExport"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Xuất Excel tất cả tháng</button>
               </div>
             </div>
             <div class="tk-banner" id="tkBanner"></div>
@@ -190,115 +230,113 @@
           </div>
         </div>
 
-        <!-- Bắt đầu / nạp file -->
+        <!-- nạp file -->
         <div class="tk-card" id="tkStart">
           <div class="tk-card-body">
             <div id="startMsg"></div>
             <div class="two">
               <div>
-                <div class="tk-zone small" id="zoneRoster" tabindex="0" role="button">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                  <h4>① Danh sách nhân viên</h4>
-                  <p>Kéo thả <b>file tổng hợp tháng trước</b> (vd "00 TỔNG HỢP THƯỞNG KPIS VP.HCM 8.2026.xlsx") — lấy nhóm, Mã NV, Họ tên, KV, CT/TV. Chỉ cần làm lần đầu; các tháng sau tự dùng lại danh sách tháng trước.</p>
-                  <p class="muted" id="rosterInfo"></p>
+                <div class="tk-zone small" id="zoneMaster" tabindex="0" role="button">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+                  <h4>① File bảng chấm công tổng (các tháng cũ)</h4>
+                  <p>Kéo thả file <b>"BẢNG CHẤM CÔNG 2026_CN.HCM_final.xlsx"</b> — trang đọc mọi sheet "Chấm công Tm.yy" (mã công, công thức, ô tô vàng, ghi chú). <b>Chỉ cần làm 1 lần</b>; các tháng sau chỉ cần file BCC.</p>
+                  <p class="muted" id="masterInfo"></p>
                 </div>
-                <input type="file" id="fileRoster" accept=".xlsx,.xls" hidden>
+                <input type="file" id="fileMaster" accept=".xlsx" hidden>
               </div>
               <div>
-                <div class="tk-zone small" id="zoneFiles" tabindex="0" role="button">
+                <div class="tk-zone small" id="zoneBcc" tabindex="0" role="button">
                   <svg viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
-                  <h4>② File KPIs của từng nhân viên</h4>
-                  <p>Kéo thả <b>cùng lúc nhiều file</b>: Kho/Giao hàng (<b>.xls/.xlsx</b> "KẾT QUẢ KPIs …") và Kế toán (<b>.pdf</b> "Báo cáo công việc — OKR · KPI"). Trang tự đọc Mã NV + Tổng điểm.</p>
-                  <p class="muted" id="filesInfo"></p>
+                  <h4>② File BCC của tháng (xuất từ hệ thống chấm công)</h4>
+                  <p>Kéo thả file <b>"BCC T9.xlsx"</b> (sheet "DANH SÁCH CHẤM CÔNG THÁNG …"). Trang lấy danh sách + công thức của tháng trước, điền mã công theo <b>Mã NV</b>, tự thêm người mới vào đúng nhóm.</p>
+                  <p class="muted" id="bccInfo"></p>
                 </div>
-                <input type="file" id="fileKpi" accept=".xlsx,.xls,.pdf" multiple hidden>
+                <input type="file" id="fileBcc" accept=".xlsx,.xls" hidden>
               </div>
             </div>
+            <div id="bccConfirm"></div>
             <div class="tk-row" style="margin-top:12px" id="startCancelRow" hidden><button class="b sm" type="button" id="startCancel">Đóng</button></div>
           </div>
+        </div>
+
+        <div class="tk-card" id="baoCard" hidden>
+          <div class="tk-card-head"><h3 id="baoTitle">Kết quả nạp file BCC</h3><button class="b sm" type="button" id="baoClose">Đóng</button></div>
+          <div class="tk-card-body"><div class="bao" id="bao"></div></div>
         </div>
 
         <div id="tkMainView" hidden>
           <div class="tk-stats">
             <div class="tk-stat blue"><div class="l">Nhân viên</div><div class="v" id="stNV"></div><div class="stat-sub" id="stNVSub"></div></div>
-            <div class="tk-stat"><div class="l">Đã nộp KPIs</div><div class="v" id="stNop"></div><div class="stat-sub" id="stNopSub"></div></div>
-            <div class="tk-stat"><div class="l">Xếp loại A / B / C / D</div><div class="v" id="stXL" style="font-size:20px"></div><div class="stat-sub" id="stXLSub"></div></div>
-            <div class="tk-stat green"><div class="l">Tổng thưởng</div><div class="v" id="stTien"></div><div class="stat-sub" id="stTienSub"></div></div>
+            <div class="tk-stat"><div class="l">Tổng ngày công (TG)</div><div class="v" id="stTG"></div><div class="stat-sub" id="stTGSub"></div></div>
+            <div class="tk-stat"><div class="l">Phép dùng trong tháng</div><div class="v" id="stP"></div><div class="stat-sub" id="stPSub"></div></div>
+            <div class="tk-stat red"><div class="l">Mã chưa được tính</div><div class="v" id="stUnk"></div><div class="stat-sub" id="stUnkSub"></div></div>
           </div>
 
           <div class="tk-card">
             <div class="tk-card-head">
               <div class="tk-row" id="tkTabs">
-                <a class="b sm" href="#tong-hop" data-tab="tong-hop">Bảng tổng hợp</a>
-                <a class="b sm" href="#dashboard" data-tab="dashboard">Dashboard</a>
-                <a class="b sm" href="#file-kpi" data-tab="file-kpi">File KPIs đã nạp</a>
-                <a class="b sm" href="#danh-sach" data-tab="danh-sach">Danh sách NV</a>
-                <a class="b sm" href="#cai-dat" data-tab="cai-dat">Quy tắc</a>
+                <a class="b sm" href="#bang-cong" data-tab="bang-cong">Bảng công</a>
+                <a class="b sm" href="#phep" data-tab="phep">Phép tồn</a>
+                <a class="b sm" href="#nhan-vien" data-tab="nhan-vien">Danh sách NV</a>
+                <a class="b sm" href="#huong-dan" data-tab="huong-dan">Hướng dẫn & mã công</a>
               </div>
               <div class="tk-filter" id="tkFilter">
-                <select id="fGroup"><option value="">Tất cả bộ phận</option></select>
+                <select id="fGroup"><option value="">Tất cả nhóm</option></select>
                 <div class="tk-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input id="fSearch" placeholder="Tìm mã / tên NV..."></div>
               </div>
             </div>
 
-            <div data-pane="tong-hop">
-              <div class="rep-title" id="titleTH"></div>
-              <div class="pick-bar no-snap"><span>Nhập <b>ngày phép</b> (tự trừ 5 điểm/ngày, nửa ngày làm tròn lên), <b>trừ khác</b> và <b>lý do</b> ngay trên bảng — tự lưu.</span><span class="muted">Điểm ban đầu và điểm trừ trong file lấy tự động từ file KPIs.</span></div>
-              <div class="tw"><table class="dt" id="thTable"><thead><tr>
-                <th class="r">STT</th><th>Mã NV</th><th style="min-width:170px">Họ và tên</th><th class="r">Điểm đánh giá<br>ban đầu</th>
-                <th class="r">Trừ trong<br>file</th><th class="r no-snap-col">Ngày<br>phép</th><th class="r no-snap-col">Trừ<br>khác</th><th class="r">Điểm trừ</th>
-                <th class="r">Tổng điểm<br>còn lại</th><th class="r">Tổng chỉ tiêu<br>đánh giá (%)</th><th>Xếp loại</th><th class="r">Mức thưởng</th><th class="r">Tổng thưởng</th>
-                <th>Ghi chú</th><th>KV</th><th style="min-width:120px">Nghỉ thai sản</th><th style="min-width:220px">Lý do điểm trừ</th></tr></thead>
-                <tbody id="thBody"></tbody><tfoot><tr id="thFoot"></tr></tfoot></table></div>
+            <div data-pane="bang-cong">
+              <div class="rep-title" id="titleBC"></div>
+              <div class="legend"><span>Bấm vào ô ngày để sửa mã công (Enter để lưu, Esc để bỏ).</span><span><i style="background:#fef08a"></i>ô tô vàng</span><span><i style="background:#fff;border-top:6px solid #e02424;border-left:6px solid transparent;width:0;height:0"></i>có ghi chú (rê chuột để xem)</span><span><i style="box-shadow:inset 0 0 0 2px #e02424"></i>mã không có trong công thức → không được tính công</span></div>
+              <div class="tw cc"><table class="cc" id="bcTable"><thead id="bcHead"></thead><tbody id="bcBody"></tbody></table></div>
             </div>
 
-            <div data-pane="dashboard" hidden><div class="dash" id="dash"></div></div>
-
-            <div data-pane="file-kpi" hidden>
-              <div class="tk-card-body">
-                <div id="unmatched"></div>
-                <div class="tw"><table class="dt"><thead><tr><th>File</th><th>Loại</th><th>Mã NV</th><th>Họ tên (trong file)</th><th>Kỳ</th><th class="r">Tổng điểm</th><th class="r">Trừ trong file</th><th>Khớp danh sách</th><th></th></tr></thead><tbody id="fileBody"></tbody></table></div>
-              </div>
+            <div data-pane="phep" hidden>
+              <div class="pick-bar"><span>Phép tồn đầu tháng lấy từ <b>"Phép tồn sau tháng"</b> của tháng trước (như công thức VLOOKUP trong file). Sửa được <b>Cộng phép 5 năm</b> và <b>Phép tháng</b> ngay trên bảng.</span></div>
+              <div class="tw"><table class="dt"><thead><tr><th class="r">STT</th><th>Mã NV</th><th>Họ và tên</th><th class="r">Cộng phép<br>nv 5 năm</th><th class="r" id="thPhepTon">Phép tồn</th><th class="r">Phép tháng</th><th class="r">Tổng phép</th><th class="r">Phép dùng<br>(P)</th><th class="r">Phép tồn<br>sau tháng</th><th>Ghi chú</th></tr></thead><tbody id="phepBody"></tbody></table></div>
             </div>
 
-            <div data-pane="danh-sach" hidden>
+            <div data-pane="nhan-vien" hidden>
               <div class="tk-card-body">
-                <div class="tk-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;padding:12px;background:#f9fafb;border-radius:8px;margin-bottom:14px">
-                  <label class="f" style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:#6b7280">Bộ phận<input type="text" id="nGroup" list="groupList" placeholder="vd Kho Vận - HCM" style="width:180px"></label>
-                  <label class="f" style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:#6b7280">Mã NV<input type="text" id="nMa" style="width:100px"></label>
-                  <label class="f" style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:#6b7280">Họ và tên<input type="text" id="nTen" style="width:200px"></label>
-                  <label class="f" style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:#6b7280">KV<input type="text" id="nKV" list="kvList" placeholder="KHO / GH / LX / KTHCM…" style="width:110px"></label>
-                  <label class="f" style="display:flex;flex-direction:column;gap:4px;font-size:11px;color:#6b7280">Loại<select id="nLoai"><option value="CT">CT – Chính thức</option><option value="TV1">TV – tháng thử việc đầu (không thưởng)</option><option value="TV2">TV – từ tháng thứ 2 (có thưởng)</option></select></label>
-                  <button class="b pri sm" type="button" id="nAdd">+ Thêm nhân viên</button>
+                <div class="tk-form">
+                  <label class="f">Nhóm<select id="nTeam"></select></label>
+                  <label class="f">Mã NV<input type="text" id="nMa" style="width:90px"></label>
+                  <label class="f">Họ và tên<input type="text" id="nTen" style="width:190px"></label>
+                  <label class="f">Phòng ban<input type="text" id="nPb" list="pbList" style="width:150px"></label>
+                  <label class="f">Chức vụ<input type="text" id="nCv" list="cvList" style="width:150px"></label>
+                  <label class="f">Ghi chú<input type="text" id="nBb" placeholder="vd Nhận việc 01.10.2026" style="width:180px"></label>
+                  <button class="b pri sm" type="button" id="nAdd">+ Thêm vào tháng này</button>
                 </div>
-                <datalist id="groupList"></datalist><datalist id="kvList"></datalist>
+                <datalist id="pbList"></datalist><datalist id="cvList"></datalist>
                 <div id="nMsg"></div>
-                <div class="tw"><table class="dt"><thead><tr><th>Bộ phận</th><th>Mã NV</th><th>Họ và tên</th><th>KV</th><th>Bảng thưởng</th><th>Loại</th><th></th></tr></thead><tbody id="rosterBody"></tbody></table></div>
-                <p class="muted" style="margin-top:10px">Danh sách lưu riêng cho từng kỳ. Tạo kỳ mới sẽ chép danh sách kỳ trước (nhân viên "TV – tháng đầu" tự chuyển sang "từ tháng thứ 2").</p>
+                <div class="tw"><table class="dt"><thead><tr><th class="r">STT</th><th>Mã NV</th><th>Họ và tên</th><th>Phòng ban</th><th>Chức vụ</th><th>Ghi chú</th><th></th></tr></thead><tbody id="nvBody"></tbody></table></div>
+                <p class="muted" style="margin-top:10px">Danh sách lưu riêng từng tháng. Tháng mới (nạp BCC) tự chép danh sách tháng trước; người nghỉ việc xóa ở đây (chỉ xóa trong tháng đang mở).</p>
               </div>
             </div>
 
-            <div data-pane="cai-dat" hidden>
+            <div data-pane="huong-dan" hidden>
               <div class="tk-card-body tk-notes">
-                <div>• <b>Điểm đánh giá ban đầu</b> = TỔNG ĐIỂM trong file KPIs con (Excel: dòng "TỔNG ĐIỂM"; PDF Kế toán: cột Điểm KPI dòng "Tổng cộng").</div>
-                <div>• <b>Điểm trừ</b> = điểm trừ trong file con + nghỉ phép (<b>5 điểm/ngày</b>, nửa ngày làm tròn lên: 2,5 ngày → 15) + trừ khác nhập tay.</div>
-                <div>• <b>Tổng điểm còn lại</b> = ban đầu − điểm trừ; <b>Tổng chỉ tiêu (%)</b> = còn lại / 1000.</div>
-                <div>• <b>Xếp loại</b>: &gt; 950 → A · 901–950 → B · 850–900 → C · &lt; 850 → D. Không nộp KPIs → D.</div>
-                <div>• <b>Mức thưởng</b> — Kho/Giao hàng/Lái xe: A 1.000.000 · B 800.000 · C 600.000 · D 0. Kế toán (KV bắt đầu bằng KT hoặc ADETC): A 900.000 · B 700.000 · C 500.000 · D 0.</div>
-                <div>• <b>Thử việc</b>: tháng thử việc đầu tiên không tính thưởng; từ tháng thứ 2 thưởng bình thường. Ghi chú trên bảng: CT = chính thức, TV = thử việc.</div>
+                <div><b>Hằng tháng:</b> xuất file BCC từ hệ thống chấm công → bấm <b>"Nạp file BCC tháng"</b> (hoặc kéo thả vào trang) → kiểm tra tháng/năm → <b>Tạo bảng công</b>. Xem phần "Kết quả nạp" để xử lý người mới / người không có trong BCC / mã lạ, sửa trực tiếp trên bảng nếu cần, rồi <b>Xuất Excel tất cả tháng</b>.</div>
+                <div>• Sheet tháng mới chép <b>danh sách, nhóm, công thức, Cộng phép 5 năm, Phép tháng, Ghi chú</b> từ tháng trước; cột <b>Phép tồn</b> = VLOOKUP sang sheet tháng trước (cột "Phép tồn sau tháng"). Ô tô vàng / ghi chú theo ngày không chép sang tháng mới.</div>
+                <div>• Người có trong BCC mà chưa có trong bảng: tự thêm vào cuối nhóm của những người cùng phòng ban (theo BCC), Phép tồn = 0, Phép tháng = 0, ghi chú "Nhận việc dd.mm.yyyy" (ngày công đầu tiên). Người trong BCC không có ngày công nào thì bỏ qua.</div>
+                <div>• Người có trong bảng mà không có trong BCC (Giám đốc, người nghỉ việc…): giữ dòng, để trống ngày công — chấm tay hoặc xóa ở tab Danh sách NV.</div>
+                <div>• Nạp lại BCC cho tháng đã có: chỉ ghi đè mã công những người có trong BCC, giữ nguyên phần sửa tay khác (ô tô vàng, ghi chú, phép).</div>
+                <div>• File Excel xuất ra giữ <b>công thức như file gốc</b> (TG, P, Ro, L&CT…, Phép tồn), Excel tự tính lại khi mở. Tháng cũ nạp từ file tổng giữ nguyên công thức từng dòng.</div>
+                <div style="margin-top:8px"><b>Mã công được công thức tính</b> (theo mẫu T8.26): X = 1 công · S, C = ½ công (sáng/chiều) · P = phép, P.s = ½ phép · S/P.c, C/P.s = ½ công + ½ phép · Ro = nghỉ không lương, Ro.s = ½ · S/Ro.c, Ro.s/C, C/Ro.s = ½ công + ½ Ro · L, CT = lễ/công tác (L/2, CT/2, CT.s = ½) · R = việc riêng có lương · T = tết · TS = thai sản · Ô = ốm · B = bù · On = online.</div>
+                <div>• Mã <b>không có</b> trong công thức (vd X/P.c, X/Ro.c, N, N.c) sẽ <b>không được tính</b> — trang tô viền đỏ để kiểm tra, đổi sang mã tương ứng (vd X/P.c → S/P.c) nếu cần.</div>
               </div>
             </div>
-            <div class="tk-foot" id="tkFoot"></div>
           </div>
         </div>
       </div>
     </main>
-    <footer class="site-foot">Kho vận HCM · Trang nội bộ. File được đọc trong trình duyệt; kết quả theo kỳ lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
+    <footer class="site-foot">Kho vận HCM · Trang nội bộ. File được đọc trong trình duyệt; dữ liệu chấm công lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
   </div>
 </div>
 <script src="../assets/flows.js?v=20261006a"></script>
 <script src="../assets/layout.js?v=20261006a"></script>
-<script src="engine.js?v=20261003b"></script>
-<script src="app.js?v=20261005a"></script>
+<script src="engine.js?v=20261006a"></script>
+<script src="app.js?v=20261006a"></script>
 </body>
 </html>
