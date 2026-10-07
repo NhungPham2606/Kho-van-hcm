@@ -334,10 +334,18 @@
     if ((m = all.match(/Ký hiệu\s*(?:\(Serial\))?\s*:\s*([0-9A-Z]{5,9})/i))) hd.kyHieu = m[1];
     for (const l of lines) if ((m = l.match(/^Số\s*(?:\(No\.?\))?\s*:\s*(\d{1,10})\b/i))) { hd.so = m[1]; break; }
     if ((m = all.match(/Ngày\s*(?:\(Date\))?\s*(\d{1,2})\s*tháng\s*(?:\(month\))?\s*(\d{1,2})\s*năm\s*(?:\(year\))?\s*(\d{4})/i))) hd.ngay = `${m[3]}-${pad2(+m[2])}-${pad2(+m[1])}`;
-    const iBan = lines.findIndex(l => /^(Đơn vị bán( hàng)?|Tên người bán|Người bán( hàng)?|Tên đơn vị bán)\s*(\([^)]*\))?\s*:/i.test(l));
+    let iBan = lines.findIndex(l => /^(Đơn vị bán( hàng)?|Tên người bán|Người bán( hàng)?|Tên đơn vị bán)\s*(\([^)]*\))?\s*:/i.test(l));
     const iMua = lines.findIndex(l => /(người mua|Tên đơn vị\s*:|Đơn vị mua)/i.test(l));
+    if (iBan >= 0) hd.ban = clean(lines[iBan].replace(/^[^:]*:/, ''));
+    else { // mẫu không ghi nhãn (vd MISA "Trần Quyên"): tên công ty in đầu trang, ngay trên "Mã số thuế" đầu tiên trước phần người mua
+      const iMst = lines.findIndex((l, i) => (iMua < 0 || i < iMua) && /^Mã số thuế/i.test(l));
+      if (iMst > 0) {
+        let j = iMst - 1;
+        for (let k = iMst - 1; k >= 0; k--) if (/CÔNG TY|\bCTY\b|DOANH NGHIỆP|HỘ KINH DOANH|CHI NHÁNH|HỢP TÁC XÃ|TẬP ĐOÀN/i.test(lines[k])) { j = k; break; }
+        iBan = j; hd.ban = clean(lines[j]);
+      }
+    }
     if (iBan >= 0) {
-      hd.ban = clean(lines[iBan].replace(/^[^:]*:/, ''));
       const vung = lines.slice(iBan + 1, iMua > iBan ? iMua : iBan + 8);
       for (const l of vung) {
         if (!hd.mst && (m = l.match(/Mã số thuế[^:]*:\s*([\d\s-]{10,20})/i))) hd.mst = m[1].replace(/\s/g, '');
@@ -393,7 +401,28 @@
       || db.mau.find(m => ten.length >= 6 && tenGon(m.tenTK) && (tenGon(m.tenTK) === ten || tenGon(m.tenTK).includes(ten) || ten.includes(tenGon(m.tenTK))));
   }
   let hdHang = []; // các nhóm hóa đơn (theo đơn vị bán) chưa lập phiếu
+  // nhận diện đơn vị bán: mẫu khớp / MST / STK / tên — 1 trong các khóa trùng là cùng đơn vị
+  const dvCua = h => { const m = timMau(h); return { mauId: m ? m.id : '', mst: soChu(h.mst), stk: soChu(h.stk), ten: tenGon(h.ban) }; };
+  const cungDv = (a, b) => !!(a && b && ((a.mauId && a.mauId === b.mauId) || (a.mst && a.mst === b.mst)
+    || (a.stk.length >= 6 && a.stk === b.stk) || (a.ten.length >= 6 && a.ten === b.ten)));
+  const boBienSo = s => clean(String(s || '').replace(/\b\d{2}[A-Z]{1,2}\d?-?\s?\d{3}\.?\d{2}\b/g, ''));
+  const maHd = h =>`${h.kyHieu || ''}#${Number(h.so) || h.so || h.file}`;
+  // phiếu đang lập đã có HĐ của cùng đơn vị -> thêm dòng vào phiếu đó (bỏ HĐ trùng)
+  function themVaoPhieu(nhom) {
+    const m = db.mau.find(x => x.id === d.mauId), pre = (m && m.ctPrefix) || 'HĐ: ';
+    const daCo = new Set(d.hdDa || []), moi = nhom.filter(h => !daCo.has(maHd(h)));
+    const giu = d.items.filter(it => it.ngay || Number(it.tien)); // bỏ dòng trống của mẫu
+    d.items = giu.concat(moi.map(h => ({ ngay: h.ngay || '', ct: h.so ? pre + String(Number(h.so)) : '', tien: h.tong || 0, gc: (m && m.ghiChu) || '' })))
+      .sort((a, b) => (a.ngay || '').localeCompare(b.ngay || '') || (Number(soChu(a.ct)) || 0) - (Number(soChu(b.ct)) || 0));
+    d.hdDa = [...daCo, ...moi.map(maHd)];
+    if (!d.mauId && moi.length) d.lyDo = boBienSo(d.lyDo); // nhiều HĐ (nhiều xe) -> lý do chung
+    saveDraft(); renderForm();
+    const trung = nhom.length - moi.length;
+    msg($('lpMsg'), `Đã thêm ${moi.length} hóa đơn vào phiếu đang lập của <b>${esc(nhom[0].ban || d.tenTK || '?')}</b>${trung ? ` (bỏ ${trung} HĐ đã có)` : ''} — phiếu giờ có ${d.items.length} dòng, tổng ${vnd(tong(d))}. Muốn lập phiếu riêng thì bấm "Phiếu mới" trước khi thả.`
+      + (moi.some(h => !h.tong) ? '<br>⚠ Có hóa đơn không đọc được tổng tiền — nhập tay.' : ''), !moi.some(h => !h.tong));
+  }
   function lapTuHoaDon(nhom) {
+    if (d.hdDv && cungDv(d.hdDv, dvCua(nhom[0]))) return themVaoPhieu(nhom);
     const hd0 = nhom[0], m = timMau(hd0);
     const ky = hd0.ngay ? hd0.ngay.slice(0, 7) : kyMacDinh();
     if (m) applyMau(m); else { d = newDraft(d); }
@@ -401,10 +430,11 @@
     Object.assign(d, {
       ky, mst: hd0.mst || (m && m.mst) || '',
       items: nhom.map(h => ({ ngay: h.ngay || '', ct: h.so ? pre + String(Number(h.so)) : '', tien: h.tong || 0, gc: (m && m.ghiChu) || '' })),
+      hdDv: dvCua(hd0), hdDa: nhom.map(maHd),
     });
     if (m) d.lyDo = doiKy(m.lyDo || '', ky);
     else Object.assign(d, { mauId: '', mauTen: hd0.ban, ht: 'ck', tenTK: hd0.ban || '', soTK: hd0.stk || '', nh: hd0.nh || '',
-      lyDo: `Thanh toán ${hd0.hang || 'tiền hàng/dịch vụ'}_CN.HCM` });
+      lyDo: `Thanh toán ${(nhom.length > 1 ? boBienSo(hd0.hang) : hd0.hang) || 'tiền hàng/dịch vụ'}_CN.HCM` });
     if (m && hd0.mst && !m.mst) { m.mst = hd0.mst; m.sua = nowIso(); touch(); }
     saveDraft(); renderForm();
     const canhBao = [];
@@ -421,9 +451,12 @@
     const ok = [], loi = [];
     for (const f of files) { try { ok.push(await docHoaDon(f)); } catch (e) { loi.push(`${esc(f.name)}: ${esc(e.message)}`); } }
     if (!ok.length) { msg($('lpMsg'), 'Không đọc được hóa đơn nào. ' + loi.join('; ')); return; }
-    const nhom = {};
-    ok.forEach(h => { const k = soChu(h.mst) || tenGon(h.ban) || h.file; (nhom[k] = nhom[k] || []).push(h); });
-    const ds = Object.values(nhom).map(n => n.sort((a, b) => (a.ngay || '').localeCompare(b.ngay || '')));
+    const nhom = []; // gộp theo đơn vị bán (khớp mẫu / MST / STK / tên)
+    ok.forEach(h => { const dv = dvCua(h), g = nhom.find(x => x.dv.some(v => cungDv(v, dv))); if (g) { g.dv.push(dv); g.ds.push(h); } else nhom.push({ dv: [dv], ds: [h] }); });
+    const ds = nhom.map(g => g.ds.sort((a, b) => (a.ngay || '').localeCompare(b.ngay || '') || (Number(a.so) || 0) - (Number(b.so) || 0)));
+    // nhóm trùng đơn vị với phiếu đang lập lên trước để được thêm vào phiếu đó
+    const iCung = ds.findIndex(n => d.hdDv && cungDv(d.hdDv, dvCua(n[0])));
+    if (iCung > 0) ds.unshift(ds.splice(iCung, 1)[0]);
     hdHang = ds.slice(1);
     lapTuHoaDon(ds[0]); renderHdHang();
     if (loi.length) $('lpMsg').innerHTML += `<div class="tk-err">Không đọc được: ${loi.join('; ')}</div>`;
