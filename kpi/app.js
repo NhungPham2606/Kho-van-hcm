@@ -124,6 +124,8 @@
     ccInfo = sh ? `Ngày phép lấy tự động từ bảng chấm công "${sh.ten}" (${Object.keys(pc).length} người có phép) — gõ số khác vào ô để sửa tay, xóa trống để lấy lại số từ chấm công.` : `Chưa có bảng chấm công tháng ${kyLabel(k)} (trang Chấm Công) — nhập ngày phép tay.`;
     rows = K.compute(archive[k].roster || [], archive[k].files || [], archive[k].inputs || {}, k, pc);
   }
+  // cho mục Tổng hợp quý: bảng đã tính của 1 kỳ đã lưu (cùng cách tính bảng tháng)
+  window.KPI_rowsOf = k => archive[k] ? K.compute(archive[k].roster || [], archive[k].files || [], archive[k].inputs || {}, k, phepCC(k)) : null;
   const groupsOf = list => { const g = []; list.forEach(e => { if (!g.includes(e.group)) g.push(e.group); }); return g; };
   function filt(list) {
     const g = $('fGroup').value, q = $('fSearch').value.trim().toLowerCase();
@@ -140,7 +142,9 @@
 
   // ------------------------------------------------------------ render
   function renderTop() {
-    const has = !!(rows && cur());
+    const has = !!(rows && cur()), quy = location.hash === '#tong-hop-quy';
+    $('tkQuy').hidden = !quy;
+    if (quy) { $('tkTop').hidden = $('tkStart').hidden = $('tkMainView').hidden = true; if (window.KPI_quyRender) window.KPI_quyRender(); return; }
     $('tkTop').hidden = !has;
     $('tkStart').hidden = has && !startOpen;
     $('startCancelRow').hidden = !has;
@@ -247,13 +251,14 @@
     $('fGroup').innerHTML = '<option value="">Tất cả bộ phận</option>' + G.map(g => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
     $('fGroup').value = G.includes(gv) ? gv : '';
     renderStats(); renderTH(); renderDash(); renderFiles(); renderRoster(); renderTabs();
+    window.dispatchEvent(new Event('kpi:render'));
   }
   const refilter = () => { renderStats(); renderTH(); renderDash(); };
 
   // ------------------------------------------------------------ sự kiện chung
   window.addEventListener('hashchange', () => {
     if (location.hash === '#nap-du-lieu') { startOpen = true; renderTop(); $('tkStart').scrollIntoView({ behavior: 'smooth' }); return; }
-    renderTabs();
+    renderTop(); if (rows && cur()) renderTabs();
   });
   $('fGroup').addEventListener('change', refilter);
   $('fSearch').addEventListener('input', refilter);
@@ -402,7 +407,7 @@
   // thả file KPIs ở bất kỳ đâu trên trang (ngoài 2 ô) cũng nạp được, tránh trình duyệt tự mở file
   document.addEventListener('dragover', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
   document.addEventListener('drop', e => {
-    if (e.defaultPrevented || !e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
+    if (e.defaultPrevented || location.hash === '#tong-hop-quy' || !e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
     e.preventDefault(); importFiles(e.dataTransfer.files);
   });
 

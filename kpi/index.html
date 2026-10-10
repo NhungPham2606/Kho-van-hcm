@@ -219,6 +219,38 @@
           </div>
         </div>
 
+        <!-- Tổng hợp quý (Kế toán + Admin) -->
+        <div class="tk-card" id="tkQuy" hidden>
+          <div class="tk-card-head">
+            <div class="tk-row"><span class="tk-lbl">Quý:</span><span class="tk-row" id="qChips"></span></div>
+            <div class="tk-row">
+              <a class="b sm" href="#tong-hop">← Bảng tổng hợp tháng</a>
+              <button class="b del sm" type="button" id="qDelete">Xóa dữ liệu quý</button>
+              <button class="b ok" type="button" id="qExport"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Xuất Excel quý</button>
+            </div>
+          </div>
+          <div class="tk-card-body">
+            <div class="tk-zone small" id="qZone" tabindex="0" role="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+              <h4>Thả 3 file tổng hợp tháng của quý</h4>
+              <p>Kéo thả cùng lúc file <b>"00 TỔNG HỢP THƯỞNG KPIS VP.HCM m.yyyy.xlsx"</b> của 3 tháng (vd 7, 8, 9.2026). Trang đọc sheet VP.HCM, lấy <b>Tổng điểm còn lại</b> từng tháng của <b>Kế toán + Admin</b> (KV KT… / ADETC). Tháng nào chưa thả file thì lấy kỳ đã lưu trên trang.</p>
+            </div>
+            <input type="file" id="qFile" accept=".xlsx,.xls" multiple hidden>
+            <div class="tk-row" id="qMonths" style="margin-top:10px"></div>
+            <div class="tk-sync" id="qSync"></div>
+            <div id="qMsg"></div>
+          </div>
+          <div class="tk-card-body" style="padding-top:0"><div class="tk-stats" id="qStats" style="margin-bottom:0"></div></div>
+          <div class="rep-title" id="qTitle"></div>
+          <div class="tw"><table class="dt"><thead><tr id="qHead"></tr></thead><tbody id="qBody"></tbody><tfoot><tr id="qFoot"></tr></tfoot></table></div>
+          <div class="tk-card-body tk-notes" style="border-top:1px solid #f3f4f6">
+            <div>• Chỉ <b>Kế toán + Admin</b> (KV bắt đầu KT hoặc ADETC) có thưởng quý — Kho, Giao hàng, Lái xe không tính.</div>
+            <div>• Điểm mỗi tháng = <b>Tổng điểm còn lại</b> trong bảng tổng hợp tháng (= điểm ban đầu − điểm trừ). Tháng nghỉ thai sản / không có điểm để trống.</div>
+            <div>• <b>Trung bình</b> = bình quân các tháng có điểm. <b>Xếp loại</b>: ≥ 960 → A · ≥ 910 → B · ≥ 850 → C · &lt; 850 → D.</div>
+            <div>• <b>Mức thưởng quý</b>: A 1.500.000 · B 1.200.000 · C 1.000.000 · D 0. Chưa đủ 3 tháng có điểm → không xét thưởng (như mẫu Quý 2); bỏ/đánh dấu ô <b>Xét thưởng</b> để sửa tay.</div>
+          </div>
+        </div>
+
         <div id="tkMainView" hidden>
           <div class="tk-stats">
             <div class="tk-stat blue"><div class="l">Nhân viên</div><div class="v" id="stNV"></div><div class="stat-sub" id="stNVSub"></div></div>
@@ -235,6 +267,7 @@
                 <a class="b sm" href="#file-kpi" data-tab="file-kpi">File KPIs đã nạp</a>
                 <a class="b sm" href="#danh-sach" data-tab="danh-sach">Danh sách NV</a>
                 <a class="b sm" href="#cai-dat" data-tab="cai-dat">Quy tắc</a>
+                <a class="b sm" href="#tong-hop-quy">Tổng hợp quý</a>
               </div>
               <div class="tk-filter" id="tkFilter">
                 <select id="fGroup"><option value="">Tất cả bộ phận</option></select>
@@ -297,10 +330,11 @@
     <footer class="site-foot">Kho vận HCM · Trang nội bộ. File được đọc trong trình duyệt; kết quả theo kỳ lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
   </div>
 </div>
-<script src="../assets/flows.js?v=20261006a"></script>
-<script src="../assets/layout.js?v=20261006a"></script>
+<script src="../assets/flows.js?v=20261010a"></script>
+<script src="../assets/layout.js?v=20261010a"></script>
 <script src="../cham-cong/engine.js?v=20261006h"></script>
 <script src="engine.js?v=20261006b"></script>
-<script src="app.js?v=20261006b"></script>
+<script src="app.js?v=20261010a"></script>
+<script src="quy.js?v=20261010a"></script>
 </body>
 </html>

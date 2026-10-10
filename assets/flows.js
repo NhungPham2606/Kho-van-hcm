@@ -60,6 +60,7 @@ window.KVH_MENU = [
     moTa: 'Tổng hợp điểm KPIs từng nhân viên (file Excel Kho, PDF Kế toán), điểm trừ, xếp loại, mức thưởng; xuất Excel theo mẫu VP.HCM.',
     muc: [
       { ten: 'Bảng tổng hợp', href: 'kpi/#tong-hop' },
+      { ten: 'Tổng hợp quý', href: 'kpi/#tong-hop-quy' },
       { ten: 'Dashboard', href: 'kpi/#dashboard' },
       { ten: 'File KPIs đã nạp', href: 'kpi/#file-kpi' },
       { ten: 'Danh sách NV', href: 'kpi/#danh-sach' },
