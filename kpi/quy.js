@@ -130,21 +130,31 @@
       if (!by[e.ma]) { by[e.ma] = { ma: e.ma, ten: e.ten, group: e.group, kv: e.kv, diem: [null, null, null], ts: [false, false, false], co: [false, false, false] }; order.push(e.ma); }
       const o = by[e.ma]; o.diem[i] = e.diem; o.ts[i] = e.ts; o.co[i] = true;
     }));
-    const groups = []; order.forEach(ma => { if (!groups.includes(by[ma].group)) groups.push(by[ma].group); });
+    // đã nghỉ việc (không còn trong danh sách tháng mới nhất của quý) -> không tổng hợp
+    const iLast = [2, 1, 0].find(i => md[i]);
+    const conLam = ma => iLast === undefined || by[ma].co[iLast];
+    const nghiViec = order.filter(ma => !conLam(ma)).map(ma => by[ma]);
+    const keep = order.filter(conLam);
+    const groups = []; keep.forEach(ma => { if (!groups.includes(by[ma].group)) groups.push(by[ma].group); });
     const rows = [];
-    groups.forEach(g => order.filter(ma => by[ma].group === g).forEach(ma => {
+    groups.forEach(g => keep.filter(ma => by[ma].group === g).forEach(ma => {
       const o = by[ma], d = o.diem.filter(v => v !== null);
+      const tsT = ks.filter((k, i) => o.ts[i]).map(k => +k.slice(5));
+      o.tsan = tsT.length > 0;
       o.tb = d.length ? d.reduce((s, v) => s + v, 0) / d.length : null;
-      o.xl = o.tb === null ? '' : xepLoai(o.tb);
-      o.du = d.length === 3;
+      // nghỉ thai sản: vẫn thống kê điểm các tháng còn đi làm, xếp loại TS, không thưởng quý
+      o.xl = o.tsan ? 'TS' : o.tb === null ? '' : xepLoai(o.tb);
+      o.du = d.length === 3 && !o.tsan;
       o.xet = inp[ma] && typeof inp[ma].xet === 'boolean' ? inp[ma].xet : o.du;
       o.xetTay = !!(inp[ma] && typeof inp[ma].xet === 'boolean');
-      o.muc = o.xet && o.xl ? RULES.muc[o.xl] : 0;
+      o.muc = o.xet && o.tb !== null ? RULES.muc[xepLoai(o.tb)] : 0;
       o.vp = vpOf(o.group, o.kv);
-      o.nx = ks.map((k, i) => !md[i] ? '' : o.ts[i] ? `T${+k.slice(5)} nghỉ thai sản` : !o.co[i] ? `T${+k.slice(5)} không có trong danh sách` : o.diem[i] === null ? `T${+k.slice(5)} không có điểm` : '').filter(Boolean).join('; ');
+      o.ghiChu = o.tsan ? `${o.vp} - Nghỉ thai sản${tsT.length < 3 ? ' T' + tsT.join(', T') : ' cả quý'}` : o.vp;
+      o.nx = ks.map((k, i) => !md[i] || o.ts[i] ? '' : !o.co[i] ? `T${+k.slice(5)} không có trong danh sách` : o.diem[i] === null ? `T${+k.slice(5)} không có điểm` : '').filter(Boolean)
+        .concat(o.tsan ? ['Nghỉ thai sản – không tính thưởng quý'] : []).join('; ');
       rows.push(o);
     }));
-    return { ks, md, rows };
+    return { ks, md, rows, nghiViec };
   }
 
   // ------------------------------------------------------------ hiển thị
@@ -166,20 +176,21 @@
     $('qSync').textContent = syncMsg;
     $('qTitle').innerHTML = `DANH SÁCH XÉT THƯỞNG KPIs QUÝ ${+q.slice(6)} NĂM ${q.slice(0, 4)}<br>Bộ phận: Kế toán - CN HCM`;
     const cnt = l => L.filter(o => o.xl === l).length, tien = L.reduce((s, o) => s + o.muc, 0);
-    $('qStats').innerHTML = `<div class="tk-stat blue"><div class="l">Kế toán + Admin</div><div class="v">${L.length}</div><div class="stat-sub">${L.filter(o => !o.du).length} người chưa đủ 3 tháng</div></div>
+    $('qStats').innerHTML = `<div class="tk-stat blue"><div class="l">Kế toán + Admin</div><div class="v">${L.length}</div><div class="stat-sub">${L.filter(o => o.tsan).length} nghỉ thai sản · ${L.filter(o => !o.du && !o.tsan).length} chưa đủ 3 tháng</div></div>
       <div class="tk-stat"><div class="l">Xếp loại A / B / C / D</div><div class="v" style="font-size:20px">${['A', 'B', 'C', 'D'].map(l => `<span class="xl ${l}">${cnt(l)}</span>`).join(' ')}</div><div class="stat-sub">Theo điểm trung bình 3 tháng</div></div>
       <div class="tk-stat green"><div class="l">Tổng thưởng quý</div><div class="v">${vnd(tien)}đ</div><div class="stat-sub">${esc(window.KVH_bangChu ? window.KVH_bangChu(tien) : bangChu(tien))}</div></div>`;
     $('qHead').innerHTML = `<th class="r">STT</th><th>Mã NV</th><th style="min-width:170px">Họ và tên</th>${r.ks.map(k => `<th class="r">Tháng ${+k.slice(5)}</th>`).join('')}<th class="r">Trung bình</th><th>Xếp loại</th><th class="r">Mức thưởng</th><th class="r">Tổng thưởng</th><th>Ghi chú</th><th>Xét thưởng</th><th style="min-width:200px">Nhận xét</th>`;
     let html = '', g = null;
     L.forEach((o, i) => {
       if (o.group !== g) { g = o.group; html += `<tr class="grp"><td colspan="13">${esc(g)}</td></tr>`; }
-      html += `<tr class="${o.xet ? '' : 'nonop'}"><td class="r">${i + 1}</td><td>${esc(o.ma)}</td><td class="name">${esc(o.ten)}</td>
+      html += `<tr class="${o.tsan ? 'tsan' : o.xet ? '' : 'nonop'}"><td class="r">${i + 1}</td><td>${esc(o.ma)}</td><td class="name">${esc(o.ten)}</td>
         ${o.diem.map(v => `<td class="r">${fmt(v)}</td>`).join('')}<td class="r bold">${fmt(o.tb)}</td><td>${o.xl ? `<span class="xl ${o.xl}">${o.xl}</span>` : ''}</td>
-        <td class="r">${o.xet ? vnd(o.muc) : ''}</td><td class="r money">${o.xet ? vnd(o.muc) : ''}</td><td class="kv-badge">${esc(o.vp)}</td>
-        <td><label class="ts-chk"><input type="checkbox" data-qxet="${esc(o.ma)}"${o.xet ? ' checked' : ''}> ${o.xetTay ? '<span class="src">(sửa tay)</span>' : o.du ? '' : '<span class="src">(chưa đủ 3 tháng)</span>'}</label></td>
+        <td class="r">${o.xet ? vnd(o.muc) : ''}</td><td class="r money">${o.xet ? vnd(o.muc) : ''}</td><td class="kv-badge">${esc(o.ghiChu)}</td>
+        <td><label class="ts-chk"><input type="checkbox" data-qxet="${esc(o.ma)}"${o.xet ? ' checked' : ''}> ${o.xetTay ? '<span class="src">(sửa tay)</span>' : o.du ? '' : `<span class="src">(${o.tsan ? 'nghỉ thai sản' : 'chưa đủ 3 tháng'})</span>`}</label></td>
         <td class="note">${esc(o.nx)}</td></tr>`;
     });
     $('qBody').innerHTML = html || `<tr><td colspan="13" style="text-align:center;color:#9ca3af;padding:20px">Chưa có dữ liệu — thả file tổng hợp tháng ${r.ks.map(k => +k.slice(5)).join(', ')} vào ô phía trên</td></tr>`;
+    $('qMonths').innerHTML += r.nghiViec.length ? `<div class="muted" style="width:100%;margin-top:6px">Không tổng hợp (đã nghỉ việc — không còn trong danh sách tháng cuối): ${r.nghiViec.map(o => `${esc(o.ma)} ${esc(o.ten)}`).join(', ')}</div>` : '';
     $('qFoot').innerHTML = `<td colspan="10">Tổng (${L.length} nhân viên)</td><td class="r">${vnd(tien)}</td><td colspan="2"></td>`;
   }
 
@@ -261,7 +272,7 @@
     const kind = []; let g = null, stt = 0;
     L.forEach(o => {
       if (o.group !== g) { g = o.group; aoa.push([g]); kind.push('g'); }
-      aoa.push([++stt, o.ma, o.ten, ...o.diem, o.tb, o.xl, o.xet ? o.muc : null, o.xet ? o.muc : null, o.vp]); kind.push(o);
+      aoa.push([++stt, o.ma, o.ten, ...o.diem, o.tb, o.xl || null, o.xet ? o.muc : null, o.xet ? o.muc : null, o.ghiChu]); kind.push(o);
     });
     const tien = L.reduce((s, o) => s + o.muc, 0);
     aoa.push(['Tổng', null, null, null, null, null, null, null, null, tien]); kind.push('t');
@@ -285,8 +296,8 @@
       }
       const s = c => ws[A(R, c)].s;
       if (kd.tb !== null) ws[A(R, 6)] = { t: 'n', v: kd.tb, f: `+AVERAGE(D${n}:F${n})`, z: '0.00', s: s(6) };
-      if (kd.xl) ws[A(R, 7)] = { t: 's', v: kd.xl, f: `+IF(G${n}>=${RULES.nguong.A},"A",IF(G${n}>=${RULES.nguong.B},"B",IF(G${n}>=${RULES.nguong.C},"C",IF(G${n}<${RULES.nguong.C},"D",""))))`, s: s(7) };
-      if (kd.xet) {
+      if (kd.xl && !kd.tsan) ws[A(R, 7)] = { t: 's', v: kd.xl, f: `+IF(G${n}>=${RULES.nguong.A},"A",IF(G${n}>=${RULES.nguong.B},"B",IF(G${n}>=${RULES.nguong.C},"C",IF(G${n}<${RULES.nguong.C},"D",""))))`, s: s(7) };
+      if (kd.xet && !kd.tsan) {
         ws[A(R, 8)] = { t: 'n', v: kd.muc, f: `+IF(H${n}="A",${RULES.muc.A},IF(H${n}="B",${RULES.muc.B},IF(H${n}="C",${RULES.muc.C},0)))`, z: '#,##0', s: s(8) };
         ws[A(R, 9)] = { t: 'n', v: kd.muc, f: `I${n}`, z: '#,##0', s: s(9) };
       }
