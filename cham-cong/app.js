@@ -93,6 +93,9 @@
   const tab = () => TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'bang-cong';
   const FR = 8; // dòng Excel của rows[0]
   const teamOf = sh => { const out = []; let t = ''; sh.rows.forEach((r, i) => { if (r.t === 'team') t = r.text; out[i] = t; }); return out; };
+  const teamIdxOf = (sh, i) => { for (let j = i; j >= 0; j--) if (sh.rows[j].t === 'team') return j; return -1; };
+  // ô chọn nhóm: các dòng Team của sheet + "Nhóm mới…"
+  const teamOpts = (sh, cur) => sh.rows.map((r, i) => r.t === 'team' ? `<option value="${i}"${i === cur ? ' selected' : ''}>${esc(r.text)}</option>` : '').join('') + '<option value="new">+ Nhóm mới…</option>';
   function filtIdx(sh) {
     const g = $('fGroup').value, q = CC.fold($('fSearch').value.trim()), tm = teamOf(sh);
     return sh.rows.map((r, i) => i).filter(i => {
@@ -174,6 +177,14 @@
       html += `<td class="note">${esc(bb && bb.v !== undefined ? bb.v : '')}</td></tr>`;
     });
     $('bcBody').innerHTML = html || `<tr><td colspan="${n + 9}" style="text-align:center;color:#9ca3af;padding:20px">Không có nhân viên phù hợp</td></tr>`;
+    stickCols();
+  }
+  // 3 cột cố định (TT, Mã NV, Họ tên): đặt vị trí theo độ rộng thật, nếu không cột Họ tên đè lên cột ngày 1
+  function stickCols() {
+    const th = $('bcHead').querySelector('tr'); if (!th || th.children.length < 3) return;
+    const w0 = th.children[0].getBoundingClientRect().width, w1 = th.children[1].getBoundingClientRect().width;
+    if (!w0 || !w1) return; // bảng đang ẩn (tab khác) — đo lại khi mở tab
+    $('bcTable').style.setProperty('--c1', w0 + 'px'); $('bcTable').style.setProperty('--c2', (w0 + w1) + 'px');
   }
   function renderPhep() {
     const sh = sheet();
@@ -201,13 +212,18 @@
     let html = '', stt = 0;
     filtIdx(sh).forEach(i => {
       const r = sh.rows[i];
-      if (r.t === 'team') { html += `<tr class="grp"><td colspan="7">${esc(r.text)}</td></tr>`; return; }
+      if (r.t === 'team') {
+        const n = CC.teamSize(sh, i);
+        html += `<tr class="grp"><td colspan="9"><input class="cell team" data-team="${i}" value="${esc(r.text)}" title="Sửa tên nhóm (dòng Team trên bảng công)"> <span class="muted" style="font-weight:400">${n} người</span>${n ? '' : ` <button class="b sm del" type="button" data-rmteam="${i}">Xóa nhóm</button>`}</td></tr>`;
+        return;
+      }
       if (r.t !== 'nv') return;
       stt++;
       const bb = r.tail && r.tail[T.BB];
       html += `<tr data-i="${i}"><td class="r">${stt}</td><td>${esc(r.ma)}</td><td><input class="cell w" data-f="ten" value="${esc(r.ten)}"></td><td><input class="cell w" data-f="pb" value="${esc(r.pb)}"></td>
         <td><input class="cell w" data-f="cv" value="${esc(r.cv)}"></td><td><input class="cell wide" data-f="bb" value="${esc(bb && bb.v !== undefined ? bb.v : '')}"></td>
         <td style="text-align:center"><input type="checkbox" data-f="auto"${CC.isAuto(r) ? ' checked' : ''}></td>
+        <td><select class="cell mv" data-mvi="${i}" title="Chuyển sang nhóm khác">${teamOpts(sh, teamIdxOf(sh, i))}</select></td>
         <td><button class="b sm del" type="button" data-rm="${i}">Xóa</button></td></tr>`;
     });
     $('nvBody').innerHTML = html;
@@ -218,9 +234,17 @@
     const sh = archive[b.ky];
     $('baoTitle').textContent = `Kết quả nạp file BCC — ${sh ? sh.ten : b.ky}${b.capNhat ? ' (cập nhật tháng đã có)' : ' (tạo tháng mới)'}`;
     const li = (arr, f) => arr.map(f).join('<br>');
+    // người mới: chọn nhóm ngay tại đây (hoặc tạo nhóm mới)
+    const moiLine = x => {
+      const i = sh ? sh.rows.findIndex(r => r.t === 'nv' && r.ma === x.ma) : -1;
+      if (i < 0) return `${esc(x.ma)} — ${esc(x.ten)} <span class="muted">(đã xóa khỏi tháng này)</span>`;
+      const r = sh.rows[i], bb = r.tail && r.tail[T.BB] && r.tail[T.BB].v;
+      return `<div class="moi">${esc(x.ma)} — <b>${esc(x.ten)}</b> → <select class="mv" data-mvky="${esc(b.ky)}" data-mvi="${i}" title="Chọn nhóm">${teamOpts(sh, teamIdxOf(sh, i))}</select>${x.nhomMoi ? ' <span class="chip">nhóm mới</span>' : ''}
+        <span class="muted">${esc(r.cv)} · ${bb ? esc(bb) : x.cu ? 'không ghi chú' : 'chưa rõ ngày nhận việc (làm từ đầu tháng)'}${x.cu ? ` · đã có ở ${esc(x.cu)} — kiểm tra phép tồn` : ''}</span></div>`;
+    };
     $('bao').innerHTML = `
       <div class="ok"><h4>✓ Đã điền ngày công: ${b.khop.length} người</h4>Khớp theo Mã NV giữa file BCC và danh sách tháng${b.capNhat ? '' : ' trước'}.${b.tuDong ? `<br>Tự động đủ công cho sếp: ${b.tuDong} ô.` : ''}</div>
-      <div class="${b.moi.length ? 'warn' : 'ok'}"><h4>Người mới thêm vào: ${b.moi.length}</h4>${b.moi.length ? li(b.moi, x => `${esc(x.ma)} — ${esc(x.ten)} <span class="muted">→ ${esc(x.nhom)}</span>`) + '<div class="muted">Phép tồn = 0, Phép tháng = 0; kiểm tra lại Chức vụ / ghi chú ở tab Danh sách NV.</div>' : 'Không có.'}</div>
+      <div class="${b.moi.length ? 'warn' : 'ok'}"><h4>Người mới thêm vào: ${b.moi.length}</h4>${b.nhomMoi && b.nhomMoi.length ? `<div>Phòng ban mới → đã tạo nhóm: <b>${b.nhomMoi.map(esc).join(', ')}</b> <span class="muted">(sửa tên nhóm ở tab Danh sách NV)</span></div>` : ''}${b.moi.length ? b.moi.map(moiLine).join('') + '<div class="muted">Xếp sai nhóm thì chọn lại nhóm ngay ở trên (chọn "+ Nhóm mới…" để tạo bộ phận mới). Phép tồn = 0, Phép tháng = 0; sửa Chức vụ / ghi chú ở tab Danh sách NV.</div>' : 'Không có.'}</div>
       <div class="${b.thieu.length ? 'warn' : 'ok'}"><h4>Có trong bảng nhưng không có trong BCC: ${b.thieu.length}</h4>${b.thieu.length ? li(b.thieu, x => `${esc(x.ma)} — ${esc(x.ten)} <button class="b sm del" type="button" data-rmma="${esc(x.ma)}" style="padding:1px 8px;margin-left:6px">Xóa khỏi tháng này</button>`) + '<div class="muted">Đang để trống ngày công — chấm tay trên bảng hoặc xóa nếu đã nghỉ việc.</div>' : 'Không có.'}</div>
       <div class="${b.boQua.length ? 'warn' : 'ok'}"><h4>Trong BCC nhưng không có ngày công nào (bỏ qua): ${b.boQua.length}</h4>${b.boQua.length ? li(b.boQua, x => `${esc(x.ma)} — ${esc(x.ten)} <span class="muted">(${esc(x.pb)})</span>`) : 'Không có.'}</div>
       ${b.lech.length ? `<div class="warn"><h4>Tên khác nhau giữa BCC và bảng: ${b.lech.length}</h4>${li(b.lech, x => `${esc(x.ma)}: bảng "${esc(x.ten)}" · BCC "${esc(x.tenBCC)}"`)}</div>` : ''}
@@ -251,6 +275,7 @@
     document.querySelectorAll('#tkTabs [data-tab]').forEach(a => a.classList.toggle('pri', a.dataset.tab === t));
     document.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== t; });
     $('tkFilter').hidden = t === 'huong-dan';
+    if (t === 'bang-cong') stickCols();
   }
   function renderAll() {
     ev = CC.evaluator(archive);
@@ -290,8 +315,34 @@
     if (t.value === '') delete o.v; else o.v = Number(t.value);
     touch(sh.id); keepScroll(renderAll);
   });
+  // nhóm: tạo nhóm mới, chuyển người sang nhóm khác (tab Danh sách NV và ô "Người mới thêm vào")
+  function newTeam(sh, goiY) {
+    const name = (prompt('Tên nhóm / bộ phận mới (dòng Team trên bảng công):', goiY || '') || '').trim();
+    if (!name) return -1;
+    if (sh.rows.some(r => r.t === 'team' && CC.fold(r.text) === CC.fold(name))) { alert(`Đã có nhóm "${name}".`); return -1; }
+    return CC.addTeam(sh, name);
+  }
+  document.addEventListener('change', e => {
+    const s = e.target.closest('select[data-mvi]'); if (!s) return;
+    const sh = archive[s.dataset.mvky || cur()], i = +s.dataset.mvi; if (!sh || !sh.rows[i]) return;
+    const t = s.value === 'new' ? newTeam(sh, sh.rows[i].pb) : +s.value;
+    if (t >= 0 && t !== teamIdxOf(sh, i)) { CC.moveRow(sh, i, t); touch(sh.id); }
+    keepScroll(renderAll);
+  });
+  $('nAddTeam').addEventListener('click', () => {
+    const sh = sheet(); if (!sh) return;
+    const t = newTeam(sh); if (t < 0) return;
+    touch(sh.id); keepScroll(renderAll); $('nTeam').value = t;
+    msg($('nMsg'), `Đã thêm nhóm "${esc(sh.rows[t].text)}" ở cuối bảng ${esc(sh.ten)} — thêm người vào nhóm bằng ô "Thêm vào tháng này" hoặc cột "Chuyển nhóm".`, true); setTimeout(() => msg($('nMsg'), ''), 8000);
+  });
   $('nvBody').addEventListener('change', e => {
-    const t = e.target; if (!t.dataset.f) return;
+    const t = e.target;
+    if (t.dataset.team) {
+      const sh = sheet(), r = sh.rows[+t.dataset.team], v = t.value.trim();
+      if (r && r.t === 'team' && v && v !== r.text) { r.text = v; touch(sh.id); }
+      keepScroll(renderAll); return;
+    }
+    if (!t.dataset.f) return;
     const sh = sheet(), r = sh.rows[+t.closest('tr').dataset.i], v = t.value.trim();
     if (t.dataset.f === 'auto') { r.tuDong = t.checked; if (t.checked) CC.autoFill(sh); }
     else if (t.dataset.f === 'bb') { const o = r.tail[T.BB] = Object.assign({}, r.tail[T.BB] || {}); if (v) o.v = v; else delete o.v; }
@@ -310,8 +361,7 @@
     const ma = $('nMa').value.trim().padStart(6, '0'), ten = $('nTen').value.trim();
     if (!/^\d{6,}$/.test(ma) || !ten) { msg($('nMsg'), 'Nhập Mã NV (số) và Họ tên.'); return; }
     if (sh.rows.some(r => r.t === 'nv' && r.ma === ma)) { msg($('nMsg'), `Mã ${esc(ma)} đã có trong ${esc(sh.ten)}.`); return; }
-    const tIdx = +$('nTeam').value;
-    let pos = tIdx + 1; for (let i = tIdx + 1; i < sh.rows.length && sh.rows[i].t !== 'team'; i++) if (sh.rows[i].t === 'nv') pos = i + 1;
+    const tIdx = +$('nTeam').value, pos = CC.teamEnd(sh, tIdx);
     const mate = sh.rows.slice(0, pos).filter(r => r.t === 'nv').pop() || sh.rows.find(r => r.t === 'nv');
     const tail = CC.TAIL.map((_, k) => {
       if (k === T.AX || k === T.AY) return { v: 0 };
@@ -344,8 +394,9 @@
     L.forEach(applyIssue); touch(cur()); keepScroll(renderAll);
   });
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-ky],[data-rm],[data-rmma],[data-build]'); if (!t) return;
+    const t = e.target.closest('[data-ky],[data-rm],[data-rmma],[data-rmteam],[data-build]'); if (!t) return;
     if (t.dataset.ky) { sel = t.dataset.ky; persist(); renderAll(); return; }
+    if (t.dataset.rmteam !== undefined) { const sh = sheet(), r = sh.rows[+t.dataset.rmteam]; if (r && confirm(`Xóa nhóm trống "${r.text}"?`) && CC.removeTeam(sh, +t.dataset.rmteam)) { touch(sh.id); keepScroll(renderAll); } return; }
     if (t.dataset.rm !== undefined) { removeRow(sheet(), +t.dataset.rm); return; }
     if (t.dataset.rmma) { const sh = archive[lastBao.ky]; const i = sh.rows.findIndex(r => r.t === 'nv' && r.ma === t.dataset.rmma); if (i >= 0) removeRow(sh, i); return; }
     if (t.dataset.build !== undefined) buildPending();

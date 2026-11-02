@@ -167,9 +167,9 @@
   .tk table.cc thead th.sun { color: #e02424; background: #d9d9d9; }
   .tk table.cc .stk { position: sticky; background: #fff; z-index: 1; }
   .tk table.cc thead .stk { z-index: 3; background: #f9fafb; }
-  .tk table.cc .c0 { left: 0; min-width: 30px; text-align: right; }
-  .tk table.cc .c1 { left: 42px; min-width: 52px; }
-  .tk table.cc .c2 { left: 106px; min-width: 170px; border-right: 2px solid #e5e7eb; }
+  .tk table.cc .c0 { left: 0; min-width: 42px; text-align: right; }
+  .tk table.cc .c1 { left: var(--c1, 42px); min-width: 64px; }
+  .tk table.cc .c2 { left: var(--c2, 106px); min-width: 170px; border-right: 2px solid #e5e7eb; }
   .tk table.cc td.d { text-align: center; min-width: 26px; padding: 4px 3px; cursor: text; font-weight: 600; color: #374151; position: relative; }
   .tk table.cc td.d:hover { outline: 2px solid #1a56db55; outline-offset: -2px; }
   .tk table.cc td.d.hl { background: #fef08a; }
@@ -200,6 +200,9 @@
   .tk .confirm select { min-width: 0; }
   .tk table.dt input.cell.w { width: 150px; text-align: left; background: #fff; }
   .tk table.dt input.cell.wide { width: 220px; text-align: left; background: #fff; }
+  .tk table.dt input.cell.team { width: 360px; text-align: left; background: #fff; font-weight: 700; color: #1e3a8a; }
+  .tk select.mv { min-width: 0; max-width: 260px; padding: 3px 6px; font-size: 12px; }
+  .tk .bao .moi { padding: 3px 0; }
   .tk .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: #6b7280; padding: 8px 16px; border-bottom: 1px solid #f3f4f6; }
   .tk .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
 </style>
@@ -329,13 +332,14 @@
                   <label class="f">Họ và tên<input type="text" id="nTen" style="width:190px"></label>
                   <label class="f">Phòng ban<input type="text" id="nPb" list="pbList" style="width:150px"></label>
                   <label class="f">Chức vụ<input type="text" id="nCv" list="cvList" style="width:150px"></label>
-                  <label class="f">Ghi chú<input type="text" id="nBb" placeholder="vd Nhận việc 01.10.2026" style="width:180px"></label>
+                  <label class="f">Ghi chú<input type="text" id="nBb" placeholder="vd Nhận việc 01/10/2026" style="width:180px"></label>
                   <button class="b pri sm" type="button" id="nAdd">+ Thêm vào tháng này</button>
+                  <button class="b sm" type="button" id="nAddTeam" title="Thêm dòng Team mới ở cuối bảng công tháng này">+ Thêm nhóm / bộ phận</button>
                 </div>
                 <datalist id="pbList"></datalist><datalist id="cvList"></datalist>
                 <div id="nMsg"></div>
-                <div class="tw"><table class="dt"><thead><tr><th class="r">STT</th><th>Mã NV</th><th>Họ và tên</th><th>Phòng ban</th><th>Chức vụ</th><th>Ghi chú</th><th title="T2–T6 = X, T7 = S, CN trống, ngày lễ = L">Tự động đủ công</th><th></th></tr></thead><tbody id="nvBody"></tbody></table></div>
-                <p class="muted" style="margin-top:10px">Danh sách lưu riêng từng tháng. Tháng mới (nạp BCC) tự chép danh sách tháng trước; người nghỉ việc xóa ở đây (chỉ xóa trong tháng đang mở).</p>
+                <div class="tw"><table class="dt"><thead><tr><th class="r">STT</th><th>Mã NV</th><th>Họ và tên</th><th>Phòng ban</th><th>Chức vụ</th><th>Ghi chú</th><th title="T2–T6 = X, T7 = S, CN trống, ngày lễ = L">Tự động đủ công</th><th>Chuyển nhóm</th><th></th></tr></thead><tbody id="nvBody"></tbody></table></div>
+                <p class="muted" style="margin-top:10px">Danh sách lưu riêng từng tháng. Tháng mới (nạp BCC) tự chép danh sách + nhóm của tháng trước; người nghỉ việc xóa ở đây (chỉ xóa trong tháng đang mở). Sửa tên nhóm ngay trên dòng nhóm; nhóm không còn ai thì có nút "Xóa nhóm".</p>
               </div>
             </div>
 
@@ -343,7 +347,7 @@
               <div class="tk-card-body tk-notes">
                 <div><b>Hằng tháng:</b> xuất file BCC từ hệ thống chấm công → bấm <b>"Nạp file BCC tháng"</b> (hoặc kéo thả vào trang) → kiểm tra tháng/năm → <b>Tạo bảng công</b>. Xem phần "Kết quả nạp" để xử lý người mới / người không có trong BCC / mã lạ, sửa trực tiếp trên bảng nếu cần, rồi <b>Xuất Excel tất cả tháng</b>.</div>
                 <div>• Sheet tháng mới chép <b>danh sách, nhóm, công thức, Cộng phép 5 năm, Phép tháng, Ghi chú</b> từ tháng trước; cột <b>Phép tồn</b> = VLOOKUP sang sheet tháng trước (cột "Phép tồn sau tháng"). Ô tô vàng / ghi chú theo ngày không chép sang tháng mới.</div>
-                <div>• Người có trong BCC mà chưa có trong bảng: tự thêm vào cuối nhóm của những người cùng phòng ban (theo BCC), Phép tồn = 0, Phép tháng = 0, ghi chú "Nhận việc dd.mm.yyyy" (ngày công đầu tiên). Người trong BCC không có ngày công nào thì bỏ qua.</div>
+                <div>• Người có trong BCC mà chưa có trong bảng: tự thêm vào cuối nhóm của những người cùng phòng ban (theo BCC); <b>phòng ban mới</b> (chưa có ai trong bảng) → tự tạo nhóm mới tên phòng ban ở cuối bảng. Phép tồn = 0, Phép tháng = 0, ghi chú "Nhận việc dd/mm/yyyy" (ngày công đầu tiên; làm từ đầu tháng hoặc đã có ở tháng trước thì để trống). Xếp sai nhóm: chọn lại nhóm ngay ở ô "Người mới thêm vào" hoặc cột "Chuyển nhóm" tab Danh sách NV. Người trong BCC không có ngày công nào thì bỏ qua.</div>
                 <div>• Người có trong bảng mà không có trong BCC (Giám đốc, người nghỉ việc…): giữ dòng, để trống ngày công — chấm tay hoặc xóa ở tab Danh sách NV.</div>
                 <div>• Nạp lại BCC cho tháng đã có: chỉ ghi đè mã công những người có trong BCC, giữ nguyên phần sửa tay khác (ô tô vàng, ghi chú, phép).</div>
                 <div>• File Excel xuất ra giữ <b>công thức như file gốc</b> (TG, P, Ro, L&CT…, Phép tồn), Excel tự tính lại khi mở. Tháng cũ nạp từ file tổng giữ nguyên công thức từng dòng.</div>
@@ -364,7 +368,7 @@
 </div>
 <script src="../assets/flows.js?v=20261010a"></script>
 <script src="../assets/layout.js?v=20261010a"></script>
-<script src="engine.js?v=20261102b"></script>
-<script src="app.js?v=20261102a"></script>
+<script src="engine.js?v=20261102c"></script>
+<script src="app.js?v=20261102c"></script>
 </body>
 </html>

@@ -415,7 +415,29 @@
   CC.prevMain = (archive, ky) => CC.mainSheets(archive).filter(s => s.ky < ky).pop() || null;
 
   const cleanCv = s => { s = norm(s); return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : ''; };
-  function firstDay(d, thang, nam) { const i = d.findIndex(v => v); return i < 0 ? '' : `${pad2(i + 1)}/${pad2(thang)}/${nam}`; }
+  // ngày công đầu tiên -> "dd/mm/yyyy"; làm từ đầu tháng (trước đó chỉ có CN / ngày lễ) thì chưa biết ngày nhận việc -> ''
+  function firstDay(d, thang, nam, le = []) {
+    const i = d.findIndex(v => v); if (i < 0) return '';
+    const truoc = [...Array(i).keys()].some(k => new Date(nam, thang - 1, k + 1).getDay() !== 0 && !le.includes(k + 1));
+    return truoc ? `${pad2(i + 1)}/${pad2(thang)}/${nam}` : '';
+  }
+
+  // ------------------------------------------------------------ 3a) nhóm (dòng Team): thêm nhóm, chuyển người sang nhóm khác, xóa nhóm trống
+  // vị trí sau dòng nhân viên cuối của nhóm t (t = -1: phần trước nhóm đầu tiên)
+  CC.teamEnd = (sh, t) => { let pos = t + 1; for (let i = t + 1; i < sh.rows.length && sh.rows[i].t !== 'team'; i++) if (sh.rows[i].t === 'nv') pos = i + 1; return pos; };
+  CC.teamSize = (sh, t) => { let n = 0; for (let i = t + 1; i < sh.rows.length && sh.rows[i].t !== 'team'; i++) if (sh.rows[i].t === 'nv') n++; return n; };
+  CC.addTeam = (sh, text) => { sh.rows.push({ t: 'team', text: norm(text) }); return sh.rows.length - 1; };
+  CC.moveRow = (sh, i, t) => {
+    if (!sh.rows[i] || sh.rows[i].t !== 'nv' || !sh.rows[t] || sh.rows[t].t !== 'team') return i;
+    const team = sh.rows[t], [r] = sh.rows.splice(i, 1);
+    const pos = CC.teamEnd(sh, sh.rows.indexOf(team)); sh.rows.splice(pos, 0, r);
+    return pos;
+  };
+  CC.removeTeam = (sh, t) => {
+    if (!sh.rows[t] || sh.rows[t].t !== 'team' || CC.teamSize(sh, t)) return false;
+    let n = 1; while (sh.rows[t + n] && sh.rows[t + n].t === 'blank') n++;
+    sh.rows.splice(t, n); return true;
+  };
 
   CC.buildFromBCC = (archive, bcc, thang, nam) => {
     const ky = `${nam}-${pad2(thang)}`, n = CC.daysIn(nam, thang);
@@ -424,7 +446,7 @@
     const base = existing || prev;
     if (!base) throw new Error('Chưa có tháng nào trước đó để làm mẫu — hãy nạp file bảng chấm công tổng (các tháng cũ) trước.');
     const byMa = {}; bcc.nv.forEach(e => { byMa[e.ma] = e; });
-    const bao = { ky, capNhat: !!existing, khop: [], moi: [], thieu: [], boQua: [], lech: [] };
+    const bao = { ky, capNhat: !!existing, khop: [], moi: [], thieu: [], boQua: [], lech: [], nhomMoi: [] };
     let sh;
     if (existing) {
       sh = JSON.parse(JSON.stringify(existing));
@@ -453,43 +475,53 @@
     }
     const fxOf2 = t => { let i = sh.fx.indexOf(t); if (i < 0) { i = sh.fx.length; sh.fx.push(t); } return i; };
     // điền công
-    const team = []; let curTeam = -1;
-    sh.rows.forEach((r, i) => {
-      if (r.t === 'team') curTeam = i;
-      team[i] = curTeam;
+    let curTeam = null;
+    sh.rows.forEach(r => {
+      if (r.t === 'team') curTeam = r;
       if (r.t !== 'nv') return;
       const e = byMa[r.ma];
-      if (!e) { if (!CC.isAuto(r)) bao.thieu.push({ ma: r.ma, ten: r.ten }); return; }
+      // nạp thêm BCC cho tháng đã có (vd file riêng của 1 bộ phận): chỉ báo thiếu người chưa có ngày công nào
+      if (!e) { if (!CC.isAuto(r) && (!existing || !r.d.some(v => v))) bao.thieu.push({ ma: r.ma, ten: r.ten }); return; }
       r.d = Array.from({ length: n }, (_, k) => CC.mapCode(e.d[k] || ''));
       if (fold(e.ten) !== fold(r.ten)) bao.lech.push({ ma: r.ma, ten: r.ten, tenBCC: e.ten });
       bao.khop.push(r.ma);
       e._dung = true; e._team = curTeam;
     });
-    // nhân viên mới: xếp vào nhóm của những người cùng phòng ban (theo BCC)
+    // nhân viên mới: xếp vào nhóm của những người cùng phòng ban (theo BCC);
+    // phòng ban chưa có ai trong bảng -> nhóm đã đặt đúng tên phòng ban, không có thì tạo nhóm mới ở cuối bảng
     const pbTeam = {};
-    bcc.nv.filter(e => e._dung).forEach(e => { const k = fold(e.pb); (pbTeam[k] = pbTeam[k] || {})[e._team] = (pbTeam[k][e._team] || 0) + 1; });
-    const lastTeam = sh.rows.map((r, i) => r.t === 'team' ? i : -1).filter(i => i >= 0).pop();
+    bcc.nv.filter(e => e._dung && e._team).forEach(e => { const m = pbTeam[fold(e.pb)] = pbTeam[fold(e.pb)] || new Map(); m.set(e._team, (m.get(e._team) || 0) + 1); });
+    const lastTeam = sh.rows.filter(r => r.t === 'team').pop() || null;
+    const older = CC.mainSheets(archive).filter(s => s.ky < ky).reverse();
+    const le = CC.holidays(sh);
     const moi = bcc.nv.filter(e => !e._dung && !sh.rows.some(r => r.t === 'nv' && r.ma === e.ma));
     moi.forEach(e => {
       if (!e.d.some(v => v)) { bao.boQua.push({ ma: e.ma, ten: e.ten, pb: e.pb }); return; }
-      const cand = pbTeam[fold(e.pb)] || {};
-      let tIdx = +Object.keys(cand).sort((a, b) => cand[b] - cand[a])[0];
-      if (isNaN(tIdx) || tIdx < 0) tIdx = lastTeam ?? -1;
-      // vị trí chèn: sau dòng nhân viên cuối của nhóm
-      let pos = tIdx + 1;
-      for (let i = tIdx + 1; i < sh.rows.length && sh.rows[i].t !== 'team'; i++) if (sh.rows[i].t === 'nv') pos = i + 1;
+      const cand = pbTeam[fold(e.pb)];
+      let team = cand ? [...cand].sort((a, b) => b[1] - a[1])[0][0] : null;
+      if (!team) team = sh.rows.find(r => r.t === 'team' && fold(r.text) === fold(e.pb)) || null;
+      if (!team && e.pb) { team = sh.rows[CC.addTeam(sh, e.pb)]; bao.nhomMoi.push(team.text); }
+      const taoNhom = !!team && bao.nhomMoi.includes(team.text);
+      if (!team) team = lastTeam;
+      const tIdx = team ? sh.rows.indexOf(team) : -1, pos = CC.teamEnd(sh, tIdx);
       const mate = sh.rows.slice(tIdx + 1, pos).filter(r => r.t === 'nv').pop();
+      // người đã có ở tháng trước đó (quay lại / chuyển bộ phận): giữ ghi chú cũ, không ghi "Nhận việc"
+      let cu = null;
+      for (const s of older) { const o = s.rows.find(r => r.t === 'nv' && r.ma === e.ma); if (o) { cu = { s, o }; break; } }
+      const ngay = cu ? '' : firstDay(e.d, thang, nam, le);
+      const bbCu = cu && cu.o.tail && cu.o.tail[T.BB] && cu.o.tail[T.BB].v;
+      const bb = cu ? (bbCu || '') : (ngay ? `Nhận việc ${ngay}` : '');
       const tail = CC.TAIL.map((_, i) => {
         if (i === T.AX) return { v: 0 };
         if (i === T.AY) return { v: 0 };
         if (i === T.AW) return null;
-        if (i === T.BB) return { v: `Nhận việc ${firstDay(e.d, thang, nam)}` };
+        if (i === T.BB) return bb ? { v: bb } : null;
         const mt = mate && mate.tail && mate.tail[i];
         const t = mt && mt.x !== undefined ? sh.fx[mt.x] : stdTpl(i, n);
         return t ? { x: fxOf2(t) } : null;
       });
-      sh.rows.splice(pos, 0, { t: 'nv', ma: e.ma, ten: e.ten, pb: mate ? mate.pb : e.pb, cv: cleanCv(e.cv), d: Array.from({ length: n }, (_, k) => CC.mapCode(e.d[k] || '')), tail, moi: true });
-      bao.moi.push({ ma: e.ma, ten: e.ten, nhom: tIdx >= 0 ? sh.rows[tIdx].text : '' });
+      sh.rows.splice(pos, 0, { t: 'nv', ma: e.ma, ten: e.ten, pb: cand && mate ? mate.pb : (e.pb || (mate ? mate.pb : '')), cv: cleanCv(e.cv) || (cu ? cu.o.cv : ''), d: Array.from({ length: n }, (_, k) => CC.mapCode(e.d[k] || '')), tail, moi: true });
+      bao.moi.push({ ma: e.ma, ten: e.ten, nhom: team ? team.text : '', nhomMoi: taoNhom, cu: cu ? `T${cu.s.thang}/${cu.s.nam}` : '', bb });
     });
     bcc.nv.forEach(e => { delete e._dung; delete e._team; });
     bao.tuDong = CC.autoFill(sh);
