@@ -415,7 +415,7 @@
   CC.prevMain = (archive, ky) => CC.mainSheets(archive).filter(s => s.ky < ky).pop() || null;
 
   const cleanCv = s => { s = norm(s); return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : ''; };
-  function firstDay(d, thang, nam) { const i = d.findIndex(v => v); return i < 0 ? '' : `${pad2(i + 1)}.${pad2(thang)}.${nam}`; }
+  function firstDay(d, thang, nam) { const i = d.findIndex(v => v); return i < 0 ? '' : `${pad2(i + 1)}/${pad2(thang)}/${nam}`; }
 
   CC.buildFromBCC = (archive, bcc, thang, nam) => {
     const ky = `${nam}-${pad2(thang)}`, n = CC.daysIn(nam, thang);
