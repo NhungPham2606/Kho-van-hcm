@@ -155,14 +155,23 @@
     }
     const ax6 = norm(cellText(ws.getCell(6, tailCol(n, T.AX)).value));
     const sh = { id: info.id, ten: norm(ws.name), ky: info.ky, thang: info.thang, nam: info.nam, phu: info.phu, n, ord, phepTon: ax6, rows, fx, nguon: 'file tổng' };
-    // sheet chép từ tháng 31 ngày sang tháng 30 ngày còn thừa cột ngày trống -> bỏ cột thừa, dịch công thức
-    const dim = CC.daysIn(info.nam, info.thang);
-    if (n > dim && rows.every(r => r.t !== 'nv' || r.d.slice(dim).every(v => !v))) {
-      rows.forEach(r => { if (r.t !== 'nv') return; r.d = r.d.slice(0, dim); ['hl', 'cm'].forEach(k => { if (r[k]) Object.keys(r[k]).forEach(i => { if (+i >= dim) delete r[k][i]; }); }); });
-      sh.fx = fx.map(t => shiftCols(t, n, dim)); sh.n = dim;
-    }
+    CC.fitDays(sh);
     return sh;
   }
+  // số cột ngày khớp số ngày của tháng (sheet chép từ tháng khác):
+  // thiếu (vd T10 chép từ T9 chỉ có 30 cột) -> thêm cột ngày trống; thừa mà các cột thừa trống -> bỏ. Công thức dịch theo.
+  CC.fitDays = sh => {
+    const dim = CC.daysIn(sh.nam, sh.thang), n = sh.n;
+    if (n === dim) return 0;
+    const nv = sh.rows.filter(r => r.t === 'nv');
+    if (n > dim && !nv.every(r => r.d.slice(dim).every(v => !v))) return 0;
+    nv.forEach(r => {
+      r.d = n < dim ? r.d.concat(Array(dim - r.d.length).fill('')) : r.d.slice(0, dim);
+      ['hl', 'cm'].forEach(k => { if (r[k]) Object.keys(r[k]).forEach(i => { if (+i >= dim) delete r[k][i]; }); });
+    });
+    sh.fx = sh.fx.map(t => shiftCols(t, n, dim)); sh.n = dim;
+    return dim - n;
+  };
   // ExcelJS workbook -> danh sách sheet
   CC.parseMaster = wb => {
     const out = [];
@@ -419,6 +428,7 @@
     let sh;
     if (existing) {
       sh = JSON.parse(JSON.stringify(existing));
+      CC.fitDays(sh);
       if (sh.n !== n) throw new Error(`Sheet ${sh.ten} có ${sh.n} cột ngày, tháng ${thang}/${nam} có ${n} ngày.`);
     } else {
       // tháng mới: chép danh sách + công thức tháng trước, công thức dịch theo số ngày
@@ -535,6 +545,7 @@
         });
         s = s.replace(/\$?([A-Z]{1,3})\$?(\d+)/g, (m, c, rr) => { const v = cellVal(sh, +rr, colN(c), depth); const x = Number(v); return '(' + (v === '' || isNaN(x) ? 0 : x) + ')'; });
         if (!/^[\d+\-*/().\s]*$/.test(s)) return null;
+        s = s.replace(/([+\-])(?=\s*[+\-])/g, '$1 '); // "…*0.5++(…)" Excel hiểu là + +, JS thì báo lỗi ++
         const v = Function('return (' + (s || 0) + ')')();
         return Number.isFinite(v) ? Math.round(v * 1000) / 1000 : null;
       } catch (e) { return null; }
