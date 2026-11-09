@@ -129,14 +129,44 @@
     return hits.length === 1 ? hits[0] : null;
   }
 
+  // dòng "Tổng cộng" đọc từ ảnh: cơ sở, trần, thực hiện, tỷ lệ %, [thưởng/phạt], Điểm KPI.
+  // ok = tỷ lệ % khớp thực hiện/cơ sở và Điểm KPI = thực hiện + thưởng/phạt (bắt số đọc sai)
+  function tongOcr(raw) {
+    const m = String(raw || '').match(/T\S{1,3}ng\s*c\S{1,2}ng([^\n]*)/i);
+    const tk = m ? (m[1].match(/[-+]?\d[\d.,]*%?/g) || []) : [];
+    const so = x => Number(x.replace(/^[-+]|%$/g, '').replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.'));
+    const khongPct = tk.filter(x => !x.endsWith('%')); // có file dòng Tổng cộng kết thúc ở cột tỷ lệ %
+    if (!khongPct.length) return null;
+    const diem = so(khongPct[khongPct.length - 1]);
+    if (isNaN(diem)) return null;
+    const iPct = tk.findIndex(x => x.endsWith('%')), sau = iPct >= 0 ? tk.slice(iPct + 1) : [];
+    if (iPct === 3 && sau.length <= 2) {
+      const coSo = so(tk[0]), thucHien = so(tk[2]), thuong = sau.length === 2 ? so(sau[0]) : 0;
+      if (coSo > 0 && Math.abs(thucHien / coSo * 100 - so(tk[3])) < 0.06) {
+        // dấu trừ của thưởng/phạt hay bị đọc sót nên nhận cả hai dấu
+        if (diem === thucHien + thuong || diem === thucHien - thuong) return { diem, ok: true };
+        // "thực hiện" đã khớp tỷ lệ %, số Điểm KPI bị đọc sai (vd 1031 -> 103): lấy "thực hiện" nhưng vẫn báo đối chiếu
+        if (sau.length < 2) return { diem: thucHien, ok: false };
+      }
+    }
+    return { diem, ok: false };
+  }
+
   // ---- file KPI dạng PDF (Kế toán, in từ hệ thống "Báo cáo công việc — OKR · KPI · AI")
   //   "Họ tên người lập: Trần Thị Mỹ Liễu (011193 - Chi nhánh HCM)", "Kỳ báo cáo: Tháng 8/2026",
   //   dòng "Tổng cộng 1000 1045 1037 103.7% 1037" -> số cuối = Điểm KPI (đã gồm điểm thưởng/phạt từng đầu việc)
-  function parsePdfText(text, fileName) {
+  //   ocr = true: chữ được nhận dạng từ ảnh (PDF không có lớp chữ) -> chấp nhận sai dấu, đối chiếu chéo số trên dòng Tổng cộng
+  function parsePdfText(text, fileName, ocr) {
     const t = String(text || '').replace(/\s+/g, ' ');
-    const mMa = t.match(/người lập\s*:\s*(.+?)\s*\(\s*([0-9 ]{4,}?)\s*-/i);
+    const mMa = t.match(/người lập\s*:\s*(.+?)\s*\(\s*([0-9 ]{4,}?)\s*-/i) || (ocr && t.match(/:\s*([^:()]{3,60}?)\s*\(\s*([0-9 ]{5,8}?)\s*[-–—]/));
     if (!mMa) throw new Error('không thấy "Họ tên người lập: … (Mã NV - …)"');
-    const mKy = t.match(/Kỳ báo cáo\s*:\s*Tháng\s*(\d{1,2})\s*\/\s*(\d{4})/i);
+    const mKy = t.match(/Kỳ báo cáo\s*:\s*Tháng\s*(\d{1,2})\s*\/\s*(\d{4})/i) || (ocr && t.match(/Tháng\s*(\d{1,2})\s*\/\s*(\d{4})/i));
+    if (ocr) {
+      const tong = tongOcr(text);
+      if (!tong) throw new Error('không đọc được dòng "Tổng cộng"');
+      return { fileName, ma: normMa(mMa[2]), ten: norm(mMa[1]), thang: mKy ? +mKy[1] : null, nam: mKy ? +mKy[2] : null,
+        tongDiem: tong.diem, truFile: 0, nhom: [], loaiFile: 'pdf', ocr: true, ocrOk: tong.ok };
+    }
     const mTong = t.match(/Tổng\s*cộng((?:\s+[-+—]?[\d.,]*%?)+)/i);
     if (!mTong) throw new Error('không thấy dòng "Tổng cộng"');
     const nums = mTong[1].trim().split(/\s+/).filter(x => /^[\d.,]+$/.test(x)).map(x => Number(x.replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.')));

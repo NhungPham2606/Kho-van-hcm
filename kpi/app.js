@@ -42,6 +42,7 @@
         else save(k, 0); // bản trên máy mới hơn (lần lưu trước bị lỗi) -> đẩy lên
       }
       for (const k of Object.keys(archive)) if (!repoSha[k]) save(k, 0);
+      carryTs();
       syncMsg = 'Đã đồng bộ với hệ thống — mở trên máy khác cũng thấy.'; persist(); renderAll();
     } catch (e) { syncMsg = 'Không đồng bộ được với hệ thống: ' + e.message + '. Dữ liệu vẫn lưu trên máy này.'; renderTop(); }
   }
@@ -135,9 +136,40 @@
   function ensureKy(k) {
     if (archive[k]) return archive[k];
     const prev = kys().find(x => x < k) || kys()[0];
-    const roster = prev ? (archive[prev].roster || []).map(e => Object.assign({}, e, { loai: e.loai === 'TV1' ? 'TV2' : e.loai }, e.ts ? { ts: Object.assign({}, e.ts) } : {})) : [];
+    const roster = prev ? (archive[prev].roster || []).map(e => { const c = Object.assign({}, e, { loai: e.loai === 'TV1' ? 'TV2' : e.loai }, e.ts ? { ts: Object.assign({}, e.ts) } : {}); delete c.tsOff; return c; }) : [];
     archive[k] = { roster, files: [], inputs: {} };
     return archive[k];
+  }
+  // nghỉ thai sản tick 1 lần là đi theo các kỳ sau (kể cả khi danh sách kỳ sau được nạp lại từ file tổng hợp),
+  // đến khi qua ngày đi làm lại. Bỏ tick tay ở một kỳ (tsOff) thì kỳ đó không tự tick lại.
+  // Có token thì chỉ gọi sau khi pull() xong, để không đẩy bản cũ trên máy đè lên hệ thống.
+  function carryTs() {
+    const ks = kys().reverse(), doi = [];
+    ks.forEach((k, i) => {
+      const dau = `${k}-01`; let co = false;
+      (archive[k].roster || []).forEach(e => {
+        if (e.tsOff) return;
+        let tr = null;
+        for (let j = i - 1; j >= 0 && !tr; j--) tr = (archive[ks[j]].roster || []).find(x => x.ma === e.ma);
+        const p = tr && tr.ts;
+        if (!p || !p.on || (p.den && p.den < dau)) return;
+        // tick lại ở kỳ này mà chưa nhập ngày (mặc định ngày 1) -> dùng ngày nghỉ thật của kỳ trước
+        const macDinh = e.ts && e.ts.on && !e.ts.den && e.ts.tu === dau && p.tu && p.tu < dau;
+        if (!e.ts || macDinh) { e.ts = Object.assign({}, p); co = true; }
+      });
+      if (co) doi.push(k);
+    });
+    doi.forEach(touch);
+  }
+  // sửa ngày / bỏ tick ở một kỳ -> các kỳ sau đang mang đúng bản cũ đó cũng đổi theo
+  function doiTsKySau(k, ma, cu, moi) {
+    if (!cu) return;
+    for (const x of kys().filter(v => v > k).reverse()) {
+      const e = (archive[x].roster || []).find(v => v.ma === ma);
+      if (!e || !e.ts || e.ts.tu !== cu.tu || (e.ts.den || '') !== (cu.den || '')) break;
+      if (moi) e.ts = Object.assign({}, moi); else delete e.ts;
+      touch(x);
+    }
   }
 
   // ------------------------------------------------------------ render
@@ -221,7 +253,7 @@
     const un = fs.filter(x => !x.nv);
     $('unmatched').innerHTML = un.length ? `<div class="tk-err" style="margin-bottom:12px">${un.length} file <b>chưa khớp được nhân viên nào</b> (không có Mã NV và họ tên không trùng danh sách) — bấm "Thêm vào danh sách" hoặc kiểm tra lại.</div>` : '';
     const k = cur();
-    $('fileBody').innerHTML = fs.length ? fs.map(({ f, nv }) => `<tr><td style="white-space:normal">${esc(f.fileName)}</td><td>${f.loaiFile === 'pdf' ? 'PDF' : 'Excel'}</td>
+    $('fileBody').innerHTML = fs.length ? fs.map(({ f, nv }) => `<tr><td style="white-space:normal">${esc(f.fileName)}</td><td>${f.loaiFile === 'pdf' ? 'PDF' : 'Excel'}${f.ocr ? ` <span class="${f.ocrOk ? 'src' : 'xl D'}" title="PDF không có lớp chữ, điểm được nhận dạng từ ảnh">${f.ocrOk ? 'đọc từ ảnh' : 'đọc từ ảnh – cần đối chiếu'}</span>` : ''}</td>
       <td>${nv ? esc(nv.ma) : esc(f.ma)}${nv && nv.ma !== f.ma ? ` <span class="src">${f.ma ? `(file ghi ${esc(f.ma)}) ` : ''}khớp theo tên</span>` : ''}</td><td>${esc(nv ? nv.ten : f.ten)}</td>
       <td>${f.thang ? `T${f.thang}/${f.nam}` : ''}${f.thang && `${f.nam}-${pad2(f.thang)}` !== k ? ' <span class="xl D">khác kỳ</span>' : ''}</td><td class="r bold">${fmtD(f.tongDiem)}</td><td class="r">${fmtD(f.truFile)}</td>
       <td>${nv ? '✓' : `<button class="b sm" type="button" data-addfrom="${esc(f.fileName)}">+ Thêm vào danh sách</button>`}</td>
@@ -290,10 +322,14 @@
     if (t.dataset && t.dataset.ts) {
       const k = cur(), ma = t.closest('tr').dataset.ma, nv = (archive[k].roster || []).find(x => x.ma === ma);
       if (!nv) return;
+      const cu = nv.ts ? Object.assign({}, nv.ts) : null;
       const ts = nv.ts = nv.ts || {};
-      if (t.dataset.ts === 'on') { ts.on = t.checked; if (t.checked && !ts.tu) ts.tu = `${k}-01`; if (!t.checked) delete nv.ts; }
-      else ts[t.dataset.ts] = t.value;
-      touch(k); const y = window.scrollY; renderAll(); window.scrollTo(0, y);
+      if (t.dataset.ts === 'on') {
+        ts.on = t.checked;
+        if (t.checked) { delete nv.tsOff; if (!ts.tu) ts.tu = `${k}-01`; } else { delete nv.ts; nv.tsOff = true; }
+      } else ts[t.dataset.ts] = t.value;
+      touch(k); doiTsKySau(k, ma, cu, nv.ts); carryTs();
+      const y = window.scrollY; renderAll(); window.scrollTo(0, y);
       return;
     }
     if (!t.dataset || !t.dataset.f) return;
@@ -339,15 +375,53 @@
   // ------------------------------------------------------------ nạp file
   function readBuf(file) { return new Promise((ok, fail) => { const r = new FileReader(); r.onload = e => ok(e.target.result); r.onerror = () => fail(new Error('Không đọc được file')); r.readAsArrayBuffer(file); }); }
   function loadScript(src) { return new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => fail(new Error('Không tải được thư viện ' + src)); document.head.appendChild(s); }); }
-  async function pdfText(buf) {
+  async function pdfText(doc) {
+    let out = '';
+    for (let i = 1; i <= doc.numPages; i++) { const c = await (await doc.getPage(i)).getTextContent(); out += c.items.map(it => it.str).join(' ') + '\n'; }
+    return out;
+  }
+  // xóa đường kẻ bảng trên ảnh trang: có kẻ bảng thì bộ nhận dạng bỏ sót cả dòng "Tổng cộng"
+  function xoaKeBang(c) {
+    const w = c.width, h = c.height, g = c.getContext('2d'), im = g.getImageData(0, 0, w, h), d = im.data;
+    const toi = new Uint8Array(w * h), xoa = new Uint8Array(w * h);
+    for (let i = 0, j = 0; i < d.length; i += 4, j++) toi[j] = d[i] * .3 + d[i + 1] * .59 + d[i + 2] * .11 < 160 ? 1 : 0;
+    const ngang = Math.round(w * .05), doc = Math.round(h * .03);
+    for (let y = 0; y < h; y++) { let n = 0; for (let x = 0; x <= w; x++) { if (x < w && toi[y * w + x]) n++; else { if (n >= ngang) for (let q = x - n; q < x; q++) xoa[y * w + q] = 1; n = 0; } } }
+    for (let x = 0; x < w; x++) { let n = 0; for (let y = 0; y <= h; y++) { if (y < h && toi[y * w + x]) n++; else { if (n >= doc) for (let q = y - n; q < y; q++) xoa[q * w + x] = 1; n = 0; } } }
+    for (let j = 0; j < w * h; j++) if (xoa[j]) d[j * 4] = d[j * 4 + 1] = d[j * 4 + 2] = 255;
+    g.putImageData(im, 0, 0);
+  }
+  async function pdfOcr(doc) {
+    if (!window.Tesseract) await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js');
+    const worker = await window.Tesseract.createWorker('vie', 1);
+    try {
+      await worker.setParameters({ tessedit_pageseg_mode: '6' });
+      let out = '';
+      for (let i = 1; i <= Math.min(doc.numPages, 3); i++) {
+        const page = await doc.getPage(i), vp = page.getViewport({ scale: 3 });
+        const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height;
+        const g = c.getContext('2d', { willReadFrequently: true }); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+        await page.render({ canvasContext: g, viewport: vp, intent: 'print' }).promise; // 'print': vẫn vẽ khi người dùng chuyển sang tab khác
+        xoaKeBang(c);
+        out += (await worker.recognize(c)).data.text + '\n';
+      }
+      return out;
+    } finally { await worker.terminate(); }
+  }
+  // PDF in bằng "Microsoft Print to PDF" không có lớp chữ (chữ thành nét vẽ) -> nhận dạng từ ảnh
+  async function readPdf(buf, name) {
     if (!window.pdfjsLib) {
       await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
       window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
     const doc = await window.pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
-    let out = '';
-    for (let i = 1; i <= doc.numPages; i++) { const c = await (await doc.getPage(i)).getTextContent(); out += c.items.map(it => it.str).join(' ') + '\n'; }
-    return out;
+    const text = await pdfText(doc);
+    if (text.replace(/\s/g, '').length >= 20) return K.parsePdfText(text, name);
+    const cach = 'Nhờ nhân viên in lại file: ở mục Máy in chọn "Lưu dưới dạng PDF" (Save as PDF), không chọn "Microsoft Print to PDF".';
+    note(`⏳ "${esc(name)}" là PDF không có lớp chữ — đang nhận dạng từ ảnh, chờ khoảng 10–30 giây…`, true);
+    let ocr;
+    try { ocr = await pdfOcr(doc); } catch (err) { throw new Error(`PDF không có lớp chữ và không tải được bộ nhận dạng ảnh (${err && err.message || err}). ${cach}`); }
+    try { return K.parsePdfText(ocr, name, true); } catch (err) { throw new Error(`PDF không có lớp chữ, nhận dạng từ ảnh cũng ${err.message}. ${cach}`); }
   }
   async function importRoster(file) {
     try {
@@ -357,8 +431,12 @@
       let k = r.thang ? `${r.nam}-${pad2(r.thang)}` : cur();
       if (!k) { const d = new Date(); k = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`; }
       const e = archive[k] || (archive[k] = { roster: [], files: [], inputs: {} });
-      e.roster = r.list; sel = k; touch(k); startOpen = true; renderAll();
-      note(`Đã nạp ${r.list.length} nhân viên từ "${esc(file.name)}"${r.thang ? ` (T${r.thang}/${r.nam})` : ''} làm danh sách cho kỳ <b>${kyLabel(k)}</b>. Giờ kéo thả các file KPIs của kỳ này vào ô ②.`, true);
+      // file tổng hợp không chứa dấu nghỉ thai sản -> giữ lại dấu đã tick của kỳ này, còn lại carryTs lấy từ kỳ trước
+      const cu = {}; (e.roster || []).forEach(x => { cu[x.ma] = x; });
+      r.list.forEach(x => { const o = cu[x.ma]; if (o && o.ts) x.ts = o.ts; if (o && o.tsOff) x.tsOff = true; });
+      e.roster = r.list; sel = k; touch(k); carryTs(); startOpen = true; renderAll();
+      const nts = r.list.filter(x => K.tsTrongKy(x.ts, k)).length;
+      note(`Đã nạp ${r.list.length} nhân viên từ "${esc(file.name)}"${r.thang ? ` (T${r.thang}/${r.nam})` : ''} làm danh sách cho kỳ <b>${kyLabel(k)}</b>${nts ? `, giữ dấu nghỉ thai sản của ${nts} người` : ''}. Giờ kéo thả các file KPIs của kỳ này vào ô ②.`, true);
     } catch (err) { note('File danh sách: ' + esc(err.message)); }
   }
   const note = (html, ok) => { msg($('startMsg'), html, ok); msg($('tkMsg'), html, ok); };
@@ -373,7 +451,7 @@
     for (const f of files) {
       try {
         const buf = await readBuf(f);
-        const p = /\.pdf$/i.test(f.name) ? K.parsePdfText(await pdfText(buf), f.name) : K.parseKpiFile(XLSX, XLSX.read(buf, { type: 'array' }), f.name);
+        const p = /\.pdf$/i.test(f.name) ? await readPdf(buf, f.name) : K.parseKpiFile(XLSX, XLSX.read(buf, { type: 'array' }), f.name);
         ok.push(p);
       } catch (err) { bad.push(`${esc(f.name)}: ${esc(err.message)}`); }
     }
@@ -391,7 +469,8 @@
       const byKey = {}; (e.files || []).forEach(x => { byKey[key(x)] = x; }); ok.forEach(p => { byKey[key(p)] = p; });
       e.files = Object.values(byKey); sel = k; touch(k); renderAll();
       const lech = ok.filter(p => !K.matchFile(R, p)).length;
-      note(`Đã nạp ${ok.length} file vào kỳ <b>${kyLabel(k)}</b>${lech ? ` · <b>${lech}</b> file chưa khớp được nhân viên nào (xem tab "File KPIs đã nạp")` : ''}${khacKy.length ? `<br>⚠ ${khacKy.length} file ghi tháng khác kỳ đang mở (vẫn nạp vào kỳ ${kyLabel(k)} — nếu muốn nạp kỳ khác, chọn kỳ đó trước): ${khacKy.map(p => `${esc(p.fileName)} (tháng ${p.thang}/${p.nam})`).join(', ')}` : ''}${bad.length ? `<br>Không đọc được ${bad.length} file:<br>${bad.join('<br>')}` : ''}`, !bad.length && !khacKy.length);
+      const ocr = ok.filter(p => p.ocr), ocrSai = ocr.filter(p => !p.ocrOk);
+      note(`Đã nạp ${ok.length} file vào kỳ <b>${kyLabel(k)}</b>${lech ? ` · <b>${lech}</b> file chưa khớp được nhân viên nào (xem tab "File KPIs đã nạp")` : ''}${ocr.length ? `<br>${ocrSai.length ? '⚠' : 'ℹ'} ${ocr.length} file PDF không có lớp chữ, điểm được nhận dạng từ ảnh — đối chiếu lại với file: ${ocr.map(p => `${esc(p.fileName)} → ${esc(p.ten)} (${esc(p.ma)}), ${esc(fmtD(p.tongDiem))} điểm${p.ocrOk ? '' : ' <b>(các số trên dòng Tổng cộng không khớp nhau, có thể đọc sai)</b>'}`).join('; ')}` : ''}${khacKy.length ? `<br>⚠ ${khacKy.length} file ghi tháng khác kỳ đang mở (vẫn nạp vào kỳ ${kyLabel(k)} — nếu muốn nạp kỳ khác, chọn kỳ đó trước): ${khacKy.map(p => `${esc(p.fileName)} (tháng ${p.thang}/${p.nam})`).join(', ')}` : ''}${bad.length ? `<br>Không đọc được ${bad.length} file:<br>${bad.join('<br>')}` : ''}`, !bad.length && !khacKy.length && !ocrSai.length);
     } else note(`Không đọc được file nào:<br>${bad.join('<br>')}`);
   }
   function wireZone(zone, input, handler) {
@@ -499,6 +578,7 @@
   $('tkSnapCopy').addEventListener('click', () => snap(true));
 
   if (location.hash === '#nap-du-lieu') startOpen = true;
+  if (!token) carryTs();
   renderAll();
   pull();
 })();
