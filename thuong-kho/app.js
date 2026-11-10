@@ -203,7 +203,7 @@
     $('adjList').innerHTML = adjs.length ? adjs.map(a => {
       if (String(a.id) === editId) {
         // Dòng đang sửa: đổi người / ngày / buổi tại chỗ rồi bấm Lưu
-        const bOpts = Object.entries(BUOI).map(([v, l]) => `<option value="${v}"${v === (a.buoi || '') ? ' selected' : ''}${v && !result.hasBuoi && v !== (a.buoi || '') ? ' disabled' : ''}>${l}</option>`).join('');
+        const bOpts = Object.entries(BUOI).map(([v, l]) => `<option value="${v}"${v === (a.buoi || '') ? ' selected' : ''}>${l}</option>`).join('');
         return `<tr class="editing"><td><span class="tk-combo"><input type="text" id="eAdj1" placeholder="Gõ tên để tìm…"></span></td><td><span class="tk-combo"><input type="text" id="eAdj2" placeholder="Gõ tên để tìm…"></span></td>`
           + `<td><input type="date" id="eFrom" value="${a.dateFrom}"></td><td><input type="date" id="eTo" value="${a.dateTo}"></td><td><select id="eBuoi" class="buoi">${bOpts}</select></td>`
           + `<td style="white-space:nowrap"><button type="button" class="b ok sm" data-save="${a.id}">Lưu</button> <button type="button" class="b sm" data-cancel="1">Hủy</button></td></tr>`;
@@ -219,13 +219,22 @@
       eC1 = makeCombo($('eAdj1'), optList); eC1.set(a.maNV1);
       eC2 = makeCombo($('eAdj2'), optList); eC2.set(a.maNV2);
     }
-    // Quý nạp trước khi có dữ liệu giờ quét: chưa chọn được Sáng/Chiều
-    [...$('adjBuoi').options].forEach(o => { if (o.value) o.disabled = !result.hasBuoi; });
-    if (!result.hasBuoi && $('adjBuoi').value) $('adjBuoi').value = '';
-    $('buoiNote').innerHTML = result.hasBuoi ? '' : '<div class="muted" style="margin:-8px 0 12px">Muốn chọn buổi Sáng/Chiều: quý này được nạp trước khi có tính năng chia theo buổi — bấm <b>Nạp file quý khác</b> và nạp lại đúng file quý này một lần (các cặp đã khai báo vẫn giữ nguyên).</div>';
+    // Quý nạp trước khi có dữ liệu giờ quét: nhắc rõ + nút nạp lại ngay (không làm mờ lựa chọn — người dùng
+    // tưởng bị lỗi). Chọn Sáng/Chiều lúc này sẽ bị chặn khi bấm Thêm/Lưu kèm lời nhắc này.
+    $('buoiNote').innerHTML = result.hasBuoi ? '' : `<div class="tk-warnmsg" style="margin:0 0 12px">${reloadHint()}</div>`;
     $('helperList').innerHTML = helpers().map(h => `<span class="chip">${esc(h.hoTen)}${DEFAULT_EXTRA_HELPERS.some(d => d.maNV === h.maNV) ? '' : ` <button type="button" data-rmh="${esc(h.maNV)}" aria-label="Bỏ">×</button>`}</span>`).join('');
   }
   function renderAll() { recompute(); renderTop(); renderStats(); renderTabs(); renderThuong(); renderGrid(); renderAdjust(); }
+  const reloadHint = () => `⚠ <b>${E.quarterLabel(result.quarterKey)}</b> đang dùng dữ liệu nạp <b>trước</b> khi có tính năng chia buổi (chưa có giờ quét), nên chưa chia Sáng/Chiều được. `
+    + `Bấm <button type="button" class="b pri sm" data-reload="1">Nạp lại file quý này</button> rồi chọn lại đúng file <b>${esc(result.fileName)}</b> — các cặp đã khai báo vẫn giữ nguyên, nạp xong là chọn được buổi.`;
+  function warnReload() {
+    // khung nhắc (buoiNote) luôn hiện khi quý chưa có giờ quét — chỉ nháy nó lên cho dễ thấy
+    msg($('adjMsg'), '');
+    const n = $('buoiNote').firstElementChild;
+    if (!n) return;
+    n.classList.remove('flash'); void n.offsetWidth; n.classList.add('flash');
+    n.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
   // Sửa 1 dòng đóng cặp đã khai báo (người / ngày / buổi)
   let editId = null, eC1 = null, eC2 = null;
   function saveEdit(id) {
@@ -235,7 +244,7 @@
     if (!m1 || !m2 || !f) { msg($('adjMsg'), 'Chọn đủ 2 người (gõ tên rồi bấm chọn trong danh sách) và ngày.'); return; }
     if (m1 === m2) { msg($('adjMsg'), 'Hai người phải khác nhau.'); return; }
     if (f > t) { msg($('adjMsg'), '"Từ ngày" phải trước "Đến ngày".'); return; }
-    if (b && b !== (a.buoi || '') && result && !result.hasBuoi) { msg($('adjMsg'), 'Quý này cần nạp lại file một lần mới chia theo buổi được.'); return; }
+    if (b && b !== (a.buoi || '') && result && !result.hasBuoi) { warnReload(); return; }
     Object.assign(a, { maNV1: m1, maNV2: m2, dateFrom: f, dateTo: t });
     if (b) a.buoi = b; else delete a.buoi;
     editId = null; touch(q); renderAll();
@@ -251,15 +260,21 @@
 
   // ------------------------------------------------------------ sự kiện
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-q],[data-m],[data-rm],[data-rmh],[data-edit],[data-save],[data-cancel]');
+    const t = e.target.closest('[data-q],[data-m],[data-rm],[data-rmh],[data-edit],[data-save],[data-cancel],[data-reload]');
     if (!t) return;
-    if (t.dataset.q) { sel = t.dataset.q; editId = null; persistLocal(); renderAll(); }
+    if (t.dataset.reload) { uploadOpen = true; renderTop(); $('tkUpload').scrollIntoView({ behavior: 'smooth' }); $('tkFile').click(); }
+    else if (t.dataset.q) { sel = t.dataset.q; editId = null; persistLocal(); renderAll(); }
     else if (t.dataset.m) { monthIdx = Number(t.dataset.m); renderGrid(); }
     else if (t.dataset.edit) { editId = t.dataset.edit; msg($('adjMsg'), ''); renderAdjust(); const d = $('eFrom'); if (d) d.focus(); }
     else if (t.dataset.cancel) { editId = null; msg($('adjMsg'), ''); renderAdjust(); }
     else if (t.dataset.save) saveEdit(t.dataset.save);
     else if (t.dataset.rm) { const q = current(); if (editId === t.dataset.rm) editId = null; archive[q].adjustments = archive[q].adjustments.filter(a => String(a.id) !== t.dataset.rm); touch(q); renderAll(); }
     else if (t.dataset.rmh) { const q = current(); archive[q].extraHelpers = (archive[q].extraHelpers || []).filter(h => h.maNV !== t.dataset.rmh); touch(q); renderAll(); }
+  });
+  // Chọn Sáng/Chiều (ô Buổi ở form thêm hoặc dòng đang sửa) khi quý chưa có giờ quét → nhắc nạp lại ngay
+  document.addEventListener('change', e => {
+    if (!result || result.hasBuoi || !e.target.matches('#adjBuoi, #eBuoi') || !e.target.value) return;
+    warnReload();
   });
   $('tkSearch').addEventListener('input', e => { search = e.target.value; renderThuong(); renderGrid(); renderTabs(); });
   $('tkReload').addEventListener('click', () => { uploadOpen = true; renderTop(); $('tkFile').click(); });
@@ -327,7 +342,7 @@
     if (!a1 || !a2 || !f) { msg($('adjMsg'), 'Chọn đủ 2 người (gõ tên rồi bấm chọn trong danh sách) và ngày.'); return; }
     if (a1 === a2) { msg($('adjMsg'), 'Hai người phải khác nhau.'); return; }
     if (f > t) { msg($('adjMsg'), '"Từ ngày" phải trước "Đến ngày".'); return; }
-    if (b && result && !result.hasBuoi) { msg($('adjMsg'), 'Quý này cần nạp lại file một lần mới chia theo buổi được.'); return; }
+    if (b && result && !result.hasBuoi) { warnReload(); return; }
     archive[q].adjustments = [...(archive[q].adjustments || []), { id: Date.now(), maNV1: a1, maNV2: a2, dateFrom: f, dateTo: t, ...(b ? { buoi: b } : {}) }];
     touch(q); msg($('adjMsg'), ''); cAdj1.set(''); cAdj2.set(''); ['adjFrom', 'adjTo', 'adjBuoi'].forEach(id => { $(id).value = ''; }); renderAll();
   });
