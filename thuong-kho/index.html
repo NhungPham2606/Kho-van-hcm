@@ -58,6 +58,11 @@
   .tk table.dt td.bold { font-weight: 700; }
   .tk table.dt td.over { color: #065f46; font-weight: 700; }
   .tk table.dt td.pair { background: #ede9fe; color: #6d28d9; font-weight: 700; }
+  /* bảng đóng cặp: nhóm theo tháng + vạch giữa các tuần */
+  .tk table.dt tr.grp td { background: #eff6ff; color: #1e40af; font-weight: 700; font-size: 12px; padding: 7px 10px; border-top: 8px solid #fff; }
+  .tk table.dt tr.grp td span { font-weight: 400; color: #6b7280; }
+  .tk table.dt tbody tr.grp:hover td { background: #eff6ff; }
+  .tk table.dt tr.wk td { border-top: 2px solid #d1d5db; }
   .tk .tk-foot { padding: 10px 16px; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
   .tk .tk-zone { border: 2px dashed #d1d5db; border-radius: 10px; padding: 32px 24px; text-align: center; cursor: pointer; background: #f9fafb; transition: all .2s; }
   .tk .tk-zone:hover, .tk .tk-zone.drag { border-color: #1a56db; background: #eff6ff; }
@@ -266,6 +271,6 @@
 <script src="../assets/flows.js?v=20261010a"></script>
 <script src="../assets/layout.js?v=20261010a"></script>
 <script src="engine.js?v=20261110a"></script>
-<script src="app.js?v=20261110b"></script>
+<script src="app.js?v=20261110c"></script>
 </body>
 </html>

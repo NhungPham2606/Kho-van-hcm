@@ -116,6 +116,8 @@
     return out;
   }
   const BUOI = { '': 'Cả ngày', sang: 'Sáng', chieu: 'Chiều' };
+  const THU = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  const vnDate = s => s ? `<span class="muted" style="font-size:11px">${THU[new Date(s + 'T00:00:00').getDay()]}</span> ${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : '';
   const displayName = e => !e ? '' : (e.maNV && !String(e.maNV).startsWith('__extra_') ? `${e.maNV} - ${e.hoTen}` : e.hoTen);
   function filtered() {
     if (!result) return [];
@@ -156,11 +158,12 @@
   }
   function renderThuong() {
     if (!result) return;
-    const months = result.months, list = filtered();
-    $('tqHead').innerHTML = `<th>Mã NV</th><th style="min-width:150px">Họ và tên</th>${months.map(mk => `<th class="r">${E.monthLabel(mk)}</th>`).join('')}<th class="r">Thưởng quý</th><th style="min-width:200px">Ghi chú (từ file)</th>`;
-    let html = list.map(e => `<tr><td>${esc(e.maNV)}</td><td class="name">${esc(e.hoTen)}</td>${e.monthlyDetail.map(m => `<td class="r">${money(m.tongTien)}</td>`).join('')}<td class="r money">${money(e.thuong)}</td><td class="note">${esc(e.ghiChu)}</td></tr>`).join('');
+    // Xếp theo thưởng quý từ cao xuống thấp (bằng nhau thì theo tên); STT = thứ hạng
+    const months = result.months, list = [...filtered()].sort((x, y) => (y.thuong - x.thuong) || x.hoTen.localeCompare(y.hoTen, 'vi'));
+    $('tqHead').innerHTML = `<th class="r" style="width:36px">STT</th><th>Mã NV</th><th style="min-width:150px">Họ và tên</th>${months.map(mk => `<th class="r">${E.monthLabel(mk)}</th>`).join('')}<th class="r">Thưởng quý ↓</th><th style="min-width:200px">Ghi chú (từ file)</th>`;
+    let html = list.map((e, i) => `<tr><td class="r" style="color:#9ca3af">${i + 1}</td><td>${esc(e.maNV)}</td><td class="name">${esc(e.hoTen)}</td>${e.monthlyDetail.map(m => `<td class="r">${money(m.tongTien)}</td>`).join('')}<td class="r money">${money(e.thuong)}</td><td class="note">${esc(e.ghiChu)}</td></tr>`).join('');
     if (!search) {
-      html += `<tr class="total"><td colspan="2">TỔNG CỘNG</td>${months.map(mk => `<td class="r">${money(result.perEmployee.reduce((s, e) => s + ((e.monthlyDetail.find(m => m.monthKey === mk) || {}).tongTien || 0), 0))}</td>`).join('')}<td class="r">${money(result.perEmployee.reduce((s, e) => s + e.thuong, 0))}</td><td></td></tr>`;
+      html += `<tr class="total"><td colspan="3">TỔNG CỘNG</td>${months.map(mk => `<td class="r">${money(result.perEmployee.reduce((s, e) => s + ((e.monthlyDetail.find(m => m.monthKey === mk) || {}).tongTien || 0), 0))}</td>`).join('')}<td class="r">${money(result.perEmployee.reduce((s, e) => s + e.thuong, 0))}</td><td></td></tr>`;
     }
     $('tqBody').innerHTML = html;
   }
@@ -198,22 +201,36 @@
     cAdj1.refresh(); cAdj2.refresh();
     qRows.forEach((r, i) => qStatus(i));
     const byMa = {}; opts.forEach(e => { byMa[e.maNV] = e; });
-    const adjs = result.adjustments;
+    // Hiển thị theo thứ tự ngày, chia nhóm theo tháng, kẻ vạch giữa các tuần (chỉ đổi cách hiện, không đổi dữ liệu)
+    const nameOf = u => displayName(byMa[u]) || u;
+    const adjs = [...result.adjustments].sort((x, y) => x.dateFrom.localeCompare(y.dateFrom) || x.dateTo.localeCompare(y.dateTo)
+      || nameOf(x.maNV1).localeCompare(nameOf(y.maNV1), 'vi') || (x.buoi || '').localeCompare(y.buoi || ''));
     if (editId !== null && !adjs.some(a => String(a.id) === editId)) editId = null;
+    const monthOf = s => s.slice(0, 7);
+    const weekOf = s => { const t = new Date(s + 'T00:00:00'); t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); return t.toDateString(); };
+    const perMonth = {}; adjs.forEach(a => { perMonth[monthOf(a.dateFrom)] = (perMonth[monthOf(a.dateFrom)] || 0) + 1; });
+    let prevMonth = '', prevWeek = '';
     $('adjList').innerHTML = adjs.length ? adjs.map(a => {
+      let head = '', wk = '';
+      const mk = monthOf(a.dateFrom);
+      if (mk !== prevMonth) { head = `<tr class="grp"><td colspan="6">Tháng ${Number(mk.slice(5))}/${mk.slice(0, 4)} <span>· ${perMonth[mk]} cặp</span></td></tr>`; prevMonth = mk; prevWeek = weekOf(a.dateFrom); }
+      else if (weekOf(a.dateFrom) !== prevWeek) { wk = ' class="wk"'; prevWeek = weekOf(a.dateFrom); }
+      return head + rowHtml(a, wk);
+    }).join('')
+      : '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:20px">Chưa có điều chỉnh nào</td></tr>';
+    function rowHtml(a, wk) {
       if (String(a.id) === editId) {
         // Dòng đang sửa: đổi người / ngày / buổi tại chỗ rồi bấm Lưu
         const bOpts = Object.entries(BUOI).map(([v, l]) => `<option value="${v}"${v === (a.buoi || '') ? ' selected' : ''}>${l}</option>`).join('');
-        return `<tr class="editing"><td><span class="tk-combo"><input type="text" id="eAdj1" placeholder="Gõ tên để tìm…"></span></td><td><span class="tk-combo"><input type="text" id="eAdj2" placeholder="Gõ tên để tìm…"></span></td>`
+        return `<tr class="editing${wk ? ' wk' : ''}"><td><span class="tk-combo"><input type="text" id="eAdj1" placeholder="Gõ tên để tìm…"></span></td><td><span class="tk-combo"><input type="text" id="eAdj2" placeholder="Gõ tên để tìm…"></span></td>`
           + `<td><input type="date" id="eFrom" value="${a.dateFrom}"></td><td><input type="date" id="eTo" value="${a.dateTo}"></td><td><select id="eBuoi" class="buoi">${bOpts}</select></td>`
           + `<td style="white-space:nowrap"><button type="button" class="b ok sm" data-save="${a.id}">Lưu</button> <button type="button" class="b sm" data-cancel="1">Hủy</button></td></tr>`;
       }
       const skip = result.skippedAdj.includes(a.id);
-      return `<tr><td>${esc(displayName(byMa[a.maNV1]) || a.maNV1)}</td><td>${esc(displayName(byMa[a.maNV2]) || a.maNV2)}</td><td>${a.dateFrom}</td><td>${a.dateTo}</td>`
+      return `<tr${wk}><td>${esc(nameOf(a.maNV1))}</td><td>${esc(nameOf(a.maNV2))}</td><td>${vnDate(a.dateFrom)}</td><td>${vnDate(a.dateTo)}</td>`
         + `<td>${BUOI[a.buoi || '']}${skip ? ' <span style="color:#991b1b" title="Quý này nạp file trước khi có chia theo buổi — nạp lại file quý để áp dụng">(chưa áp dụng — cần nạp lại file)</span>' : ''}</td>`
         + `<td style="white-space:nowrap"><button type="button" class="b sm" data-edit="${a.id}">Sửa</button> <button type="button" class="b del sm" data-rm="${a.id}">Xóa</button></td></tr>`;
-    }).join('')
-      : '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:20px">Chưa có điều chỉnh nào</td></tr>';
+    }
     if (editId !== null) {
       const a = adjs.find(x => String(x.id) === editId);
       eC1 = makeCombo($('eAdj1'), optList); eC1.set(a.maNV1);
