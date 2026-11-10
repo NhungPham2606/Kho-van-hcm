@@ -21,7 +21,7 @@
   const RULES = { nguong: Number(CFG.nguong) || E.RULES.nguong, donGia: Number(CFG.dongia) || E.RULES.donGia };
   const BASE = CFG.base || '';                // thư mục chứa worker.js/engine.js
   const FILE_PREFIX = CFG.file || 'ThuongKho';
-  const VER = '20261110c';
+  const VER = '20261110d';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = n => Math.round(n || 0).toLocaleString('vi-VN') + 'đ';
@@ -119,7 +119,12 @@
   const TABS = ['thuong-quy', 'theo-thang', 'dong-cap'];
   const tab = () => TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'thuong-quy';
 
-  function recompute() { const q = current(); result = q ? E.computeResult(archive[q].cached, q, archive[q].adjustments || [], RULES) : null; }
+  function recompute() {
+    const q = current();
+    result = q ? E.computeResult(archive[q].cached, q, archive[q].adjustments || [], RULES) : null;
+    // Thưởng sàn: bảng mã lấy chung của kho nên chỉ hiện người có lượt trong quý
+    if (result && CFG.anKhongLuot === '1') result.perEmployee = result.perEmployee.filter(e => e.monthlyDetail.some(m => m.soKien > 0));
+  }
   function helpers() {
     const q = current(); const custom = (q && archive[q].extraHelpers) || [];
     const out = [...DEFAULT_EXTRA_HELPERS];
@@ -155,7 +160,7 @@
   }
   function renderStats() {
     if (!result) return;
-    $('stNV').textContent = result.employees.length;
+    $('stNV').textContent = CFG.anKhongLuot === '1' ? result.perEmployee.length : result.employees.length;
     $('stKien').textContent = num(result.perEmployee.reduce((s, e) => s + e.monthlyDetail.reduce((a, m) => a + m.soKien, 0), 0));
     $('stTien').textContent = money(result.perEmployee.reduce((s, e) => s + e.thuong, 0));
   }
@@ -316,6 +321,27 @@
   });
 
   // ------------------------------------------------------------ nạp file
+  // Thưởng sàn (data-mnv-tu-kho="1"): file sàn không có sheet "bảng mã nv" → dùng bảng mã của quý Thưởng kho mới nhất
+  // (trên máy này, nếu không có thì lấy trên hệ thống). Có dòng "Họ tên (SĐT)" (mnvRows) thì dùng, không thì danh sách NV.
+  async function khoRoster() {
+    if (CFG.mnvTuKho !== '1') return null;
+    let q = '', c = null;
+    try {
+      const a = JSON.parse(localStorage.getItem('kvh-thuongkho-v1') || '{}');
+      q = Object.keys(a).filter(k => /^\d{4}-Q\d$/.test(k) && a[k] && a[k].cached).sort().pop() || '';
+      if (q) c = a[q].cached;
+    } catch (e) {}
+    if (!c && token) {
+      try {
+        const items = await gh(`/contents/thuong-kho?ref=main&t=${Date.now()}`);
+        const f = items.map(i => i.name).filter(n => /^\d{4}-Q\d\.json$/.test(n)).sort().pop();
+        if (f) { const meta = await gh(`/contents/thuong-kho/${f}?ref=main`); c = JSON.parse(b64dec(meta.content || '') || '{}').cached; q = f.replace('.json', ''); }
+      } catch (e) {}
+    }
+    if (!c || !c.employees) return null;
+    const rows = (c.mnvRows || c.employees.map(e => [e.maNV, '', e.hoTen])).map(([m, h, t]) => [m, h, null, t]);
+    return { rows, label: `bảng mã nv của Thưởng kho ${E.quarterLabel(q)}` };
+  }
   function handleFile(file) {
     if (!file) return;
     msg($('tkUpMsg'), '');
@@ -323,7 +349,8 @@
     $('tkZoneSub').textContent = file.name;
     const reset = () => { $('tkZoneTitle').textContent = ZONE_TITLE; $('tkZoneSub').innerHTML = ZONE_SUB; };
     const reader = new FileReader();
-    reader.onload = ev => {
+    reader.onload = async ev => {
+      const fb = await khoRoster(); // bảng mã nv dự phòng (Thưởng sàn: lấy của Thưởng kho)
       const w = new Worker(`${BASE}worker.js?v=${VER}`);
       w.onmessage = m => {
         if (m.data.step) { $('tkZoneTitle').textContent = m.data.step; return; }
@@ -331,7 +358,11 @@
         if (!m.data.ok) { msg($('tkUpMsg'), esc(m.data.error)); return; }
         pending = m.data.cached;
         const vols = E.monthVolumes(pending);
-        $('tkPendingInfo').innerHTML = `Đã đọc <b>${pending.soDongTho.toLocaleString('vi-VN')}</b> dòng thô, <b>${pending.employees.length}</b> nhân viên${pending.payrollMaNV ? ` (sheet ${esc(pending.rosterSheet || 'THƯỞNG')}: ${pending.payrollMaNV.length} NV)` : ''}. Số lượt bốc/đóng hàng theo từng tháng tìm thấy trong file (có thể lẫn vài ngày đầu/cuối quý kề bên):`;
+        $('tkPendingInfo').innerHTML = `Đã đọc <b>${pending.soDongTho.toLocaleString('vi-VN')}</b> dòng thô`
+          + (pending.soSheetTho > 1 ? ` từ <b>${pending.soSheetTho}</b> sheet${pending.trungBoQua ? ` (bỏ ${pending.trungBoQua.toLocaleString('vi-VN')} kiện trùng)` : ''}` : '')
+          + `, <b>${pending.employees.length}</b> nhân viên${pending.payrollMaNV ? ` (sheet ${esc(pending.rosterSheet || 'THƯỞNG')}: ${pending.payrollMaNV.length} NV)` : ''}`
+          + (pending.mnvNguon ? ` — bảng mã nv: <b>${esc(pending.mnvNguon)}</b>` : '')
+          + `. Số lượt bốc/đóng hàng theo từng tháng tìm thấy trong file (có thể lẫn vài ngày đầu/cuối quý kề bên):`;
         $('tkVols').innerHTML = vols.map(v => `<tr><td>${E.monthLabel(v.monthKey)}/${v.monthKey.split('-')[0]}</td><td class="r">${num(v.total)}</td></tr>`).join('');
         const kk = (pending.khongKhop || []).filter(([n]) => n);
         $('tkUnmatched').innerHTML = kk.length ? `<details style="font-size:12px;margin-bottom:8px"><summary style="cursor:pointer;color:#1a56db">${kk.length} tên / username trong dữ liệu không khớp "bảng mã nv" (không được tính) — bấm để soát</summary><div class="muted" style="margin:6px 0">Thường là người ngoài danh sách thưởng. Nếu thấy nhân viên của mình ở đây, thêm dòng vào "bảng mã nv" (cột B ghi đúng như dữ liệu) rồi nạp lại.</div><ol style="margin:0;padding-left:20px">${kk.map(([n, c]) => `<li>${esc(n)} — ${c.toLocaleString('vi-VN')} lượt</li>`).join('')}</ol></details>` : '';
@@ -340,7 +371,9 @@
         renderTop();
       };
       w.onerror = err => { w.terminate(); reset(); msg($('tkUpMsg'), 'Lỗi đọc file: ' + esc(err.message || '')); };
-      w.postMessage({ buf: ev.target.result, fileName: file.name, opts: { nguon: NGUON, roster: ROSTER } }, [ev.target.result]);
+      w.postMessage({ buf: ev.target.result, fileName: file.name, opts: { nguon: NGUON, roster: ROSTER,
+        mnv: fb && fb.rows, mnvLabel: fb && fb.label,
+        mnvHint: CFG.mnvTuKho === '1' ? 'cũng chưa lấy được bảng mã của Thưởng kho (mở trang Thưởng kho trên máy này một lần, hoặc kết nối hệ thống)' : '' } }, [ev.target.result]);
     };
     reader.readAsArrayBuffer(file);
   }

@@ -127,7 +127,8 @@
       <!-- Dùng chung code với Thưởng kho (../thuong-kho/): chỉ khác cấu hình data-* dưới đây -->
       <div class="tk" id="tk" data-owner="NhungPham2606" data-repo="BAO-CAO-GIAO-HANG" data-dir="thuong-san"
         data-base="../thuong-kho/" data-ls="kvh-thuongsan" data-kho="0" data-file="ThuongSan"
-        data-nguon="boc,dong" data-nguong="80" data-dongia="2000" data-roster="THƯỞNG SÀN,THƯỞNG">
+        data-nguon="boc,dong" data-nguong="80" data-dongia="2000" data-roster="THƯỞNG SÀN"
+        data-mnv-tu-kho="1" data-an-khong-luot="1">
 
         <!-- Thanh công cụ + thông tin quý đang xem -->
         <div class="tk-card" id="tkTop" hidden>
@@ -153,7 +154,7 @@
             <div class="tk-zone" id="tkZone" tabindex="0" role="button" aria-label="Chọn file Excel thưởng sàn">
               <svg viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
               <h4 id="tkZoneTitle">Tải file Excel thưởng sàn theo quý (.xlsx)</h4>
-              <p id="tkZoneSub">File cần sheet <b>bảng mã nv</b> và sheet dữ liệu thô <b>Bảng check kiện hàng</b> (có các cột Bốc hàng, TG Bốc hàng, Đóng hàng, TG Đóng hàng). Nếu file có sheet <b>THƯỞNG SÀN</b> (hoặc <b>THƯỞNG</b>), trang lấy đúng danh sách Mã NV trong đó để lọc kết quả. Kết quả lưu riêng theo từng quý, nạp file quý mới không mất dữ liệu quý cũ.</p>
+              <p id="tkZoneSub">File báo cáo đóng gói các kiện hàng của sàn (có các cột <b>Bốc hàng, TG Bốc hàng, Đóng hàng, TG Đóng hàng</b>) — 1 sheet hay nhiều sheet (mỗi tháng 1 sheet) đều được, kiện trùng chỉ tính 1 lần. Không cần sheet <b>bảng mã nv</b>: trang tự lấy bảng mã của <b>Thưởng kho</b> (quý mới nhất). Nếu file có sheet <b>THƯỞNG SÀN</b>, trang chỉ tính những Mã NV trong đó. Kết quả lưu riêng theo từng quý, nạp file quý mới không mất dữ liệu quý cũ.</p>
             </div>
             <input type="file" id="tkFile" accept=".xlsx,.xls" hidden>
             <div class="tk-row" style="margin-top:10px" id="tkUpCancelRow" hidden><button class="b sm" type="button" id="tkUpCancel">Đóng, quay lại quý đang xem</button></div>
@@ -177,7 +178,7 @@
 
         <div id="tkMainView" hidden>
           <div class="tk-stats">
-            <div class="tk-stat blue"><div class="l">Số nhân viên</div><div class="v" id="stNV"></div></div>
+            <div class="tk-stat blue"><div class="l">Số nhân viên có lượt sàn</div><div class="v" id="stNV"></div></div>
             <div class="tk-stat"><div class="l">Tổng số lượt bốc/đóng (quý)</div><div class="v" id="stKien"></div></div>
             <div class="tk-stat green"><div class="l">Tổng tiền thưởng (quý)</div><div class="v" id="stTien"></div></div>
           </div>
@@ -273,7 +274,7 @@
 </div>
 <script src="../assets/flows.js?v=20261110a"></script>
 <script src="../assets/layout.js?v=20261010a"></script>
-<script src="../thuong-kho/engine.js?v=20261110c"></script>
-<script src="../thuong-kho/app.js?v=20261110e"></script>
+<script src="../thuong-kho/engine.js?v=20261110d"></script>
+<script src="../thuong-kho/app.js?v=20261110f"></script>
 </body>
 </html>
