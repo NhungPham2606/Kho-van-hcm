@@ -21,7 +21,7 @@
   const RULES = { nguong: Number(CFG.nguong) || E.RULES.nguong, donGia: Number(CFG.dongia) || E.RULES.donGia };
   const BASE = CFG.base || '';                // thư mục chứa worker.js/engine.js
   const FILE_PREFIX = CFG.file || 'ThuongKho';
-  const VER = '20261110d';
+  const VER = '20261110e';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = n => Math.round(n || 0).toLocaleString('vi-VN') + 'đ';
@@ -364,7 +364,8 @@
           + (pending.mnvNguon ? ` — bảng mã nv: <b>${esc(pending.mnvNguon)}</b>` : '')
           + `. Số lượt bốc/đóng hàng theo từng tháng tìm thấy trong file (có thể lẫn vài ngày đầu/cuối quý kề bên):`;
         $('tkVols').innerHTML = vols.map(v => `<tr><td>${E.monthLabel(v.monthKey)}/${v.monthKey.split('-')[0]}</td><td class="r">${num(v.total)}</td></tr>`).join('');
-        const kk = (pending.khongKhop || []).filter(([n]) => n);
+        // Thưởng sàn (data-an-khong-khop="1"): không liệt kê tên không khớp bảng mã
+        const kk = CFG.anKhongKhop === '1' ? [] : (pending.khongKhop || []).filter(([n]) => n);
         $('tkUnmatched').innerHTML = kk.length ? `<details style="font-size:12px;margin-bottom:8px"><summary style="cursor:pointer;color:#1a56db">${kk.length} tên / username trong dữ liệu không khớp "bảng mã nv" (không được tính) — bấm để soát</summary><div class="muted" style="margin:6px 0">Thường là người ngoài danh sách thưởng. Nếu thấy nhân viên của mình ở đây, thêm dòng vào "bảng mã nv" (cột B ghi đúng như dữ liệu) rồi nạp lại.</div><ol style="margin:0;padding-left:20px">${kk.map(([n, c]) => `<li>${esc(n)} — ${c.toLocaleString('vi-VN')} lượt</li>`).join('')}</ol></details>` : '';
         const sug = E.suggestQuarter(pending);
         $('tkPendingQ').innerHTML = E.quartersOf(pending).map(q => `<option value="${q}"${q === sug ? ' selected' : ''}>${E.quarterLabel(q)}${archive[q] ? ' (đã có — sẽ thay)' : ''}</option>`).join('');
