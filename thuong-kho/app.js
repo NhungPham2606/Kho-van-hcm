@@ -10,7 +10,7 @@
   const OWNER = root.dataset.owner, REPO = root.dataset.repo, DIR = root.dataset.dir;
   const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
   const LS_KEY = 'kvh-thuongkho-v1', LS_SEL = 'kvh-thuongkho-sel', TOKEN_KEY = 'kvh-gh-token';
-  const VER = '20260930c';
+  const VER = '20261110a';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = n => Math.round(n || 0).toLocaleString('vi-VN') + 'đ';
@@ -115,6 +115,7 @@
     custom.forEach(h => { if (!out.some(m => m.maNV === h.maNV)) out.push(h); });
     return out;
   }
+  const BUOI = { '': 'Cả ngày', sang: 'Sáng', chieu: 'Chiều' };
   const displayName = e => !e ? '' : (e.maNV && !String(e.maNV).startsWith('__extra_') ? `${e.maNV} - ${e.hoTen}` : e.hoTen);
   function filtered() {
     if (!result) return [];
@@ -169,7 +170,15 @@
     $('ttMonths').innerHTML = result.months.map((mk, i) => `<button type="button" class="b sm${i === monthIdx ? ' pri' : ''}" data-m="${i}">${E.monthLabel(mk)}</button>`).join('');
     const mk = result.months[monthIdx], [y, m] = mk.split('-').map(Number);
     const paired = new Map();
-    result.adjustments.forEach(a => { for (let d = 1; d <= 31; d++) { const k = `${y}-${E.pad2(m)}-${E.pad2(d)}`; if (k >= a.dateFrom && k <= a.dateTo) { paired.set(`${a.maNV1}|${d}`, a.maNV2); paired.set(`${a.maNV2}|${d}`, a.maNV1); } } });
+    result.adjustments.forEach(a => {
+      if (result.skippedAdj.includes(a.id)) return;
+      for (let d = 1; d <= 31; d++) {
+        const k = `${y}-${E.pad2(m)}-${E.pad2(d)}`;
+        if (k >= a.dateFrom && k <= a.dateTo) {
+          [[a.maNV1, a.maNV2], [a.maNV2, a.maNV1]].forEach(([u, o]) => { const key = `${u}|${d}`; paired.set(key, [...(paired.get(key) || []), { o, b: a.buoi || '' }]); });
+        }
+      }
+    });
     const byMa = {}; [...result.employees, ...helpers()].forEach(e => { byMa[e.maNV] = e; });
     $('ttHead').innerHTML = `<th>Mã NV</th><th style="min-width:140px">Họ và tên</th>${Array.from({ length: 31 }, (_, i) => `<th class="r">${i + 1}</th>`).join('')}<th class="r">Tổng lượt</th><th class="r">Tổng tiền</th>`;
     $('ttBody').innerHTML = filtered().map(e => {
@@ -177,7 +186,8 @@
       const cells = md.counts32.slice(1, 32).map((c, i) => {
         const p = paired.get(`${e.maNV}|${i + 1}`);
         const cls = ['r', c > result.rules.nguong ? 'over' : '', p ? 'pair' : ''].join(' ').trim();
-        return `<td class="${cls}"${p ? ` title="Đóng cặp cùng: ${esc(displayName(byMa[p]))}"` : ''}>${numSmart(c)}</td>`;
+        const tip = p ? p.map(x => `Đóng cặp${x.b ? ' buổi ' + BUOI[x.b].toLowerCase() : ''} cùng: ${displayName(byMa[x.o]) || x.o}`).join('\n') : '';
+        return `<td class="${cls}"${p ? ` title="${esc(tip)}"` : ''}>${numSmart(c)}</td>`;
       }).join('');
       return `<tr><td>${esc(e.maNV)}</td><td class="name">${esc(e.hoTen)}</td>${cells}<td class="r bold">${numSmart(md.soKien)}</td><td class="r money">${money(md.tongTien)}</td></tr>`;
     }).join('');
@@ -185,15 +195,53 @@
   function renderAdjust() {
     if (!result) return;
     const opts = [...result.employees, ...helpers()];
-    const optHtml = '<option value="">-- chọn --</option>' + opts.map(e => `<option value="${esc(e.maNV)}">${esc(displayName(e))}</option>`).join('');
-    ['adj1', 'adj2'].forEach(id => { const v = $(id).value; $(id).innerHTML = optHtml; $(id).value = v; });
+    cAdj1.refresh(); cAdj2.refresh();
+    qRows.forEach((r, i) => qStatus(i));
     const byMa = {}; opts.forEach(e => { byMa[e.maNV] = e; });
     const adjs = result.adjustments;
-    $('adjList').innerHTML = adjs.length ? adjs.map(a => `<tr><td>${esc(displayName(byMa[a.maNV1]) || a.maNV1)}</td><td>${esc(displayName(byMa[a.maNV2]) || a.maNV2)}</td><td>${a.dateFrom}</td><td>${a.dateTo}</td><td><button type="button" class="b del sm" data-rm="${a.id}">Xóa</button></td></tr>`).join('')
-      : '<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:20px">Chưa có điều chỉnh nào</td></tr>';
+    if (editId !== null && !adjs.some(a => String(a.id) === editId)) editId = null;
+    $('adjList').innerHTML = adjs.length ? adjs.map(a => {
+      if (String(a.id) === editId) {
+        // Dòng đang sửa: đổi người / ngày / buổi tại chỗ rồi bấm Lưu
+        const bOpts = Object.entries(BUOI).map(([v, l]) => `<option value="${v}"${v === (a.buoi || '') ? ' selected' : ''}${v && !result.hasBuoi && v !== (a.buoi || '') ? ' disabled' : ''}>${l}</option>`).join('');
+        return `<tr class="editing"><td><span class="tk-combo"><input type="text" id="eAdj1" placeholder="Gõ tên để tìm…"></span></td><td><span class="tk-combo"><input type="text" id="eAdj2" placeholder="Gõ tên để tìm…"></span></td>`
+          + `<td><input type="date" id="eFrom" value="${a.dateFrom}"></td><td><input type="date" id="eTo" value="${a.dateTo}"></td><td><select id="eBuoi" class="buoi">${bOpts}</select></td>`
+          + `<td style="white-space:nowrap"><button type="button" class="b ok sm" data-save="${a.id}">Lưu</button> <button type="button" class="b sm" data-cancel="1">Hủy</button></td></tr>`;
+      }
+      const skip = result.skippedAdj.includes(a.id);
+      return `<tr><td>${esc(displayName(byMa[a.maNV1]) || a.maNV1)}</td><td>${esc(displayName(byMa[a.maNV2]) || a.maNV2)}</td><td>${a.dateFrom}</td><td>${a.dateTo}</td>`
+        + `<td>${BUOI[a.buoi || '']}${skip ? ' <span style="color:#991b1b" title="Quý này nạp file trước khi có chia theo buổi — nạp lại file quý để áp dụng">(chưa áp dụng — cần nạp lại file)</span>' : ''}</td>`
+        + `<td style="white-space:nowrap"><button type="button" class="b sm" data-edit="${a.id}">Sửa</button> <button type="button" class="b del sm" data-rm="${a.id}">Xóa</button></td></tr>`;
+    }).join('')
+      : '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:20px">Chưa có điều chỉnh nào</td></tr>';
+    if (editId !== null) {
+      const a = adjs.find(x => String(x.id) === editId);
+      eC1 = makeCombo($('eAdj1'), optList); eC1.set(a.maNV1);
+      eC2 = makeCombo($('eAdj2'), optList); eC2.set(a.maNV2);
+    }
+    // Quý nạp trước khi có dữ liệu giờ quét: chưa chọn được Sáng/Chiều
+    [...$('adjBuoi').options].forEach(o => { if (o.value) o.disabled = !result.hasBuoi; });
+    if (!result.hasBuoi && $('adjBuoi').value) $('adjBuoi').value = '';
+    $('buoiNote').innerHTML = result.hasBuoi ? '' : '<div class="muted" style="margin:-8px 0 12px">Muốn chọn buổi Sáng/Chiều: quý này được nạp trước khi có tính năng chia theo buổi — bấm <b>Nạp file quý khác</b> và nạp lại đúng file quý này một lần (các cặp đã khai báo vẫn giữ nguyên).</div>';
     $('helperList').innerHTML = helpers().map(h => `<span class="chip">${esc(h.hoTen)}${DEFAULT_EXTRA_HELPERS.some(d => d.maNV === h.maNV) ? '' : ` <button type="button" data-rmh="${esc(h.maNV)}" aria-label="Bỏ">×</button>`}</span>`).join('');
   }
   function renderAll() { recompute(); renderTop(); renderStats(); renderTabs(); renderThuong(); renderGrid(); renderAdjust(); }
+  // Sửa 1 dòng đóng cặp đã khai báo (người / ngày / buổi)
+  let editId = null, eC1 = null, eC2 = null;
+  function saveEdit(id) {
+    const q = current(); if (!q) return;
+    const a = (archive[q].adjustments || []).find(x => String(x.id) === String(id)); if (!a) return;
+    const m1 = eC1 && eC1.value, m2 = eC2 && eC2.value, f = $('eFrom').value, t = $('eTo').value || f, b = $('eBuoi').value;
+    if (!m1 || !m2 || !f) { msg($('adjMsg'), 'Chọn đủ 2 người (gõ tên rồi bấm chọn trong danh sách) và ngày.'); return; }
+    if (m1 === m2) { msg($('adjMsg'), 'Hai người phải khác nhau.'); return; }
+    if (f > t) { msg($('adjMsg'), '"Từ ngày" phải trước "Đến ngày".'); return; }
+    if (b && b !== (a.buoi || '') && result && !result.hasBuoi) { msg($('adjMsg'), 'Quý này cần nạp lại file một lần mới chia theo buổi được.'); return; }
+    Object.assign(a, { maNV1: m1, maNV2: m2, dateFrom: f, dateTo: t });
+    if (b) a.buoi = b; else delete a.buoi;
+    editId = null; touch(q); renderAll();
+    msg($('adjMsg'), 'Đã lưu thay đổi — thưởng đã được tính lại.', true);
+    setTimeout(() => msg($('adjMsg'), ''), 5000);
+  }
   document.querySelectorAll('[data-rule]').forEach(el => { el.textContent = E.RULES[el.dataset.rule].toLocaleString('vi-VN'); });
   window.addEventListener('hashchange', () => {
     if (location.hash === '#nap-du-lieu') { uploadOpen = true; renderTop(); $('tkUpload').scrollIntoView({ behavior: 'smooth' }); return; }
@@ -203,11 +251,14 @@
 
   // ------------------------------------------------------------ sự kiện
   document.addEventListener('click', e => {
-    const t = e.target.closest('[data-q],[data-m],[data-rm],[data-rmh]');
+    const t = e.target.closest('[data-q],[data-m],[data-rm],[data-rmh],[data-edit],[data-save],[data-cancel]');
     if (!t) return;
-    if (t.dataset.q) { sel = t.dataset.q; persistLocal(); renderAll(); }
+    if (t.dataset.q) { sel = t.dataset.q; editId = null; persistLocal(); renderAll(); }
     else if (t.dataset.m) { monthIdx = Number(t.dataset.m); renderGrid(); }
-    else if (t.dataset.rm) { const q = current(); archive[q].adjustments = archive[q].adjustments.filter(a => String(a.id) !== t.dataset.rm); touch(q); renderAll(); }
+    else if (t.dataset.edit) { editId = t.dataset.edit; msg($('adjMsg'), ''); renderAdjust(); const d = $('eFrom'); if (d) d.focus(); }
+    else if (t.dataset.cancel) { editId = null; msg($('adjMsg'), ''); renderAdjust(); }
+    else if (t.dataset.save) saveEdit(t.dataset.save);
+    else if (t.dataset.rm) { const q = current(); if (editId === t.dataset.rm) editId = null; archive[q].adjustments = archive[q].adjustments.filter(a => String(a.id) !== t.dataset.rm); touch(q); renderAll(); }
     else if (t.dataset.rmh) { const q = current(); archive[q].extraHelpers = (archive[q].extraHelpers || []).filter(h => h.maNV !== t.dataset.rmh); touch(q); renderAll(); }
   });
   $('tkSearch').addEventListener('input', e => { search = e.target.value; renderThuong(); renderGrid(); renderTabs(); });
@@ -272,12 +323,13 @@
   // ------------------------------------------------------------ đóng cặp
   $('adjAdd').addEventListener('click', () => {
     const q = current(); if (!q) return;
-    const a1 = $('adj1').value, a2 = $('adj2').value, f = $('adjFrom').value, t = $('adjTo').value;
-    if (!a1 || !a2 || !f || !t) { msg($('adjMsg'), 'Chọn đủ 2 người và khoảng ngày.'); return; }
+    const a1 = cAdj1.value, a2 = cAdj2.value, f = $('adjFrom').value, t = $('adjTo').value || f, b = $('adjBuoi').value;
+    if (!a1 || !a2 || !f) { msg($('adjMsg'), 'Chọn đủ 2 người (gõ tên rồi bấm chọn trong danh sách) và ngày.'); return; }
     if (a1 === a2) { msg($('adjMsg'), 'Hai người phải khác nhau.'); return; }
     if (f > t) { msg($('adjMsg'), '"Từ ngày" phải trước "Đến ngày".'); return; }
-    archive[q].adjustments = [...(archive[q].adjustments || []), { id: Date.now(), maNV1: a1, maNV2: a2, dateFrom: f, dateTo: t }];
-    touch(q); msg($('adjMsg'), ''); ['adj1', 'adj2', 'adjFrom', 'adjTo'].forEach(id => { $(id).value = ''; }); renderAll();
+    if (b && result && !result.hasBuoi) { msg($('adjMsg'), 'Quý này cần nạp lại file một lần mới chia theo buổi được.'); return; }
+    archive[q].adjustments = [...(archive[q].adjustments || []), { id: Date.now(), maNV1: a1, maNV2: a2, dateFrom: f, dateTo: t, ...(b ? { buoi: b } : {}) }];
+    touch(q); msg($('adjMsg'), ''); cAdj1.set(''); cAdj2.set(''); ['adjFrom', 'adjTo', 'adjBuoi'].forEach(id => { $(id).value = ''; }); renderAll();
   });
   $('adjImport').addEventListener('click', () => {
     const q = current(); if (!q || !result) return;
@@ -300,6 +352,400 @@
     archive[q].extraHelpers = [...(archive[q].extraHelpers || []), { maNV: `__extra_${Date.now()}__`, hoTen: `${name} (ngoài DS thưởng)` }];
     $('helperName').value = ''; touch(q); renderAll();
   });
+
+  // ------------------------------------------------------------ ô chọn nhân viên có gõ tìm
+  // foldKeep giữ nguyên độ dài chuỗi (chữ dựng sẵn NFC → 1 ký tự không dấu) để cắt chuỗi gốc theo vị trí.
+  const foldKeep = s => String(s ?? '').normalize('NFC').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
+  const fold = s => foldKeep(s).replace(/\s+/g, ' ').trim();
+  const lowerNFC = s => String(s ?? '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
+  const optList = () => result ? [...result.employees, ...helpers()].map(e => ({ value: e.maNV, label: displayName(e) })) : [];
+  const comboList = document.createElement('div');
+  comboList.className = 'tkc-list'; comboList.hidden = true; comboList.setAttribute('role', 'listbox');
+  document.body.appendChild(comboList);
+  let comboOwner = null;
+  comboList.addEventListener('mousedown', e => {
+    e.preventDefault(); // giữ con trỏ trong ô đang gõ
+    const d = e.target.closest('[data-i]');
+    if (d && comboOwner) comboOwner.pickIdx(Number(d.dataset.i));
+  });
+  window.addEventListener('scroll', () => { if (comboOwner) comboOwner.place(); }, true);
+  window.addEventListener('resize', () => { if (comboOwner) comboOwner.place(); });
+
+  function makeCombo(input, getOpts) {
+    let value = '', items = [], act = -1;
+    input.autocomplete = 'off'; input.spellcheck = false;
+    const labelOf = v => { const o = getOpts().find(x => x.value === v); return o ? o.label : ''; };
+    const api = {
+      onChange: null,
+      get value() { return value; },
+      set(v) { value = v && getOpts().some(o => o.value === v) ? v : ''; input.value = labelOf(value); input.classList.remove('bad'); },
+      setText(t) { value = ''; input.value = t || ''; input.classList.toggle('bad', !!t); },
+      refresh() { if (value && !getOpts().some(o => o.value === value)) value = ''; if (value) input.value = labelOf(value); },
+      pickIdx(i) { pick(items[i]); },
+      place() {
+        const r = input.getBoundingClientRect();
+        if (!r.width) { close(); return; }
+        const below = innerHeight - r.bottom;
+        comboList.style.left = r.left + 'px'; comboList.style.minWidth = r.width + 'px';
+        if (below < 220 && r.top > below) { comboList.style.top = ''; comboList.style.bottom = (innerHeight - r.top + 2) + 'px'; comboList.style.maxHeight = Math.max(120, Math.min(260, r.top - 10)) + 'px'; }
+        else { comboList.style.bottom = ''; comboList.style.top = (r.bottom + 2) + 'px'; comboList.style.maxHeight = Math.max(120, Math.min(260, below - 10)) + 'px'; }
+      },
+    };
+    function draw() {
+      comboList.innerHTML = items.length
+        ? items.map((o, i) => `<div data-i="${i}" role="option" class="${i === act ? 'act' : ''}${o.value === value ? ' cur' : ''}">${esc(o.label)}</div>`).join('')
+        : '<div class="none">Không thấy tên nào khớp</div>';
+      const a = comboList.children[act];
+      if (a) { const t = a.offsetTop, b = t + a.offsetHeight; if (t < comboList.scrollTop) comboList.scrollTop = t; else if (b > comboList.scrollTop + comboList.clientHeight) comboList.scrollTop = b - comboList.clientHeight; }
+    }
+    function open() {
+      const all = getOpts(), q = fold(input.value);
+      const showAll = !q || (value && input.value === labelOf(value));
+      const words = q.split(' ');
+      items = showAll ? all : all.filter(o => { const k = fold(o.label); return words.every(w => k.includes(w)); });
+      act = items.findIndex(o => o.value === value);
+      if (act < 0 && !showAll && items.length) act = 0;
+      comboOwner = api; comboList.hidden = false; comboList.scrollTop = 0; draw(); api.place();
+    }
+    function close() { if (comboOwner === api) { comboList.hidden = true; comboOwner = null; } }
+    function pick(o) {
+      if (!o) return;
+      value = o.value; input.value = o.label; input.classList.remove('bad'); close();
+      if (api.onChange) api.onChange(value);
+    }
+    input.addEventListener('focus', () => { setTimeout(() => input.select(), 0); open(); });
+    input.addEventListener('click', () => { if (comboOwner !== api) open(); });
+    input.addEventListener('input', () => { const had = value; value = ''; input.classList.remove('bad'); open(); if (had && api.onChange) api.onChange(''); });
+    input.addEventListener('keydown', e => {
+      const isOpen = comboOwner === api;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!isOpen) { open(); return; }
+        if (!items.length) return;
+        const dn = e.key === 'ArrowDown';
+        act = act < 0 ? (dn ? 0 : items.length - 1) : (act + (dn ? 1 : -1) + items.length) % items.length;
+        draw();
+      } else if (e.key === 'Enter') { if (isOpen && items[act]) { e.preventDefault(); pick(items[act]); } }
+      else if (e.key === 'Escape') { if (isOpen) { e.preventDefault(); close(); } }
+    });
+    input.addEventListener('blur', () => {
+      // gõ ra đúng 1 người thì tự chọn luôn khi rời ô
+      if (!value && input.value.trim() && comboOwner === api && items.length === 1) pick(items[0]);
+      close();
+      input.classList.toggle('bad', !value && !!input.value.trim());
+    });
+    return api;
+  }
+  const cAdj1 = makeCombo($('adj1'), optList), cAdj2 = makeCombo($('adj2'), optList);
+
+  // ------------------------------------------------------------ nhập nhanh từ ghi chú (chữ hoặc ảnh)
+  // Ví dụ ghi chú: "Đóng hàng từ ngày 29/6 đến 4/7 / Cặp 1: Thu Hằng + Diễm Duy / Cặp 3: Thu Huyền + chị Thoa".
+  // Dòng chỉ có ngày = khoảng ngày cho các cặp phía dưới; dòng có "Tên + Tên" = một cặp.
+  const DATE_RE = /(?<![\d\/.])(\d{1,2})\s*[\/.]\s*(\d{1,2})(?:\s*[\/.]\s*(\d{4}|\d{2}))?(?!\d)/g;
+  const JOIN_RE = /\s*[+&＋†]\s*|\s+(?:và|với|cùng|va|voi)\s+/iu;
+  const STOPW = new Set(['từ', 'ngày', 'đến', 'tới', 'đóng', 'bốc', 'hàng', 'cặp', 'gồm', 'là', 'tuần', 'tháng', 'đợt', 'buổi', 'ca', 'sáng', 'chiều']);
+  // "sáng"/"chiều" (có dấu) trong dòng ghi chú → buổi; có cả hai = cả ngày. Không dò chữ không dấu vì
+  // "Sang" cũng là tên người.
+  const buoiOf = line => {
+    const s = line.normalize('NFC').toLowerCase();
+    const sa = /(^|[^\p{L}])sáng(?!\p{L})/u.test(s), ch = /(^|[^\p{L}])chiều(?!\p{L})/u.test(s);
+    return sa && ch ? '' : sa ? 'sang' : ch ? 'chieu' : null;
+  };
+  const HONOR = /^(?:chị|chi|c|anh|a|em|e|cô|co|chú|chu|bạn|ban|bà|ông|bé|mr|ms|mrs)\s+(?=\S)/iu;
+  const isoD = (y, m, d) => `${y}-${E.pad2(m)}-${E.pad2(d)}`;
+  const okDate = (y, m, d) => { const t = new Date(y, m - 1, d); return t.getFullYear() === y && t.getMonth() === m - 1 && t.getDate() === d; };
+  const ddmm = s => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '';
+
+  function takeRange(line, year, qNum) {
+    const ms = [...line.matchAll(DATE_RE)];
+    if (!ms.length) return null;
+    const part = m => ({ d: +m[1], mo: +m[2], y: m[3] ? (m[3].length === 2 ? 2000 + +m[3] : +m[3]) : 0 });
+    let a, b, start, end;
+    if (ms.length >= 2) { a = part(ms[0]); b = part(ms[1]); start = ms[0].index; end = ms[1].index + ms[1][0].length; }
+    else {
+      b = part(ms[0]); start = ms[0].index; end = start + ms[0][0].length;
+      // "29 - 4/7", "1 đến 4/7": ngày đầu không ghi tháng
+      const pre = line.slice(0, start), pm = pre.match(/(\d{1,2})\s*(?:-|–|—|~|→|->|đến|tới|den|toi)\s*$/iu);
+      if (pm && !/[\d\/.]$/.test(pre.slice(0, pm.index))) { const d1 = +pm[1]; a = { d: d1, mo: d1 <= b.d ? b.mo : (b.mo === 1 ? 12 : b.mo - 1), y: 0 }; start = pm.index; }
+      else a = { ...b };
+    }
+    if (!a.y && !b.y) { a.y = b.y = year; if (a.mo > b.mo) { if (qNum >= 3) b.y = year + 1; else a.y = year - 1; } }
+    else if (!b.y) b.y = a.mo > b.mo ? a.y + 1 : a.y;
+    else if (!a.y) a.y = a.mo > b.mo ? b.y - 1 : b.y;
+    if (!okDate(a.y, a.mo, a.d) || !okDate(b.y, b.mo, b.d)) return null;
+    return { from: isoD(a.y, a.mo, a.d), to: isoD(b.y, b.mo, b.d), rest: line.slice(0, start) + ' ' + line.slice(end) };
+  }
+  function cleanName(p) {
+    const w = p.normalize('NFC').replace(/[^\p{L}\s]/gu, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+    while (w.length && STOPW.has(w[0].toLowerCase())) w.shift();
+    while (w.length && STOPW.has(w[w.length - 1].toLowerCase())) w.pop();
+    return w.join(' ');
+  }
+  function pairsInLine(line) {
+    const pairs = [], bad = [];
+    // tách thêm khi 1 dòng có nhiều "Cặp N" hoặc dấu ;
+    const f = foldKeep(line), cuts = [0];
+    for (const m of f.matchAll(/cap\s*\d/g)) if (m.index > 0) cuts.push(m.index);
+    const pieces = cuts.map((c, i) => line.slice(c, cuts[i + 1])).flatMap(p => p.split(';'));
+    pieces.forEach(piece => {
+      let s = piece.replace(/[()[\]{}"“”‘’:|]/g, ' ').replace(/^[\s\-–—•*·>]+/, '');
+      const pre = foldKeep(s).match(/^\s*cap(?![a-z])\s*(?:so\s*)?\d*\s*[.)\-]?\s*/);
+      if (pre) s = s.slice(pre[0].length);
+      s = s.replace(/^\s*\d{1,2}\s*[.)\-]\s+/, '');
+      if (!JOIN_RE.test(s)) return;
+      s.split(',').filter(x => JOIN_RE.test(x)).forEach(sub => {
+        const parts = sub.split(JOIN_RE).map(cleanName).filter(Boolean);
+        if (parts.length === 2) pairs.push(parts);
+        else if (parts.length > 2) bad.push(sub.trim());
+      });
+    });
+    return { pairs, bad };
+  }
+  function parseNote(text, year, qNum) {
+    const rows = [], bad = [];
+    let range = null, lastRange = null, curBuoi = '';
+    String(text || '').normalize('NFC').split(/\r?\n/).forEach(raw => {
+      let line = raw.trim(); if (!line) return;
+      const r = takeRange(line, year, qNum), b = buoiOf(line);
+      if (r) { line = r.rest; lastRange = r; }
+      const found = pairsInLine(line), rg = r || range;
+      found.pairs.forEach(([n1, n2]) => rows.push({ n1, n2, from: rg ? rg.from : '', to: rg ? rg.to : '', buoi: b !== null ? b : curBuoi, src: raw.trim() }));
+      bad.push(...found.bad);
+      if (!found.pairs.length) {
+        // dòng tiêu đề (ngày và/hoặc buổi) áp cho các cặp bên dưới; ngày mới mà không ghi buổi = cả ngày
+        if (r) { range = r; curBuoi = b || ''; }
+        else if (b !== null) curBuoi = b;
+      }
+    });
+    if (lastRange) rows.forEach(x => { if (!x.from) { x.from = lastRange.from; x.to = lastRange.to; } });
+    return { rows, bad };
+  }
+
+  function lev(a, b) {
+    const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[a.length][b.length];
+  }
+  // Tên ngắn trong ghi chú ("Thu Hằng") khớp phần cuối họ tên đầy đủ ("Trần Xuân Thu Hằng").
+  function nameHits(q, opts, mode) {
+    const norm = mode === 'exact' ? lowerNFC : fold;
+    const qw = norm(q).split(' ').filter(Boolean);
+    if (!qw.length) return [];
+    // Đoán gần đúng (chữ đọc sai 1 ký tự) chỉ khi tên có ≥2 chữ và ít nhất 1 chữ khớp hẳn — tên 1 chữ ngắn
+    // như "Lan"/"Vân" rất dễ đoán nhầm.
+    if (mode === 'fuzzy' && qw.length < 2) return [];
+    const near = (x, y) => x === y || (mode === 'fuzzy' && Math.min(x.length, y.length) >= 3 && lev(x, y) <= 1);
+    const fits = (w, s) => qw.every((x, i) => near(x, w[s + i])) && (mode !== 'fuzzy' || qw.some((x, i) => x === w[s + i]));
+    const L = opts.map(o => ({ o, w: norm(o.name).split(' ') }));
+    const tail = L.filter(({ w }) => w.length >= qw.length && fits(w, w.length - qw.length));
+    if (tail.length) return tail.map(t => t.o);
+    const seq = L.filter(({ w }) => { for (let s = 0; s + qw.length <= w.length; s++) if (fits(w, s)) return true; return false; });
+    return seq.map(t => t.o);
+  }
+  function matchName(text, opts) {
+    const t = text.trim();
+    const code = opts.filter(o => lowerNFC(o.value) === lowerNFC(t));
+    if (code.length === 1) return { hits: code, mode: 'exact', query: t };
+    const variants = [t], st = t.replace(HONOR, '').trim();
+    if (st && st !== t) variants.push(st);
+    for (const mode of ['exact', 'fold', 'fuzzy']) for (const v of variants) { const hits = nameHits(v, opts, mode); if (hits.length) return { hits, mode, query: v }; }
+    return { hits: [], mode: '', query: variants[variants.length - 1] };
+  }
+  const matchOpts = () => !result ? [] : [
+    ...result.employees.map(e => ({ value: e.maNV, name: e.hoTen })),
+    ...helpers().map(h => ({ value: h.maNV, name: h.hoTen.replace(/\s*\(ngoài DS thưởng\)\s*$/, '') })),
+  ];
+
+  let qRows = [], qBad = [], qTimer = null;
+  const samePair = (a, x, y) => (a.maNV1 === x && a.maNV2 === y) || (a.maNV1 === y && a.maNV2 === x);
+  function qCheck(r) {
+    const q = current();
+    if (!q) return { level: 'no', text: '' };
+    if (!r.v1 || !r.v2) return { level: 'no', text: 'Chưa chọn đủ 2 người' };
+    if (r.v1 === r.v2) return { level: 'no', text: 'Hai người trùng nhau' };
+    if (!r.from || !r.to) return { level: 'no', text: 'Thiếu ngày' };
+    if (r.from > r.to) return { level: 'no', text: '"Từ ngày" sau "Đến ngày"' };
+    if (r.buoi && result && !result.hasBuoi) return { level: 'no', text: 'Quý này cần nạp lại file một lần mới chia theo buổi được' };
+    if ((archive[q].adjustments || []).some(a => samePair(a, r.v1, r.v2) && a.dateFrom === r.from && a.dateTo === r.to && (a.buoi || '') === (r.buoi || ''))) return { level: 'no', text: 'Đã có trong danh sách bên dưới' };
+    const ms = E.quarterMonths(q), [ly, lm] = ms[2].split('-').map(Number);
+    const qf = ms[0] + '-01', qt = isoD(ly, lm, new Date(ly, lm, 0).getDate());
+    if (r.to < qf || r.from > qt) return { level: 'no', text: `Nằm ngoài ${E.quarterLabel(q)} — không ảnh hưởng quý này` };
+    const guessed = [1, 2].some(k => r['m' + k].mode === 'fuzzy' && r['m' + k].hits.some(h => h.value === r['v' + k]));
+    const partial = r.from < qf || r.to > qt;
+    const notes = [];
+    if (guessed) notes.push('kiểm tra lại tên đoán gần đúng');
+    if (partial) notes.push(`${E.quarterLabel(q)} chỉ tính ${ddmm(r.from < qf ? qf : r.from)}–${ddmm(r.to > qt ? qt : r.to)}, ngày ngoài quý tự bỏ qua`);
+    return { level: notes.length ? 'warn' : 'ok', text: '✓ Sẵn sàng' + (notes.length ? ' · ' + notes.join(' · ') : '') };
+  }
+  function qHint(r, k) {
+    const m = r['m' + k], v = r['v' + k];
+    if (v) return m.mode === 'fuzzy' && m.hits.length === 1 && m.hits[0].value === v ? `Đoán gần đúng từ “${esc(m.query)}” — kiểm tra lại` : '';
+    if (m.hits.length > 1) return `${m.hits.length} người khớp “${esc(m.query)}” — bấm vào ô để chọn đúng người`;
+    if (m.query) return `Không thấy “${esc(m.query)}” trong danh sách<button type="button" data-qhelper="${r.key}|${k}">+ Thêm làm người ngoài DS</button>`;
+    return '';
+  }
+  function qStatus(i) {
+    const r = qRows[i], tr = $('qBody').children[i];
+    if (!r || !tr) return;
+    const st = qCheck(r);
+    if (r.lastLevel !== undefined && (r.lastLevel === 'no') !== (st.level === 'no')) r.include = st.level !== 'no';
+    if (r.lastLevel === undefined) r.include = st.level !== 'no';
+    r.lastLevel = st.level;
+    tr.querySelector('[data-qk=inc]').checked = r.include;
+    const s = tr.querySelector('[data-qs]'); s.className = 'qst ' + st.level; s.textContent = st.text;
+    [1, 2].forEach(k => { tr.querySelector(`[data-qh="${k}"]`).innerHTML = qHint(r, k); });
+  }
+  function renderQuick() {
+    $('qPrev').hidden = !qRows.length;
+    $('qBody').innerHTML = qRows.map((r, i) => `<tr data-qi="${i}">
+      <td><input type="checkbox" data-qk="inc" aria-label="Thêm dòng này"></td>
+      <td><span class="tk-combo"><input type="text" data-qk="n1" placeholder="Gõ tên để tìm…"></span><div class="qhint" data-qh="1"></div></td>
+      <td><span class="tk-combo"><input type="text" data-qk="n2" placeholder="Gõ tên để tìm…"></span><div class="qhint" data-qh="2"></div></td>
+      <td><input type="date" data-qk="from" value="${r.from}"></td>
+      <td><input type="date" data-qk="to" value="${r.to}"></td>
+      <td><select data-qk="buoi" class="buoi">${Object.entries(BUOI).map(([v, l]) => `<option value="${v}"${v === (r.buoi || '') ? ' selected' : ''}>${l}</option>`).join('')}</select></td>
+      <td><div class="qst" data-qs></div><div class="qsrc">${esc(r.src)}</div></td></tr>`).join('');
+    qRows.forEach((r, i) => {
+      const tr = $('qBody').children[i];
+      [1, 2].forEach(k => {
+        const c = makeCombo(tr.querySelector(`[data-qk=n${k}]`), optList);
+        if (r['v' + k]) c.set(r['v' + k]); else c.setText(r['m' + k].query);
+        c.onChange = v => { r['v' + k] = v; qStatus(qRows.indexOf(r)); };
+      });
+      qStatus(i);
+    });
+  }
+  const qInfo = text => { $('qMsg').innerHTML = `<div class="tk-okmsg" style="background:#eff6ff;color:#1e40af">${esc(text)}</div>`; };
+  function qParse() {
+    const q = current();
+    if (!q || !result) { qRows = []; renderQuick(); return; }
+    const [y, n] = q.split('-Q').map(Number);
+    const { rows, bad } = parseNote($('qText').value, y, n);
+    const opts = matchOpts();
+    qRows = rows.map((r, i) => {
+      const m1 = matchName(r.n1, opts), m2 = matchName(r.n2, opts);
+      return { ...r, key: i, m1, m2, v1: m1.hits.length === 1 ? m1.hits[0].value : '', v2: m2.hits.length === 1 ? m2.hits[0].value : '', include: true };
+    });
+    qBad = bad;
+    renderQuick();
+    const txt = $('qText').value.trim();
+    const badNote = qBad.length ? ` Dòng có hơn 2 người chưa tách được: ${qBad.map(b => `“${esc(b)}”`).join(', ')}.` : '';
+    if (txt && !qRows.length) msg($('qMsg'), 'Chưa nhận ra cặp nào — mỗi cặp ghi dạng “Tên + Tên”, khoảng ngày ghi kiểu “từ 29/6 đến 4/7”.' + badNote);
+    else if (txt && !qRows.some(r => r.from)) msg($('qMsg'), `Nhận ra ${qRows.length} cặp nhưng chưa thấy khoảng ngày (ví dụ “từ 29/6 đến 4/7”) — điền ngày trong bảng dưới.` + badNote);
+    else msg($('qMsg'), badNote.trim());
+  }
+  function resetThumb() {
+    const im = $('qThumb');
+    if (im.src) URL.revokeObjectURL(im.src);
+    im.removeAttribute('src'); im.hidden = true; $('qDropTxt').hidden = false;
+  }
+
+  // Đọc chữ trong ảnh ngay trên trình duyệt (Tesseract.js, tiếng Việt) — ảnh không gửi đi đâu.
+  const TESS_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+  let tessLoad = null, ocrWorker = null, ocrBusy = false;
+  const loadScript = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => bad(new Error('không tải được bộ đọc chữ — kiểm tra kết nối mạng')); document.head.appendChild(s); });
+  async function getOcr() {
+    if (!window.Tesseract) { tessLoad = tessLoad || loadScript(TESS_URL).catch(e => { tessLoad = null; throw e; }); await tessLoad; }
+    if (!ocrWorker) {
+      ocrWorker = Tesseract.createWorker('vie', 1, { logger: m => { if (m.status === 'recognizing text' && ocrBusy) qInfo(`Đang đọc chữ trong ảnh… ${Math.round((m.progress || 0) * 100)}%`); } })
+        .catch(e => { ocrWorker = null; throw e; });
+    }
+    return ocrWorker;
+  }
+  const loadImg = url => new Promise((ok, bad) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => bad(new Error('file không phải ảnh')); im.src = url; });
+  async function prepImage(url) {
+    // Phóng to ảnh chụp nhỏ + chuyển xám (chữ nhỏ trên ảnh chụp màn hình đọc chính xác hơn nhiều)
+    const im = await loadImg(url);
+    const s = Math.max(1, Math.min(4, 1600 / im.naturalWidth));
+    const c = document.createElement('canvas');
+    c.width = Math.round(im.naturalWidth * s); c.height = Math.round(im.naturalHeight * s);
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+    g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, c.width, c.height);
+    const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+    let sum = 0;
+    for (let i = 0; i < p.length; i += 4) { const v = 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]; p[i] = v; sum += v; }
+    const dark = sum / (p.length / 4) < 110; // ảnh nền tối (chế độ tối) → đảo màu
+    for (let i = 0; i < p.length; i += 4) { let v = dark ? 255 - p[i] : p[i]; if (v > 200) v = 255; p[i] = p[i + 1] = p[i + 2] = v; }
+    g.putImageData(d, 0, 0);
+    return c;
+  }
+  async function readImage(file) {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { msg($('qMsg'), 'Chỉ nhận file ảnh (PNG, JPG…).'); return; }
+    if (!result || ocrBusy) return;
+    ocrBusy = true;
+    resetThumb();
+    const url = URL.createObjectURL(file);
+    $('qThumb').src = url; $('qThumb').hidden = false; $('qDropTxt').hidden = true;
+    qInfo(window.Tesseract ? 'Đang đọc chữ trong ảnh…' : 'Đang tải bộ đọc chữ tiếng Việt (chỉ lần đầu, khoảng 5–15 giây)…');
+    try {
+      const [w, img] = await Promise.all([getOcr(), prepImage(url)]);
+      qInfo('Đang đọc chữ trong ảnh…');
+      const { data } = await w.recognize(img);
+      const text = String(data.text || '').normalize('NFC').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
+      if (!text) throw new Error('không thấy chữ nào trong ảnh');
+      $('qText').value = text;
+      ocrBusy = false;
+      qParse();
+      if (qRows.length) msg($('qMsg'), `Đã đọc ảnh: nhận ra <b>${qRows.length}</b> cặp. Chữ đọc được nằm ở ô bên phải — nếu đọc sai thì sửa ở đó, bảng dưới tự cập nhật. Kiểm tra lại rồi bấm “Thêm các cặp đã đánh dấu”.`, true);
+    } catch (e) {
+      msg($('qMsg'), 'Không đọc được ảnh: ' + esc(e.message || String(e)) + '. Bạn có thể gõ/dán chữ vào ô bên phải.');
+    } finally { ocrBusy = false; }
+  }
+
+  const qBox = document.querySelector('.tk-quick'), qDrop = $('qDrop');
+  qDrop.addEventListener('click', () => $('qFile').click());
+  qDrop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('qFile').click(); } });
+  $('qFile').addEventListener('change', () => { readImage($('qFile').files[0]); $('qFile').value = ''; });
+  ['dragenter', 'dragover'].forEach(ev => qBox.addEventListener(ev, e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); qDrop.classList.add('drag'); } }));
+  qBox.addEventListener('dragleave', e => { if (!qBox.contains(e.relatedTarget)) qDrop.classList.remove('drag'); });
+  qBox.addEventListener('drop', e => {
+    const f = [...e.dataTransfer.files].find(x => /^image\//.test(x.type));
+    qDrop.classList.remove('drag');
+    if (e.dataTransfer.files.length) { e.preventDefault(); if (f) readImage(f); else msg($('qMsg'), 'Chỉ nhận file ảnh (PNG, JPG…).'); }
+  });
+  document.addEventListener('paste', e => {
+    if (tab() !== 'dong-cap' || !result || !e.clipboardData) return;
+    const cd = e.clipboardData, txt = cd.getData('text/plain') || '';
+    const inField = e.target && e.target.closest && e.target.closest('input, textarea, [contenteditable]');
+    // Copy từ Excel/Word thường kèm cả ảnh — đang gõ trong ô thì ưu tiên dán chữ như bình thường.
+    if (inField && txt) return;
+    const f = [...(cd.files || [])].find(x => /^image\//.test(x.type));
+    if (f) { e.preventDefault(); readImage(f); return; }
+    if (!inField && txt.trim()) { e.preventDefault(); $('qText').value = txt; qParse(); }
+  });
+  $('qText').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(qParse, 300); });
+  $('qBody').addEventListener('change', e => {
+    const tr = e.target.closest('[data-qi]'); if (!tr) return;
+    const i = Number(tr.dataset.qi), r = qRows[i], k = e.target.dataset.qk; if (!r) return;
+    if (k === 'inc') r.include = e.target.checked;
+    else if (k === 'from' || k === 'to' || k === 'buoi') { r[k] = e.target.value; qStatus(i); }
+  });
+  $('qBody').addEventListener('click', e => {
+    const b = e.target.closest('[data-qhelper]'); if (!b) return;
+    const q = current(); if (!q) return;
+    const [key, k] = b.dataset.qhelper.split('|').map(Number), r = qRows.find(x => x.key === key); if (!r) return;
+    const name = r['m' + k].query.replace(HONOR, '').trim().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    const h = { maNV: `__extra_${Date.now()}__`, hoTen: `${name} (ngoài DS thưởng)` };
+    archive[q].extraHelpers = [...(archive[q].extraHelpers || []), h];
+    r['v' + k] = h.maNV; r['m' + k] = { hits: [{ value: h.maNV, name }], mode: 'exact', query: name };
+    touch(q); renderAll(); renderQuick();
+  });
+  $('qAdd').addEventListener('click', () => {
+    const q = current(); if (!q) return;
+    const ok = qRows.filter(r => r.include && qCheck(r).level !== 'no');
+    if (!ok.length) { msg($('qMsg'), 'Chưa có dòng nào hợp lệ được đánh dấu.'); return; }
+    const base = Date.now();
+    archive[q].adjustments = [...(archive[q].adjustments || []), ...ok.map((r, i) => ({ id: base + i, maNV1: r.v1, maNV2: r.v2, dateFrom: r.from, dateTo: r.to, ...(r.buoi ? { buoi: r.buoi } : {}) }))];
+    touch(q);
+    qRows = qRows.filter(r => !ok.includes(r));
+    if (!qRows.length) { $('qText').value = ''; resetThumb(); }
+    renderQuick(); renderAll();
+    msg($('qMsg'), `Đã thêm <b>${ok.length}</b> cặp vào ${E.quarterLabel(q)} (xem bảng bên dưới).` + (qRows.length ? ` Còn ${qRows.length} dòng chưa thêm — sửa rồi bấm Thêm lần nữa.` : ''), true);
+  });
+  $('qClear').addEventListener('click', () => { qRows = []; $('qText').value = ''; resetThumb(); msg($('qMsg'), ''); renderQuick(); });
 
   // ------------------------------------------------------------ xuất Excel
   $('tkExport').addEventListener('click', () => {

@@ -8,7 +8,8 @@
    - "Tạo kiện" khớp theo username (cột "Người tạo kiện") với cột username của
      "bảng mã nv"; "Bốc hàng"/"Đóng hàng" lưu dạng "Họ tên (SĐT)" nên khớp theo
      Họ và tên (bỏ phần SĐT).
-   - Đóng cặp: trong khoảng ngày khai báo, số lượt của 2 người được chia đôi.
+   - Đóng cặp: trong khoảng ngày khai báo, số lượt của 2 người được chia đôi (cả ngày, hoặc chỉ
+     buổi sáng = giờ quét trước 12:00 / buổi chiều = từ 12:00).
    Dùng chung cho trang (window) và worker (self).
    ============================================================================ */
 (function (root) {
@@ -94,15 +95,16 @@
     };
 
     const rows = XLSX.utils.sheet_to_json(findSheet(wb, SHEET_RAW), { defval: null, raw: true });
-    const monthly = {};
+    const monthly = {}, monthlyAM = {}; // monthlyAM: riêng lượt buổi sáng, để đóng cặp theo buổi
     function credit(maNV, serial) {
       if (!maNV || typeof serial !== 'number') return;
       const d = serialToDate(serial);
       if (!d) return;
       const mk = `${d.year}-${pad2(d.month)}`;
-      if (!monthly[mk]) monthly[mk] = {};
-      if (!monthly[mk][maNV]) monthly[mk][maNV] = new Array(32).fill(0);
+      if (!monthly[mk]) { monthly[mk] = {}; monthlyAM[mk] = {}; }
+      if (!monthly[mk][maNV]) { monthly[mk][maNV] = new Array(32).fill(0); monthlyAM[mk][maNV] = new Array(32).fill(0); }
       monthly[mk][maNV][d.day]++;
+      if (serial - Math.floor(serial) < 0.5) monthlyAM[mk][maNV][d.day]++; // quét trước 12:00 = buổi sáng
     }
     rows.forEach(r => {
       credit(byUser(r['Người tạo kiện']), r['Ngày tạo kiện']);
@@ -113,7 +115,7 @@
     if (!allMonths.length) throw new Error('Không có dòng dữ liệu nào khớp với danh sách NV trong sheet "bảng mã nv"');
     // Tên/username không khớp ai trong "bảng mã nv" (người ngoài DS thưởng, adminIT…) — để người dùng soát
     const khongKhop = [...unmatched.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40);
-    return { fileName, payrollMaNV, soDongTho: rows.length, employees, allMonths, rawMonthly: monthly, khongKhop };
+    return { fileName, payrollMaNV, soDongTho: rows.length, employees, allMonths, rawMonthly: monthly, rawMonthlyAM: monthlyAM, khongKhop };
   }
 
   function monthVolumes(cached) {
@@ -149,27 +151,40 @@
     return t;
   }
 
-  // adjustments: [{ id, maNV1, maNV2, dateFrom, dateTo }] (ngày dạng YYYY-MM-DD)
+  // adjustments: [{ id, maNV1, maNV2, dateFrom, dateTo, buoi? }] (ngày dạng YYYY-MM-DD;
+  // buoi: không có = cả ngày, 'sang' = chỉ chia lượt quét trước 12:00, 'chieu' = chỉ chia lượt từ 12:00).
+  // Chia theo buổi cần cached.rawMonthlyAM (file nạp từ 10/11/2026) — quý nạp trước đó phải nạp lại file;
+  // chưa nạp lại thì điều chỉnh theo buổi bị bỏ qua và liệt kê trong skippedAdj.
+  const zeros = () => new Array(32).fill(0);
   function computeResult(cached, quarterKey, adjustments, rules) {
     rules = rules || RULES;
     const months = quarterMonths(quarterKey);
-    const monthly = {};
+    const hasBuoi = !!cached.rawMonthlyAM;
+    const monthly = {}, am = {};
     months.forEach(mk => {
-      monthly[mk] = {};
-      const src = cached.rawMonthly[mk] || {};
-      Object.keys(src).forEach(u => { monthly[mk][u] = [...src[u]]; });
+      monthly[mk] = {}; am[mk] = {};
+      const src = cached.rawMonthly[mk] || {}, srcAM = (cached.rawMonthlyAM || {})[mk] || {};
+      Object.keys(src).forEach(u => { monthly[mk][u] = [...src[u]]; am[mk][u] = srcAM[u] ? [...srcAM[u]] : zeros(); });
     });
+    const skippedAdj = [];
     (adjustments || []).forEach(adj => {
+      if (adj.buoi && !hasBuoi) { skippedAdj.push(adj.id); return; }
       months.forEach(mk => {
         const [y, m] = mk.split('-').map(Number);
-        const by = monthly[mk];
-        if (!by[adj.maNV1]) by[adj.maNV1] = new Array(32).fill(0);
-        if (!by[adj.maNV2]) by[adj.maNV2] = new Array(32).fill(0);
+        const by = monthly[mk], A = am[mk], u1 = adj.maNV1, u2 = adj.maNV2;
+        [u1, u2].forEach(u => { if (!by[u]) by[u] = zeros(); if (!A[u]) A[u] = zeros(); });
         for (let d = 1; d <= 31; d++) {
           const k = `${y}-${pad2(m)}-${pad2(d)}`;
-          if (k >= adj.dateFrom && k <= adj.dateTo) {
-            const half = ((by[adj.maNV1][d] || 0) + (by[adj.maNV2][d] || 0)) / 2;
-            by[adj.maNV1][d] = half; by[adj.maNV2][d] = half;
+          if (k < adj.dateFrom || k > adj.dateTo) continue;
+          const t1 = by[u1][d] || 0, t2 = by[u2][d] || 0, a1 = A[u1][d] || 0, a2 = A[u2][d] || 0;
+          if (adj.buoi === 'sang') {
+            const h = (a1 + a2) / 2;
+            by[u1][d] = t1 - a1 + h; by[u2][d] = t2 - a2 + h; A[u1][d] = A[u2][d] = h;
+          } else if (adj.buoi === 'chieu') {
+            const h = ((t1 - a1) + (t2 - a2)) / 2;
+            by[u1][d] = a1 + h; by[u2][d] = a2 + h;
+          } else {
+            by[u1][d] = by[u2][d] = (t1 + t2) / 2; A[u1][d] = A[u2][d] = (a1 + a2) / 2;
           }
         }
       });
@@ -185,7 +200,7 @@
       return { ...emp, monthlyDetail, thuong: tongQuy / months.length };
     });
     return { fileName: cached.fileName, soDongTho: cached.soDongTho, employees: cached.employees,
-      payrollFiltered: !!roster, months, quarterKey, adjustments: adjustments || [], perEmployee, rules };
+      payrollFiltered: !!roster, months, quarterKey, adjustments: adjustments || [], perEmployee, rules, hasBuoi, skippedAdj };
   }
 
   root.KhoEngine = { RULES, processWorkbookData, monthVolumes, suggestQuarter, quartersOf, quarterMonths,
