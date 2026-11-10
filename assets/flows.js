@@ -13,6 +13,7 @@ window.KVH_ICONS = {
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   calendar: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M8 13h2M14 13h2M8 17h2"/>',
   doc: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/>',
+  bag: '<path d="M5 8h14l-1.2 12.1a1 1 0 0 1-1 .9H7.2a1 1 0 0 1-1-.9z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
 };
 
 window.KVH_MENU = [
@@ -53,6 +54,17 @@ window.KVH_MENU = [
       { ten: 'Đóng cặp', href: 'thuong-kho/#dong-cap' },
       { ten: 'Nạp file quý', href: 'thuong-kho/#nap-du-lieu' },
       { ten: 'Ghi chú & quy tắc', href: 'thuong-kho/#huong-dan' },
+    ],
+  },
+  {
+    ten: 'Thưởng sàn HCM', icon: 'bag', trangThai: 'Theo quý',
+    moTa: 'Thưởng đóng hàng sàn: cộng Bốc + Đóng hàng mỗi ngày, vượt 80 lượt được 2.000đ/lượt; thưởng quý = trung bình 3 tháng.',
+    muc: [
+      { ten: 'Thưởng quý', href: 'thuong-san/#thuong-quy' },
+      { ten: 'Theo tháng', href: 'thuong-san/#theo-thang' },
+      { ten: 'Đóng cặp', href: 'thuong-san/#dong-cap' },
+      { ten: 'Nạp file quý', href: 'thuong-san/#nap-du-lieu' },
+      { ten: 'Ghi chú & quy tắc', href: 'thuong-san/#huong-dan' },
     ],
   },
   {

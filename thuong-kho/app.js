@@ -9,8 +9,19 @@
   const E = window.KhoEngine;
   const OWNER = root.dataset.owner, REPO = root.dataset.repo, DIR = root.dataset.dir;
   const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
-  const LS_KEY = 'kvh-thuongkho-v1', LS_SEL = 'kvh-thuongkho-sel', TOKEN_KEY = 'kvh-gh-token';
-  const VER = '20261110a';
+  // Cấu hình theo trang (data-* trên #tk) — dùng chung code cho Thưởng kho và Thưởng sàn.
+  // Không khai báo gì = Thưởng kho như cũ.
+  const CFG = root.dataset;
+  const LS_BASE = CFG.ls || 'kvh-thuongkho';
+  const LS_KEY = `${LS_BASE}-v1`, LS_SEL = `${LS_BASE}-sel`, TOKEN_KEY = 'kvh-gh-token';
+  const IS_KHO = CFG.kho !== '0';             // dữ liệu mặc định riêng của kho (chị Thoa, đóng cặp T6/2026)
+  const NGUON = CFG.nguon ? CFG.nguon.split(',') : ['tao', 'boc', 'dong'];
+  const NGUON_TEN = NGUON.map(n => ({ tao: 'Tạo kiện', boc: 'Bốc hàng', dong: 'Đóng hàng' }[n])).join(' + ');
+  const ROSTER = CFG.roster ? CFG.roster.split(',') : ['THƯỞNG'];
+  const RULES = { nguong: Number(CFG.nguong) || E.RULES.nguong, donGia: Number(CFG.dongia) || E.RULES.donGia };
+  const BASE = CFG.base || '';                // thư mục chứa worker.js/engine.js
+  const FILE_PREFIX = CFG.file || 'ThuongKho';
+  const VER = '20261110c';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = n => Math.round(n || 0).toLocaleString('vi-VN') + 'đ';
@@ -19,7 +30,7 @@
   const msg = (el, html, ok) => { el.innerHTML = html ? `<div class="${ok ? 'tk-okmsg' : 'tk-err'}">${html}</div>` : ''; };
 
   // Người đóng cặp ngoài danh sách thưởng (theo ghi chú file gốc: Thoa đóng cùng vẫn chia 2).
-  const DEFAULT_EXTRA_HELPERS = [{ maNV: '__extra_thoa__', hoTen: 'Thoa (ngoài DS thưởng)' }];
+  const DEFAULT_EXTRA_HELPERS = IS_KHO ? [{ maNV: '__extra_thoa__', hoTen: 'Thoa (ngoài DS thưởng)' }] : [];
   // Đóng cặp tháng 6/2026 tổng hợp từ ghi chú tay trong "bảng mã nv" (đã xác nhận với người dùng).
   const DEFAULT_PAIRINGS = [
     ['Nguyễn Thị Hoàng Anh', 'Phạm Thị Kiều Mi', '2026-06-01', '2026-06-06'],
@@ -87,7 +98,7 @@
     saveTimers[q] = setTimeout(async () => {
       if (!archive[q]) return;
       try {
-        const body = { message: `Thuong kho ${q} (tu web)`, content: b64enc(JSON.stringify(archive[q])), branch: 'main' };
+        const body = { message: `${DIR} ${q} (tu web)`, content: b64enc(JSON.stringify(archive[q])), branch: 'main' };
         if (repoSha[q]) body.sha = repoSha[q];
         const r = await gh(`/contents/${DIR}/${q}.json`, { method: 'PUT', body: JSON.stringify(body) });
         repoSha[q] = r.content.sha;
@@ -108,7 +119,7 @@
   const TABS = ['thuong-quy', 'theo-thang', 'dong-cap'];
   const tab = () => TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'thuong-quy';
 
-  function recompute() { const q = current(); result = q ? E.computeResult(archive[q].cached, q, archive[q].adjustments || []) : null; }
+  function recompute() { const q = current(); result = q ? E.computeResult(archive[q].cached, q, archive[q].adjustments || [], RULES) : null; }
   function helpers() {
     const q = current(); const custom = (q && archive[q].extraHelpers) || [];
     const out = [...DEFAULT_EXTRA_HELPERS];
@@ -139,7 +150,7 @@
     $('tkChips').innerHTML = quarters().map(q => `<button type="button" class="b sm${q === result.quarterKey ? ' pri' : ''}" data-q="${q}">${E.quarterLabel(q)}</button>`).join('');
     $('tkBanner').innerHTML = `✓ <b>${esc(result.fileName)}</b> — ${result.soDongTho.toLocaleString('vi-VN')} dòng thô · Đang xem <b>${E.quarterLabel(result.quarterKey)}</b>`
       + (result.adjustments.length ? ` · ${result.adjustments.length} điều chỉnh đóng cặp` : '')
-      + (result.payrollFiltered ? ` · Đã lọc theo sheet "THƯỞNG" (${result.perEmployee.length}/${result.employees.length} nhân viên)` : '');
+      + (result.payrollFiltered ? ` · Đã lọc theo sheet "${esc(result.rosterSheet)}" (${result.perEmployee.length}/${result.employees.length} nhân viên)` : '');
     $('tkSync').textContent = syncMsg;
   }
   function renderStats() {
@@ -268,7 +279,7 @@
     msg($('adjMsg'), 'Đã lưu thay đổi — thưởng đã được tính lại.', true);
     setTimeout(() => msg($('adjMsg'), ''), 5000);
   }
-  document.querySelectorAll('[data-rule]').forEach(el => { el.textContent = E.RULES[el.dataset.rule].toLocaleString('vi-VN'); });
+  document.querySelectorAll('[data-rule]').forEach(el => { el.textContent = RULES[el.dataset.rule].toLocaleString('vi-VN'); });
   window.addEventListener('hashchange', () => {
     if (location.hash === '#nap-du-lieu') { uploadOpen = true; renderTop(); $('tkUpload').scrollIntoView({ behavior: 'smooth' }); return; }
     if (location.hash === '#huong-dan') { renderTop(); $('huong-dan').scrollIntoView({ behavior: 'smooth' }); return; }
@@ -300,7 +311,7 @@
     const q = current(); if (!q) return;
     if (!confirm(`Xoá toàn bộ dữ liệu ${E.quarterLabel(q)} (cả khai báo đóng cặp)${token ? ' trên máy này và trên hệ thống' : ''}?`)) return;
     delete archive[q]; if (sel === q) sel = ''; persistLocal();
-    if (token && repoSha[q]) gh(`/contents/${DIR}/${q}.json`, { method: 'DELETE', body: JSON.stringify({ message: `Xoa thuong kho ${q} (tu web)`, sha: repoSha[q], branch: 'main' }) }).then(() => { delete repoSha[q]; }).catch(() => {});
+    if (token && repoSha[q]) gh(`/contents/${DIR}/${q}.json`, { method: 'DELETE', body: JSON.stringify({ message: `Xoa ${DIR} ${q} (tu web)`, sha: repoSha[q], branch: 'main' }) }).then(() => { delete repoSha[q]; }).catch(() => {});
     renderAll();
   });
 
@@ -310,17 +321,17 @@
     msg($('tkUpMsg'), '');
     $('tkZoneTitle').textContent = 'Đang xử lý... (file lớn, có thể mất khoảng 20–60 giây)';
     $('tkZoneSub').textContent = file.name;
-    const reset = () => { $('tkZoneTitle').textContent = 'Tải file Excel thưởng kho theo quý (.xlsx)'; $('tkZoneSub').innerHTML = 'File cần đúng 2 sheet: <b>Bảng check kiện hàng</b>, <b>bảng mã nv</b>. Nếu file có thêm sheet <b>THƯỞNG</b>, trang sẽ lấy đúng danh sách Mã NV trong đó để lọc kết quả.'; };
+    const reset = () => { $('tkZoneTitle').textContent = ZONE_TITLE; $('tkZoneSub').innerHTML = ZONE_SUB; };
     const reader = new FileReader();
     reader.onload = ev => {
-      const w = new Worker(`worker.js?v=${VER}`);
+      const w = new Worker(`${BASE}worker.js?v=${VER}`);
       w.onmessage = m => {
         if (m.data.step) { $('tkZoneTitle').textContent = m.data.step; return; }
         w.terminate(); reset();
         if (!m.data.ok) { msg($('tkUpMsg'), esc(m.data.error)); return; }
         pending = m.data.cached;
         const vols = E.monthVolumes(pending);
-        $('tkPendingInfo').innerHTML = `Đã đọc <b>${pending.soDongTho.toLocaleString('vi-VN')}</b> dòng thô, <b>${pending.employees.length}</b> nhân viên${pending.payrollMaNV ? ` (sheet THƯỞNG: ${pending.payrollMaNV.length} NV)` : ''}. Số lượt bốc/đóng hàng theo từng tháng tìm thấy trong file (có thể lẫn vài ngày đầu/cuối quý kề bên):`;
+        $('tkPendingInfo').innerHTML = `Đã đọc <b>${pending.soDongTho.toLocaleString('vi-VN')}</b> dòng thô, <b>${pending.employees.length}</b> nhân viên${pending.payrollMaNV ? ` (sheet ${esc(pending.rosterSheet || 'THƯỞNG')}: ${pending.payrollMaNV.length} NV)` : ''}. Số lượt bốc/đóng hàng theo từng tháng tìm thấy trong file (có thể lẫn vài ngày đầu/cuối quý kề bên):`;
         $('tkVols').innerHTML = vols.map(v => `<tr><td>${E.monthLabel(v.monthKey)}/${v.monthKey.split('-')[0]}</td><td class="r">${num(v.total)}</td></tr>`).join('');
         const kk = (pending.khongKhop || []).filter(([n]) => n);
         $('tkUnmatched').innerHTML = kk.length ? `<details style="font-size:12px;margin-bottom:8px"><summary style="cursor:pointer;color:#1a56db">${kk.length} tên / username trong dữ liệu không khớp "bảng mã nv" (không được tính) — bấm để soát</summary><div class="muted" style="margin:6px 0">Thường là người ngoài danh sách thưởng. Nếu thấy nhân viên của mình ở đây, thêm dòng vào "bảng mã nv" (cột B ghi đúng như dữ liệu) rồi nạp lại.</div><ol style="margin:0;padding-left:20px">${kk.map(([n, c]) => `<li>${esc(n)} — ${c.toLocaleString('vi-VN')} lượt</li>`).join('')}</ol></details>` : '';
@@ -329,10 +340,11 @@
         renderTop();
       };
       w.onerror = err => { w.terminate(); reset(); msg($('tkUpMsg'), 'Lỗi đọc file: ' + esc(err.message || '')); };
-      w.postMessage({ buf: ev.target.result, fileName: file.name }, [ev.target.result]);
+      w.postMessage({ buf: ev.target.result, fileName: file.name, opts: { nguon: NGUON, roster: ROSTER } }, [ev.target.result]);
     };
     reader.readAsArrayBuffer(file);
   }
+  const ZONE_TITLE = $('tkZoneTitle').textContent, ZONE_SUB = $('tkZoneSub').innerHTML; // chữ gốc của trang
   const zone = $('tkZone'), fi = $('tkFile');
   zone.addEventListener('click', () => fi.click());
   zone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fi.click(); } });
@@ -363,6 +375,7 @@
     archive[q].adjustments = [...(archive[q].adjustments || []), { id: Date.now(), maNV1: a1, maNV2: a2, dateFrom: f, dateTo: t, ...(b ? { buoi: b } : {}) }];
     touch(q); msg($('adjMsg'), ''); cAdj1.set(''); cAdj2.set(''); ['adjFrom', 'adjTo', 'adjBuoi'].forEach(id => { $(id).value = ''; }); renderAll();
   });
+  $('adjImport').closest('.tk-row').hidden = !IS_KHO; // danh sách T6/2026 chỉ dành cho kho
   $('adjImport').addEventListener('click', () => {
     const q = current(); if (!q || !result) return;
     const byName = new Map(result.employees.map(e => [e.hoTen, e.maNV]));
@@ -787,7 +800,7 @@
     result.months.forEach((mk, mi) => {
       const header = ['Mã NV', 'Họ và tên', ...Array.from({ length: 31 }, (_, i) => i + 1), 'Tổng', 'Thành tiền'];
       const body = result.perEmployee.map(e => { const m = e.monthlyDetail[mi]; return [e.maNV, e.hoTen, ...m.counts32.slice(1, 32), m.soKien, m.tongTien]; });
-      const aoa = [[`Tổng số lượt (Tạo kiện + Bốc hàng + Đóng hàng) theo Mã NV - ${E.monthLabel(mk)}`], [], header, ...body];
+      const aoa = [[`Tổng số lượt (${NGUON_TEN}) theo Mã NV - ${E.monthLabel(mk)}`], [], header, ...body];
       const ws = XLSX.utils.aoa_to_sheet(aoa);
       ws['!cols'] = width([header, ...body]);
       ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } }];
@@ -797,7 +810,7 @@
       ['Tổng cộng', null, Math.round(result.perEmployee.reduce((s, e) => s + e.thuong, 0)), null]];
     const wsT = XLSX.utils.aoa_to_sheet(th); wsT['!cols'] = width(th);
     XLSX.utils.book_append_sheet(wb, wsT, 'THƯỞNG');
-    XLSX.writeFile(wb, `ThuongKho_${result.quarterKey}.xlsx`);
+    XLSX.writeFile(wb, `${FILE_PREFIX}_${result.quarterKey}.xlsx`);
   });
 
   if (location.hash === '#nap-du-lieu') uploadOpen = true;

@@ -55,6 +55,7 @@
       if (!r) continue;
       const maNV = norm(r[0]), maHT = norm(r[1]), hoTen = norm(r[3]);
       if (!maNV || !hoTen) continue;
+      if (/^mã\s*(nv|nhân viên)$/.test(key(maNV)) || /^họ\s*(và\s*)?tên$/.test(key(hoTen))) continue; // dòng tiêu đề
       if (!byMa.has(maNV)) { const e = { maNV, hoTen, ghiChu: '' }; byMa.set(maNV, e); list.push(e); }
       if (maHT) creditKeys.set(key(maHT), maNV);
       if (!nameKeys.has(key(hoTen))) nameKeys.set(key(hoTen), maNV);
@@ -74,14 +75,31 @@
     return out.length ? { out, notes } : null;
   }
 
+  // Sheet dữ liệu thô: đúng tên "Bảng check kiện hàng", nếu không có thì sheet đầu tiên có cột Đóng hàng + TG Đóng hàng.
+  function findRawSheet(XLSX, wb) {
+    const ws = findSheet(wb, SHEET_RAW);
+    if (ws) return ws;
+    for (const n of wb.SheetNames) {
+      const head = (XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, range: 0, defval: null })[0] || []).map(norm);
+      if (head.includes('Đóng hàng') && head.includes('TG Đóng hàng')) return wb.Sheets[n];
+    }
+    return null;
+  }
+
   // Đọc workbook -> dữ liệu gộp theo (tháng, NV, ngày). Chạy trong worker.
-  function processWorkbookData(XLSX, wb, fileName) {
-    const missing = [SHEET_RAW, SHEET_MNV].filter(n => !findSheet(wb, n));
+  // opts.nguon: việc được cộng lượt — 'tao' (Tạo kiện), 'boc' (Bốc hàng), 'dong' (Đóng hàng); mặc định cả 3 (Thưởng kho).
+  // opts.roster: tên sheet danh sách thưởng, thử lần lượt; mặc định ['THƯỞNG'].
+  function processWorkbookData(XLSX, wb, fileName, opts) {
+    opts = opts || {};
+    const nguon = new Set(opts.nguon && opts.nguon.length ? opts.nguon : ['tao', 'boc', 'dong']);
+    const rawWs = findRawSheet(XLSX, wb);
+    const missing = [!rawWs && SHEET_RAW, !findSheet(wb, SHEET_MNV) && SHEET_MNV].filter(Boolean);
     if (missing.length) throw new Error('File thiếu sheet bắt buộc: ' + missing.join(', '));
     const mnv = parseMNV(XLSX, findSheet(wb, SHEET_MNV));
     const employees = mnv.list;
     if (!employees.length) throw new Error('Không đọc được danh sách nhân viên từ sheet "bảng mã nv"');
-    const roster = parseThuongRoster(XLSX, findSheet(wb, SHEET_THUONG));
+    const rosterSheet = (opts.roster && opts.roster.length ? opts.roster : [SHEET_THUONG]).find(n => findSheet(wb, n)) || null;
+    const roster = rosterSheet ? parseThuongRoster(XLSX, findSheet(wb, rosterSheet)) : null;
     const payrollMaNV = roster ? roster.out : null;
     if (roster) employees.forEach(e => { if (roster.notes[e.maNV]) e.ghiChu = roster.notes[e.maNV]; });
     // Tạo kiện: username; Bốc/Đóng hàng: "Họ tên (SĐT)" nguyên chuỗi, nếu không có thì theo Họ tên.
@@ -94,7 +112,7 @@
       return m;
     };
 
-    const rows = XLSX.utils.sheet_to_json(findSheet(wb, SHEET_RAW), { defval: null, raw: true });
+    const rows = XLSX.utils.sheet_to_json(rawWs, { defval: null, raw: true });
     const monthly = {}, monthlyAM = {}; // monthlyAM: riêng lượt buổi sáng, để đóng cặp theo buổi
     function credit(maNV, serial) {
       if (!maNV || typeof serial !== 'number') return;
@@ -107,15 +125,15 @@
       if (serial - Math.floor(serial) < 0.5) monthlyAM[mk][maNV][d.day]++; // quét trước 12:00 = buổi sáng
     }
     rows.forEach(r => {
-      credit(byUser(r['Người tạo kiện']), r['Ngày tạo kiện']);
-      credit(byCredit(r['Bốc hàng']), r['TG Bốc hàng']);
-      credit(byCredit(r['Đóng hàng']), r['TG Đóng hàng']);
+      if (nguon.has('tao')) credit(byUser(r['Người tạo kiện']), r['Ngày tạo kiện']);
+      if (nguon.has('boc')) credit(byCredit(r['Bốc hàng']), r['TG Bốc hàng']);
+      if (nguon.has('dong')) credit(byCredit(r['Đóng hàng']), r['TG Đóng hàng']);
     });
     const allMonths = Object.keys(monthly).sort();
     if (!allMonths.length) throw new Error('Không có dòng dữ liệu nào khớp với danh sách NV trong sheet "bảng mã nv"');
     // Tên/username không khớp ai trong "bảng mã nv" (người ngoài DS thưởng, adminIT…) — để người dùng soát
     const khongKhop = [...unmatched.entries()].sort((a, b) => b[1] - a[1]).slice(0, 40);
-    return { fileName, payrollMaNV, soDongTho: rows.length, employees, allMonths, rawMonthly: monthly, rawMonthlyAM: monthlyAM, khongKhop };
+    return { fileName, payrollMaNV, rosterSheet: roster ? rosterSheet : null, nguon: [...nguon], soDongTho: rows.length, employees, allMonths, rawMonthly: monthly, rawMonthlyAM: monthlyAM, khongKhop };
   }
 
   function monthVolumes(cached) {
@@ -200,7 +218,7 @@
       return { ...emp, monthlyDetail, thuong: tongQuy / months.length };
     });
     return { fileName: cached.fileName, soDongTho: cached.soDongTho, employees: cached.employees,
-      payrollFiltered: !!roster, months, quarterKey, adjustments: adjustments || [], perEmployee, rules, hasBuoi, skippedAdj };
+      payrollFiltered: !!roster, rosterSheet: cached.rosterSheet || 'THƯỞNG', months, quarterKey, adjustments: adjustments || [], perEmployee, rules, hasBuoi, skippedAdj };
   }
 
   root.KhoEngine = { RULES, processWorkbookData, monthVolumes, suggestQuarter, quartersOf, quarterMonths,
