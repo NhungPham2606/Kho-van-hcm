@@ -68,6 +68,18 @@ window.KVH_MENU = [
     ],
   },
   {
+    ten: 'Thưởng quý GH', icon: 'truck', trangThai: 'Theo quý',
+    moTa: 'Thưởng giao hàng theo quý: thả 3 file (check kiện giao hàng, bảng check kiện hàng, đơn ngoài giờ) → thưởng đơn hàng (trên 8 đơn/ngày × 10.000đ) và thưởng theo KM (trên 40 km/ngày × 1.000đ).',
+    muc: [
+      { ten: 'Thưởng quý', href: 'thuong-gh/#thuong-quy' },
+      { ten: 'Thưởng đơn hàng', href: 'thuong-gh/#thuong-don' },
+      { ten: 'Thưởng theo KM', href: 'thuong-gh/#thuong-km' },
+      { ten: 'Chi tiết theo ngày', href: 'thuong-gh/#chi-tiet' },
+      { ten: 'Nạp file quý', href: 'thuong-gh/#nap-du-lieu' },
+      { ten: 'Quy tắc', href: 'thuong-gh/#huong-dan' },
+    ],
+  },
+  {
     ten: 'Tổng Hợp KPIs', icon: 'chart', trangThai: 'Hằng tháng',
     moTa: 'Tổng hợp điểm KPIs từng nhân viên (file Excel Kho, PDF Kế toán), điểm trừ, xếp loại, mức thưởng; xuất Excel theo mẫu VP.HCM.',
     muc: [
