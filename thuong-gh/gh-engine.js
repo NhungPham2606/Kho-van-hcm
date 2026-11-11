@@ -65,6 +65,30 @@
     });
   }
 
+  // Danh sách nhân viên được tính thưởng quý (file người dùng thả vào ô 4 hoặc tab Danh sách):
+  // bảng có cột Họ và tên / Họ tên / Tên nhân viên / Nhân viên / Người giao hàng (+ Mã NV nếu có),
+  // hoặc kiểu sheet "mã nv" của file quý 2 (cột A mã, cột B tên, không có tiêu đề).
+  function collectRoster(XLSX, wb, list) {
+    const seen = new Set(list.map(p => key(p.hoTen)));
+    let n = 0;
+    const push = (ma, ten) => {
+      ten = norm(ten);
+      if (!ten || /^(tong|total|stt)\b/.test(fold(ten)) || seen.has(key(ten))) return;
+      seen.add(key(ten)); list.push({ maNV: /^\d{3,}$/.test(norm(ma)) ? norm(ma) : '', hoTen: ten }); n++;
+    };
+    wb.SheetNames.forEach(s => {
+      const aoa = sheetAoa(XLSX, wb.Sheets[s]);
+      const h = findHeader(aoa, [['ho va ten', 'ho ten', 'ten nhan vien', 'nhan vien', 'nguoi giao hang', 'nguoi giao hang']]);
+      if (h) {
+        const ct = col(h.idx, 'ho va ten', 'ho ten', 'ten nhan vien', 'nhan vien', 'nguoi giao hang'), cm = col(h.idx, 'ma nhan vien', 'ma nv');
+        for (let r = h.r + 1; r < aoa.length; r++) { const row = aoa[r] || []; if (row[ct] != null && isNaN(Number(row[ct]))) push(cm >= 0 ? row[cm] : '', row[ct]); }
+      } else {
+        aoa.forEach(r => { if (r && /^\d{3,}$/.test(norm(r[0])) && r[1] != null && isNaN(Number(r[1]))) push(r[0], r[1]); });
+      }
+    });
+    return n;
+  }
+
   const GIAO_NEED = [['nguoi giao hang'], 'thoi gian tra check', 'quang duong', 'ma kien hang'];
   // 1) File giao hàng: sheet có đủ cột, lấy sheet nhiều dòng nhất.
   function parseGiaoHang(XLSX, wb) {
@@ -130,7 +154,7 @@
 
   // Đọc từng file một (worker đọc xong file nào bỏ workbook đó ngay cho nhẹ máy), rồi finish().
   function newAcc() {
-    return { giao: [], giaoSheets: [], kienMap: {}, kienCount: 0, ng: new Set(), names: {}, files: { giao: [], kien: [], ngoai: [] }, warnings: [], giaoFiles: 0 };
+    return { giao: [], giaoSheets: [], kienMap: {}, kienCount: 0, ng: new Set(), names: {}, roster: [], files: { giao: [], kien: [], ngoai: [], ds: [] }, warnings: [], giaoFiles: 0 };
   }
   function parseOne(XLSX, slot, name, wb, acc) {
     if (slot === 'giao') {
@@ -147,6 +171,10 @@
       const n = parseKien(XLSX, wb, acc.kienMap);
       if (!n) acc.warnings.push(`"${name}": không thấy cột Mã kiện hàng + Đối tác vận chuyển`);
       acc.kienCount += n;
+    } else if (slot === 'ds') {
+      acc.files.ds.push(name);
+      if (!collectRoster(XLSX, wb, acc.roster)) acc.warnings.push(`"${name}": không thấy danh sách nhân viên (cần cột Họ và tên, hoặc kiểu sheet "mã nv")`);
+      collectNames(XLSX, wb, acc.names);
     } else {
       acc.files.ngoai.push(name);
       const n = parseNgoaiGio(XLSX, wb, acc.ng);
@@ -168,10 +196,24 @@
   // Đọc cả 3 nhóm file (mỗi phần tử: { name, wb }) — dùng khi kiểm tra bằng Node.
   function parseFiles(XLSX, groups) {
     const acc = newAcc();
-    ['giao', 'kien', 'ngoai'].forEach(s => (groups[s] || []).forEach(f => parseOne(XLSX, s, f.name, f.wb, acc)));
+    ['giao', 'kien', 'ngoai', 'ds'].forEach(s => (groups[s] || []).forEach(f => parseOne(XLSX, s, f.name, f.wb, acc)));
     return finish(acc);
   }
 
+  // Đánh dấu người có trong danh sách tính thưởng (theo tên hoặc Mã NV); người trong danh sách mà không có
+  // dòng giao hàng nào trong quý vẫn được thêm (thưởng 0). Không có danh sách = tất cả đều tính.
+  function markRoster(nhanVien, roster) {
+    if (!roster.length) { nhanVien.forEach(p => { p.trongDS = true; }); return; }
+    const byKey = {}, byMa = {};
+    roster.forEach(r => { byKey[key(r.hoTen)] = r; if (r.maNV) byMa[r.maNV] = r; });
+    const used = new Set();
+    nhanVien.forEach(p => {
+      const r = byKey[key(p.nv)] || (p.maNV && byMa[p.maNV]);
+      p.trongDS = !!r;
+      if (r) { used.add(r); if (!p.maNV && r.maNV) p.maNV = r.maNV; }
+    });
+    roster.forEach(r => { if (!used.has(r)) nhanVien.push({ nv: r.hoTen, maNV: r.maNV, ngayLam: 0, don: 0, km: 0, thuongDon: 0, thuongKm: 0, tong: 0, thang: {}, trongDS: true }); });
+  }
   function quarterMonths(q) { const [y, n] = q.split('-Q').map(Number); const s = (n - 1) * 3 + 1; return [s, s + 1, s + 2].map(m => `${y}-${pad2(m)}`); }
   const quarterLabel = q => { const [y, n] = q.split('-Q'); return `Quý ${n}/${y}`; };
   const monthLabel = mk => `Tháng ${Number(mk.split('-')[1])}`;
@@ -244,10 +286,12 @@
     });
     const nhanVien = Object.values(per).map(p => Object.assign(p, { tong: p.thuongDon + p.thuongKm }))
       .sort((a, b) => b.tong - a.tong || key(a.nv).localeCompare(key(b.nv)));
+    markRoster(nhanVien, parsed.roster || []);
     if (rules.debug) return { rows, days: list, nhanVien, stats: st };
     return { quarterKey: q, months: qm, rules, stats: st, days: list, nhanVien,
-      files: parsed.files, giaoSheets: parsed.giaoSheets, ngoaiGioCount: parsed.ngoaiGio.length, kienCount: parsed.kienCount };
+      files: parsed.files, giaoSheets: parsed.giaoSheets, ngoaiGioCount: parsed.ngoaiGio.length, kienCount: parsed.kienCount,
+      coDS: (parsed.roster || []).length > 0 };
   }
 
-  root.GhEngine = { RULES, newAcc, parseOne, finish, parseFiles, compute, monthCounts, suggestQuarter, quarterMonths, quarterLabel, monthLabel, splitCodes, baseCode, pad2 };
+  root.GhEngine = { RULES, key, collectRoster, markRoster, newAcc, parseOne, finish, parseFiles, compute, monthCounts, suggestQuarter, quarterMonths, quarterLabel, monthLabel, splitCodes, baseCode, pad2 };
 })(typeof self !== 'undefined' ? self : (typeof window !== 'undefined' ? window : globalThis));

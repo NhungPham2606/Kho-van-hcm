@@ -75,6 +75,7 @@ window.KVH_MENU = [
       { ten: 'Thưởng đơn hàng', href: 'thuong-gh/#thuong-don' },
       { ten: 'Thưởng theo KM', href: 'thuong-gh/#thuong-km' },
       { ten: 'Chi tiết theo ngày', href: 'thuong-gh/#chi-tiet' },
+      { ten: 'Danh sách tính thưởng', href: 'thuong-gh/#danh-sach' },
       { ten: 'Nạp file quý', href: 'thuong-gh/#nap-du-lieu' },
       { ten: 'Quy tắc', href: 'thuong-gh/#huong-dan' },
     ],

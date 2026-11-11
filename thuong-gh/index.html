@@ -113,7 +113,11 @@
   @media (max-width: 900px) { .tk .tw { max-height: none; } }
   @media (max-width: 700px) { .tk .tk-quick-grid { grid-template-columns: 1fr; } }
   /* Thưởng quý GH: 3 ô thả file */
-  .tk .gh-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .tk .gh-slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .tk .gh-slot .opt { font-size: 10.5px; font-weight: 600; color: #6b7280; background: #f3f4f6; border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
+  .tk table.dt tr.off td { color: #9ca3af; }
+  .tk table.dt td.ck { width: 34px; text-align: center; }
+  @media (max-width: 1200px) { .tk .gh-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .tk .gh-slot { padding: 18px 14px; text-align: left; }
   .tk .gh-slot h4 { font-size: 13px; }
   .tk .gh-slot p { font-size: 11.5px; margin: 0 0 8px; max-width: none; }
@@ -177,6 +181,11 @@
                 <p>Bảng chấm giao hàng ngoài giờ (HCM, Cần Thơ / Tây Nguyên / KH…) hoặc danh sách đơn ngoài giờ tự ghép. Chọn được nhiều file.</p>
                 <div class="gh-files" data-files="ngoai"></div>
               </div>
+              <div class="tk-zone gh-slot" data-slot="ds" tabindex="0" role="button" aria-label="Chọn file danh sách nhân viên được tính thưởng">
+                <h4>4. Danh sách NV tính thưởng <span class="opt">không bắt buộc</span></h4>
+                <p>File có cột Mã NV + Họ và tên (như sheet "mã nv" của file quý 2). Bỏ trống = tính tất cả; sau khi tính vẫn tick chọn lại được ở tab <b>Danh sách tính thưởng</b>.</p>
+                <div class="gh-files" data-files="ds"></div>
+              </div>
             </div>
             <input type="file" id="ghFile" accept=".xlsx,.xls" multiple hidden>
             <div class="tk-row" style="margin-top:12px">
@@ -216,6 +225,7 @@
                 <a class="b sm" href="#thuong-don" data-tab="thuong-don">Thưởng đơn hàng</a>
                 <a class="b sm" href="#thuong-km" data-tab="thuong-km">Thưởng theo KM</a>
                 <a class="b sm" href="#chi-tiet" data-tab="chi-tiet">Chi tiết theo ngày</a>
+                <a class="b sm" href="#danh-sach" data-tab="danh-sach">Danh sách tính thưởng</a>
                 <a class="b sm" href="#loc-du-lieu" data-tab="loc-du-lieu">Dữ liệu đã lọc</a>
               </div>
               <div class="tk-search" id="ghSearchBox">
@@ -229,6 +239,19 @@
             <div data-pane="chi-tiet" hidden>
               <div class="tk-row" style="padding:10px 16px 0;gap:12px"><span class="tk-row" id="ctMonths"></span><label class="tk-row muted" style="font-size:12px"><input type="checkbox" id="ctOnly"> Chỉ ngày có thưởng</label></div>
               <div class="tw" style="margin-top:10px"><table class="dt"><thead><tr><th>Nhân viên</th><th>Ngày</th><th class="r">Đơn/ngày</th><th class="r">KM/ngày</th><th class="r">Thưởng đơn (ngày)</th><th class="r">Thưởng KM (ngày)</th><th class="r" title="Số dòng bị coi là trùng đơn / trùng điểm giao trong ngày">Trùng đơn / điểm</th></tr></thead><tbody id="ctBody"></tbody></table></div>
+            </div>
+            <div data-pane="danh-sach" hidden>
+              <div class="tk-card-body" style="padding-bottom:0">
+                <div class="tk-row" style="gap:8px;margin-bottom:8px">
+                  <button class="b sm pri" type="button" id="dsLoad">Nạp file danh sách NV…</button>
+                  <button class="b sm" type="button" id="dsAll">Chọn tất cả</button>
+                  <button class="b sm" type="button" id="dsNone">Bỏ chọn hết</button>
+                  <span class="muted" id="dsInfo"></span>
+                </div>
+                <input type="file" id="dsFile" accept=".xlsx,.xls" hidden>
+                <div id="dsMsg"></div>
+              </div>
+              <div class="tw"><table class="dt"><thead><tr><th class="ck">Tính</th><th>Mã NV</th><th style="min-width:160px">Họ và tên</th><th class="r">Số ngày giao</th><th class="r">Thưởng đơn hàng</th><th class="r">Thưởng theo KM</th><th class="r">Tổng thưởng</th><th>Ghi chú</th></tr></thead><tbody id="dsBody"></tbody></table></div>
             </div>
             <div data-pane="loc-du-lieu" hidden><div class="tk-card-body" id="locBody"></div></div>
             <div class="tk-foot" id="ghFoot"></div>
@@ -245,6 +268,7 @@
             <div>• <b>Thưởng đơn hàng mỗi ngày</b> = (số đơn − <span data-rule="donNguong"></span>) × <span data-rule="donGia"></span>đ, chỉ tính khi trên <span data-rule="donNguong"></span> đơn/ngày.</div>
             <div>• <b>Thưởng theo KM mỗi ngày</b> = (số km − <span data-rule="kmNguong"></span>) × <span data-rule="kmGia"></span>đ, chỉ tính khi trên <span data-rule="kmNguong"></span> km/ngày.</div>
             <div>• <b>Thưởng quý</b> = cộng dồn các ngày trong quý (không chia trung bình); tổng = thưởng đơn hàng + thưởng theo KM. Mã NV lấy từ sheet "mã nv" hoặc bảng chấm ngoài giờ.</div>
+            <div>• <b>Danh sách tính thưởng</b>: chỉ những nhân viên được chọn (theo file danh sách ở ô 4, hoặc tick ở tab Danh sách tính thưởng) mới vào bảng thưởng, tổng tiền và file Excel; người không chọn vẫn xem được số liệu ở tab đó. Không có danh sách = tính tất cả.</div>
           </div>
         </div>
 
@@ -253,9 +277,9 @@
     <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel được đọc trong trình duyệt; kết quả theo quý lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
   </div>
 </div>
-<script src="../assets/flows.js?v=20261111a"></script>
+<script src="../assets/flows.js?v=20261111b"></script>
 <script src="../assets/layout.js?v=20261010a"></script>
-<script src="gh-engine.js?v=20261111a"></script>
-<script src="app.js?v=20261111a"></script>
+<script src="gh-engine.js?v=20261111b"></script>
+<script src="app.js?v=20261111b"></script>
 </body>
 </html>
