@@ -9,7 +9,7 @@
   const OWNER = root.dataset.owner, REPO = root.dataset.repo, DIR = root.dataset.dir;
   const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
   const LS_KEY = 'kvh-thuonggh-v1', LS_SEL = 'kvh-thuonggh-sel', TOKEN_KEY = 'kvh-gh-token';
-  const VER = '20261111f';
+  const VER = '20261111h';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = n => Math.round(n || 0).toLocaleString('vi-VN') + 'đ';
@@ -393,28 +393,182 @@
     renderAll();
   });
 
-  // ------------------------------------------------------------ xuất Excel
-  $('ghExport').addEventListener('click', () => {
+  // ------------------------------------------------------------ xuất Excel (định dạng sẵn để gửi quản lý — xlsx-js-style)
+  const FONT = 'Times New Roman', NAVY = '0F4573', RED = 'B5232A';
+  const BD = { style: 'thin', color: { rgb: 'A3AEBD' } }, BORDER = { top: BD, bottom: BD, left: BD, right: BD };
+  const XST = {
+    title: { font: { name: FONT, sz: 16, bold: true, color: { rgb: NAVY } }, alignment: { horizontal: 'center', vertical: 'center' } },
+    sub: { font: { name: FONT, sz: 11, italic: true, color: { rgb: '4B5563' } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true } },
+    head: fill => ({ font: { name: FONT, sz: 11, bold: true, color: { rgb: 'FFFFFF' } }, fill: { patternType: 'solid', fgColor: { rgb: fill } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: BORDER }),
+    date: { font: { name: FONT, sz: 12, italic: true }, alignment: { horizontal: 'center' } },
+    sign: { font: { name: FONT, sz: 12, bold: true }, alignment: { horizontal: 'center' } },
+    signNote: { font: { name: FONT, sz: 10, italic: true, color: { rgb: '6B7280' } }, alignment: { horizontal: 'center' } },
+  };
+  // số 0 hiện "–" cho bảng thoáng
+  const XFMT = { money: '#,##0;-#,##0;"–"', int: '#,##0;-#,##0;"–"', km: '#,##0.0;-#,##0.0;"–"' };
+  // Một bảng đẹp: tiêu đề + giải thích + hàng tiêu đề (1 hoặc 2 tầng) + dữ liệu (tô xen kẽ, cột nhấn) + dòng tổng + ngày lập & chỗ ký.
+  // cols: [{ h, t: 'stt'|'ma'|'name'|'text'|'int'|'money'|'km', w, accent }]; groups: [{ label, span, accent }] — span 1 = cột đứng 2 tầng.
+  // muted(rowIndex) = true → chữ xám (người không có thưởng).
+  function bangDep(wb, name, { title, sub, cols, groups, rows, total, muted, kyTen = true }) {
+    const n = cols.length, aoa = [], merges = [], rowsH = [];
+    aoa.push([title]); merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: n - 1 } }); rowsH.push({ hpt: 28 });
+    aoa.push([sub]); merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: n - 1 } }); rowsH.push({ hpt: 34 });
+    aoa.push([]); rowsH.push({ hpt: 6 });
+    const headTop = aoa.length, headFill = [];
+    if (groups) {
+      const top = [], bot = []; let c = 0;
+      groups.forEach(g => {
+        if (g.span === 1) { top.push(cols[c].h); bot.push(null); headFill[c] = cols[c].accent ? RED : NAVY; merges.push({ s: { r: headTop, c }, e: { r: headTop + 1, c } }); c++; }
+        else { top.push(g.label); for (let i = 1; i < g.span; i++) top.push(null); merges.push({ s: { r: headTop, c }, e: { r: headTop, c: c + g.span - 1 } }); for (let i = 0; i < g.span; i++) { bot.push(cols[c + i].h); headFill[c + i] = g.accent ? RED : NAVY; } c += g.span; }
+      });
+      aoa.push(top, bot); rowsH.push({ hpt: 22 }, { hpt: 32 });
+    } else { aoa.push(cols.map(x => x.h)); cols.forEach((x, c) => { headFill[c] = x.accent ? RED : NAVY; }); rowsH.push({ hpt: 40 }); }
+    const headRows = groups ? 2 : 1, first = aoa.length;
+    rows.forEach(row => { aoa.push(row); rowsH.push({ hpt: 21 }); });
+    const totalRow = total ? aoa.length : -1;
+    if (total) { aoa.push(total); rowsH.push({ hpt: 24 }); }
+    const half = Math.ceil(n / 2);
+    let dateRow = -1, signRow = -1;
+    if (kyTen) {
+      const d = new Date();
+      aoa.push([]); rowsH.push({ hpt: 12 });
+      dateRow = aoa.length; const dr = []; dr[half] = `TP. Hồ Chí Minh, ngày ${d.getDate()} tháng ${d.getMonth() + 1} năm ${d.getFullYear()}`; aoa.push(dr); rowsH.push({ hpt: 20 });
+      signRow = aoa.length; const sr = []; sr[0] = 'NGƯỜI LẬP BIỂU'; sr[half] = 'QUẢN LÝ DUYỆT'; aoa.push(sr); rowsH.push({ hpt: 20 });
+      const nr = []; nr[0] = '(Ký, ghi rõ họ tên)'; nr[half] = '(Ký, ghi rõ họ tên)'; aoa.push(nr); rowsH.push({ hpt: 18 });
+      for (let i = 0; i < 4; i++) { aoa.push([]); rowsH.push({ hpt: 16 }); } // chỗ ký
+      [dateRow, signRow, signRow + 1].forEach((r, i) => {
+        if (i) merges.push({ s: { r, c: 0 }, e: { r, c: half - 1 } });
+        merges.push({ s: { r, c: half }, e: { r, c: n - 1 } });
+      });
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const put = (r, c, s) => { const ref = XLSX.utils.encode_cell({ r, c }); if (!ws[ref]) ws[ref] = { t: 's', v: '' }; ws[ref].s = s; };
+    const cell = (t, { fill, bold, color } = {}) => {
+      const s = { font: { name: FONT, sz: 11, bold: !!bold, color: { rgb: color || '1F2937' } }, border: BORDER,
+        alignment: { vertical: 'center', horizontal: (t === 'name' || t === 'text') ? 'left' : (t === 'stt' || t === 'ma') ? 'center' : 'right', indent: (t === 'name' || t === 'text') ? 1 : 0, wrapText: t === 'text' } };
+      if (fill) s.fill = { patternType: 'solid', fgColor: { rgb: fill } };
+      if (XFMT[t]) s.numFmt = XFMT[t];
+      return s;
+    };
+    put(0, 0, XST.title); put(1, 0, XST.sub);
+    for (let r = headTop; r < headTop + headRows; r++) for (let c = 0; c < n; c++) put(r, c, XST.head(headFill[c] || NAVY));
+    rows.forEach((row, i) => {
+      const grey = muted && muted(i);
+      cols.forEach((col, c) => put(first + i, c, cell(col.t, {
+        fill: col.accent ? (i % 2 ? 'FBEAEA' : 'FDF3F3') : (i % 2 ? 'F3F6FA' : null),
+        bold: col.accent && !grey, color: grey ? '9CA3AF' : (col.accent ? '7F1D1D' : null) })));
+    });
+    if (total) {
+      const nameCol = Math.max(0, cols.findIndex(x => x.t === 'name'));
+      cols.forEach((col, c) => put(totalRow, c, cell(c <= nameCol ? 'name' : col.t, { fill: col.accent ? 'F5D0D0' : 'D9E4F2', bold: true, color: col.accent ? '7F1D1D' : NAVY })));
+      if (nameCol > 0) merges.push({ s: { r: totalRow, c: 0 }, e: { r: totalRow, c: nameCol } });
+    }
+    if (kyTen) { put(dateRow, half, XST.date); put(signRow, 0, XST.sign); put(signRow, half, XST.sign); put(signRow + 1, 0, XST.signNote); put(signRow + 1, half, XST.signNote); }
+    ws['!merges'] = merges;
+    ws['!cols'] = cols.map(x => ({ wch: x.w }));
+    ws['!rows'] = rowsH;
+    ws['!margins'] = { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 };
+    XLSX.utils.book_append_sheet(wb, ws, name);
+    // lặp hàng tiêu đề khi in nhiều trang + cố định tiêu đề khi cuộn
+    const idx = wb.SheetNames.length - 1;
+    wb.Workbook = wb.Workbook || { Names: [] };
+    wb.Workbook.Names.push({ Name: '_xlnm.Print_Titles', Sheet: idx, Ref: `'${name}'!$${headTop + 1}:$${headTop + headRows}` });
+    (wb.__freeze = wb.__freeze || [])[idx] = headTop + headRows;
+    (wb.__fitTall = wb.__fitTall || [])[idx] = rows.length <= 30; // bảng ngắn: in gọn 1 trang (cả chỗ ký)
+  }
+  // Thư viện không ghi được hướng giấy → sửa thẳng file .xlsx bằng JSZip: khổ A4 ngang, vừa 1 trang bề ngang,
+  // căn giữa, cố định hàng tiêu đề khi cuộn. Lỗi thì vẫn xuất file bình thường.
+  const JSZIP_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+  let jszipLoad = null;
+  const loadJSZip = () => window.JSZip ? Promise.resolve(window.JSZip) : (jszipLoad = jszipLoad || new Promise((ok, bad) => {
+    const s = document.createElement('script'); s.src = JSZIP_URL; s.onload = () => ok(window.JSZip); s.onerror = () => { jszipLoad = null; bad(new Error('Không tải được JSZip')); }; document.head.appendChild(s);
+  }));
+  async function chinhTrangIn(buf, JSZip, freeze, fitTall) {
+    const zip = await JSZip.loadAsync(buf);
+    for (let i = 0; i < freeze.length; i++) {
+      const p = `xl/worksheets/sheet${i + 1}.xml`, f = zip.file(p); if (!f) continue;
+      let x = await f.async('string');
+      if (!/<sheetPr[\s>/]/.test(x)) x = x.replace(/(<worksheet[^>]*>)/, '$1<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
+      if (freeze[i]) x = x.replace(/<sheetView workbookViewId="0"\s*\/>/, `<sheetView workbookViewId="0"><pane ySplit="${freeze[i]}" topLeftCell="A${freeze[i] + 1}" activePane="bottomLeft" state="frozen"/></sheetView>`);
+      x = x.replace(/<pageMargins/, '<printOptions horizontalCentered="1"/><pageMargins');
+      x = x.replace(/(<pageMargins[^>]*\/>)/, `$1<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="${fitTall && fitTall[i] ? 1 : 0}"/>`);
+      zip.file(p, x);
+    }
+    return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+  }
+  function luuFile(bytes, name) {
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  $('ghExport').addEventListener('click', async () => {
     const r = res(); if (!r) return;
     const wb = XLSX.utils.book_new();
-    const width = aoa => { const w = []; aoa.forEach(row => row.forEach((c, i) => { w[i] = Math.max(w[i] || 8, Math.min((c == null ? 0 : String(c).length) + 2, 42)); })); return w.map(x => ({ wch: x })); };
-    const add = (name, aoa) => { const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = width(aoa); XLSX.utils.book_append_sheet(wb, ws, name); };
-    const L = listNV(), set = chonSet();
-    const tot = k => L.reduce((a, p) => a + p[k], 0);
-    add('Thưởng quý', [['MÃ NV', 'HỌ VÀ TÊN', 'SỐ NGÀY GIAO', 'TỔNG ĐƠN', 'THƯỞNG ĐƠN HÀNG', 'TỔNG KM', 'THƯỞNG THEO KM', 'TỔNG THƯỞNG'],
-      ...L.map(p => [p.maNV, p.nv, p.ngayLam, p.don, Math.round(p.thuongDon), Math.round(p.km * 10) / 10, Math.round(p.thuongKm), Math.round(p.tong)]),
-      ['Tổng cộng', null, null, tot('don'), Math.round(tot('thuongDon')), Math.round(tot('km') * 10) / 10, Math.round(tot('thuongKm')), Math.round(tot('tong'))]]);
-    for (const [name, T, Q] of [['Thưởng đơn hàng', 'thuongDon', 'don'], ['Thưởng theo KM', 'thuongKm', 'km']]) {
-      add(name, [['MÃ NV', 'HỌ VÀ TÊN', ...r.months.flatMap(m => [`${Q === 'don' ? 'Đơn' : 'KM'} ${E.monthLabel(m)}`, `Thưởng ${E.monthLabel(m)}`]), `Thưởng quý`],
-        ...[...L].sort((a, b) => b[T] - a[T]).map(p => [p.maNV, p.nv, ...r.months.flatMap(m => { const t = p.thang[m] || {}; return [Q === 'km' ? Math.round((t.km || 0) * 10) / 10 : (t.don || 0), Math.round(t[T] || 0)]; }), Math.round(p[T])])]);
+    const L = listNV(), set = chonSet(), Q = E.quarterLabel(r.quarterKey).toUpperCase();
+    const R = Object.assign({}, E.RULES, r.rules || {}), vnd = v => v.toLocaleString('vi-VN');
+    const tot = k => L.reduce((a, p) => a + p[k], 0), r1 = x => Math.round(x * 10) / 10, m0 = x => Math.round(x || 0);
+    const quyTac = `Thưởng đơn hàng: trên ${R.donNguong} đơn/ngày × ${vnd(R.donGia)}đ  ·  Thưởng theo KM: trên ${R.kmNguong} km/ngày × ${vnd(R.kmGia)}đ  ·  Thưởng quý = cộng các ngày trong quý`;
+    const S = { stt: { h: 'STT', t: 'stt', w: 5 }, ma: { h: 'MÃ NV', t: 'ma', w: 10 }, ten: { h: 'HỌ VÀ TÊN', t: 'name', w: 27 } };
+
+    // 1) Thưởng quý
+    const q1 = [...L].sort((a, b) => b.tong - a.tong || a.nv.localeCompare(b.nv, 'vi'));
+    bangDep(wb, 'Thưởng quý', {
+      title: `BẢNG TỔNG HỢP THƯỞNG GIAO HÀNG ${Q}`,
+      sub: `Kho vận CN.HCM  ·  ${quyTac}`,
+      cols: [S.stt, S.ma, S.ten, { h: 'SỐ NGÀY GIAO', t: 'int', w: 9 }, { h: 'TỔNG SỐ ĐƠN', t: 'int', w: 10 }, { h: 'THƯỞNG ĐƠN HÀNG (đ)', t: 'money', w: 15 },
+        { h: 'TỔNG KM', t: 'km', w: 11 }, { h: 'THƯỞNG THEO KM (đ)', t: 'money', w: 15 }, { h: 'TỔNG THƯỞNG (đ)', t: 'money', w: 16, accent: true }, { h: 'GHI CHÚ', t: 'text', w: 18 }],
+      rows: q1.map((p, i) => [i + 1, p.maNV, p.nv, p.ngayLam, p.don, m0(p.thuongDon), r1(p.km), m0(p.thuongKm), m0(p.tong), '']),
+      muted: i => !q1[i].tong,
+      total: ['TỔNG CỘNG', null, null, q1.reduce((a, p) => a + p.ngayLam, 0), tot('don'), m0(tot('thuongDon')), r1(tot('km')), m0(tot('thuongKm')), m0(tot('tong')), ''],
+    });
+
+    // 2) + 3) theo tháng
+    for (const [name, T, K, nhan, giai] of [
+      ['Thưởng đơn hàng', 'thuongDon', 'don', 'Số đơn', `Mỗi ngày: (số đơn − ${R.donNguong}) × ${vnd(R.donGia)}đ khi trên ${R.donNguong} đơn  ·  không tính đơn trùng (cùng người nhận trong ${R.trungDonPhut} phút), đơn chành, ô tô, ngoài giờ đã trả, trả check tại kho / văn phòng`],
+      ['Thưởng theo KM', 'thuongKm', 'km', 'Số km', `Mỗi ngày: (số km − ${R.kmNguong}) × ${vnd(R.kmGia)}đ khi trên ${R.kmNguong} km  ·  không cộng km điểm giao trùng (cùng khách trong ${R.trungDiemPhut} phút)  ·  quãng đường > ${R.kmMax} km (GPS lỗi) thay bằng km trung bình`]]) {
+      const isKm = K === 'km', t = isKm ? 'km' : 'int', v = x => isKm ? r1(x || 0) : (x || 0);
+      const list = [...L].sort((a, b) => b[T] - a[T] || b[K] - a[K] || a.nv.localeCompare(b.nv, 'vi'));
+      bangDep(wb, name, {
+        title: `BẢNG ${name.toUpperCase()} ${Q}`,
+        sub: `Kho vận CN.HCM  ·  ${giai}`,
+        groups: [{ span: 1 }, { span: 1 }, { span: 1 }, ...r.months.map(m => ({ label: E.monthLabel(m).toUpperCase(), span: 2 })), { label: 'CẢ QUÝ', span: 2, accent: true }],
+        cols: [S.stt, S.ma, S.ten, ...r.months.flatMap(() => [{ h: nhan, t, w: 9 }, { h: 'Thưởng (đ)', t: 'money', w: 13 }]),
+          { h: isKm ? 'Tổng km' : 'Tổng đơn', t, w: 10, accent: true }, { h: 'Thưởng quý (đ)', t: 'money', w: 15, accent: true }],
+        rows: list.map((p, i) => [i + 1, p.maNV, p.nv, ...r.months.flatMap(m => { const x = p.thang[m] || {}; return [v(x[K]), m0(x[T])]; }), v(p[K]), m0(p[T])]),
+        muted: i => !list[i][T],
+        total: ['TỔNG CỘNG', null, null, ...r.months.flatMap(m => [v(L.reduce((a, p) => a + ((p.thang[m] || {})[K] || 0), 0)), m0(L.reduce((a, p) => a + ((p.thang[m] || {})[T] || 0), 0))]), v(tot(K)), m0(tot(T))],
+      });
     }
-    add('Chi tiết thưởng', [['Nhân viên', 'Ngày', 'Đơn/ngày', 'KM/ngày', 'Thưởng đơn (ngày)', 'Thưởng KM (ngày)', 'Dòng trùng đơn', 'Dòng trùng điểm giao'],
-      ...r.days.filter(d => !set || set.has(E.key(d.nv))).map(d => [d.nv, vnDate(d.ngay), d.don, Math.round(d.km * 100) / 100, Math.round(d.thuongDon), Math.round(d.thuongKm), d.trungDon, d.trungDiem])]);
+
+    // sheet phụ (định dạng gọn, không chỗ ký)
+    const days = r.days.filter(d => !set || set.has(E.key(d.nv)));
+    bangDep(wb, 'Chi tiết thưởng', {
+      title: `CHI TIẾT THƯỞNG GIAO HÀNG THEO NGÀY ${Q}`, sub: 'Mỗi dòng = 1 nhân viên × 1 ngày giao hàng', kyTen: false,
+      cols: [S.stt, { h: 'NHÂN VIÊN', t: 'name', w: 26 }, { h: 'NGÀY', t: 'ma', w: 12 }, { h: 'ĐƠN/NGÀY', t: 'int', w: 9 }, { h: 'KM/NGÀY', t: 'km', w: 10 },
+        { h: 'THƯỞNG ĐƠN (đ)', t: 'money', w: 13 }, { h: 'THƯỞNG KM (đ)', t: 'money', w: 13 }, { h: 'DÒNG TRÙNG ĐƠN', t: 'int', w: 10 }, { h: 'DÒNG TRÙNG ĐIỂM GIAO', t: 'int', w: 11 }],
+      rows: days.map((d, i) => [i + 1, d.nv, vnDate(d.ngay), d.don, r1(d.km), m0(d.thuongDon), m0(d.thuongKm), d.trungDon, d.trungDiem]),
+      muted: i => !(days[i].thuongDon + days[i].thuongKm),
+    });
     const ngoai = r.nhanVien.filter(p => !incl(p, set));
-    if (ngoai.length) add('Không tính thưởng', [['MÃ NV', 'HỌ VÀ TÊN', 'SỐ NGÀY GIAO', 'THƯỞNG ĐƠN (nếu tính)', 'THƯỞNG KM (nếu tính)', 'TỔNG (nếu tính)'], ...ngoai.map(p => [p.maNV, p.nv, p.ngayLam, Math.round(p.thuongDon), Math.round(p.thuongKm), Math.round(p.tong)])]);
+    if (ngoai.length) bangDep(wb, 'Không tính thưởng', {
+      title: `NHÂN VIÊN KHÔNG NẰM TRONG DANH SÁCH TÍNH THƯỞNG ${Q}`, sub: 'Số liệu để tham khảo — không cộng vào bảng thưởng', kyTen: false,
+      cols: [S.stt, S.ma, S.ten, { h: 'SỐ NGÀY GIAO', t: 'int', w: 9 }, { h: 'THƯỞNG ĐƠN (nếu tính)', t: 'money', w: 14 }, { h: 'THƯỞNG KM (nếu tính)', t: 'money', w: 14 }, { h: 'TỔNG (nếu tính)', t: 'money', w: 14 }],
+      rows: ngoai.map((p, i) => [i + 1, p.maNV, p.nv, p.ngayLam, m0(p.thuongDon), m0(p.thuongKm), m0(p.tong)]),
+    });
     const s = r.stats;
-    add('Lọc dữ liệu', [['Bước', 'Số dòng'], ['Dòng có ngày trả trong quý', s.tong], ['Đơn chành / đối tác khác', s.chanh], ['Không rõ đối tác', s.khongRoDoiTac], ['Đi ô tô', s.oto], ['Đơn ngoài giờ', s.ngoaiGio], ['Trả check tại kho / văn phòng', s.diemLoai || 0], ['Dòng được tính thưởng', s.tinh], [`Quãng đường > ${r.rules.kmMax} km đã thay bằng trung bình`, s.kmSua]]);
-    XLSX.writeFile(wb, `ThuongGiaoHang_${r.quarterKey}.xlsx`);
+    bangDep(wb, 'Lọc dữ liệu', {
+      title: `CÁC BƯỚC LỌC DỮ LIỆU GIAO HÀNG ${Q}`, sub: `File: ${[...(r.files.giao || []), ...(r.files.kien || []), ...(r.files.ngoai || [])].join(', ')}`, kyTen: false,
+      cols: [{ h: 'BƯỚC LỌC', t: 'name', w: 52 }, { h: 'SỐ DÒNG', t: 'int', w: 12 }],
+      rows: [['Dòng giao hàng có ngày trả trong quý', s.tong], ['− Đơn chành / đối tác khác', s.chanh], ['− Không rõ đối tác vận chuyển', s.khongRoDoiTac], ['− Đi ô tô', s.oto],
+        ['− Đơn ngoài giờ đã được trả', s.ngoaiGio], ['− Trả check tại kho / văn phòng', s.diemLoai || 0], ['= Dòng giao trực tiếp được tính thưởng', s.tinh],
+        ['(trong đó) đơn ngoài giờ "Không đạt" vẫn tính', s.khongDatTinh || 0], [`Quãng đường > ${R.kmMax} km đã thay bằng km trung bình`, s.kmSua]],
+    });
+    const fname = `ThuongGiaoHang_${r.quarterKey}.xlsx`;
+    try {
+      const bytes = await chinhTrangIn(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }), await loadJSZip(), wb.__freeze || [], wb.__fitTall || []);
+      luuFile(bytes, fname);
+    } catch (e) { XLSX.writeFile(wb, fname); }
   });
 
   $('diemSave').addEventListener('click', async () => {
