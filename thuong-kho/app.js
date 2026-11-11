@@ -183,12 +183,9 @@
     }
     $('tqBody').innerHTML = html;
   }
-  function renderGrid() {
-    if (!result) return;
-    if (monthIdx >= result.months.length) monthIdx = 0;
-    $('ttMonths').innerHTML = result.months.map((mk, i) => `<button type="button" class="b sm${i === monthIdx ? ' pri' : ''}" data-m="${i}">${E.monthLabel(mk)}</button>`).join('');
-    const mk = result.months[monthIdx], [y, m] = mk.split('-').map(Number);
-    const paired = new Map();
+  // Ngày đóng cặp trong tháng mk: Map `${maNV}|${ngày}` → [{ o: mã người cùng cặp, b: buổi }]
+  function pairMap(mk) {
+    const [y, m] = mk.split('-').map(Number), paired = new Map();
     result.adjustments.forEach(a => {
       if (result.skippedAdj.includes(a.id)) return;
       for (let d = 1; d <= 31; d++) {
@@ -198,6 +195,13 @@
         }
       }
     });
+    return paired;
+  }
+  function renderGrid() {
+    if (!result) return;
+    if (monthIdx >= result.months.length) monthIdx = 0;
+    $('ttMonths').innerHTML = result.months.map((mk, i) => `<button type="button" class="b sm${i === monthIdx ? ' pri' : ''}" data-m="${i}">${E.monthLabel(mk)}</button>`).join('');
+    const paired = pairMap(result.months[monthIdx]);
     const byMa = {}; [...result.employees, ...helpers()].forEach(e => { byMa[e.maNV] = e; });
     $('ttHead').innerHTML = `<th>Mã NV</th><th style="min-width:140px">Họ và tên</th>${Array.from({ length: 31 }, (_, i) => `<th class="r">${i + 1}</th>`).join('')}<th class="r">Tổng lượt</th><th class="r">Tổng tiền</th>`;
     $('ttBody').innerHTML = filtered().map(e => {
@@ -826,26 +830,192 @@
   });
   $('qClear').addEventListener('click', () => { qRows = []; $('qText').value = ''; resetThumb(); msg($('qMsg'), ''); renderQuick(); });
 
-  // ------------------------------------------------------------ xuất Excel
-  $('tkExport').addEventListener('click', () => {
-    if (!result) return;
-    const wb = XLSX.utils.book_new();
-    const width = aoa => { const w = []; aoa.forEach(r => r.forEach((c, i) => { w[i] = Math.max(w[i] || 8, Math.min((c == null ? 0 : String(c).length) + 2, 42)); })); return w.map(x => ({ wch: x })); };
-    result.months.forEach((mk, mi) => {
-      const header = ['Mã NV', 'Họ và tên', ...Array.from({ length: 31 }, (_, i) => i + 1), 'Tổng', 'Thành tiền'];
-      const body = result.perEmployee.map(e => { const m = e.monthlyDetail[mi]; return [e.maNV, e.hoTen, ...m.counts32.slice(1, 32), m.soKien, m.tongTien]; });
-      const aoa = [[`Tổng số lượt (${NGUON_TEN}) theo Mã NV - ${E.monthLabel(mk)}`], [], header, ...body];
-      const ws = XLSX.utils.aoa_to_sheet(aoa);
-      ws['!cols'] = width([header, ...body]);
-      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: header.length - 1 } }];
-      XLSX.utils.book_append_sheet(wb, ws, E.monthLabel(mk));
+  // ------------------------------------------------------------ xuất Excel (định dạng sẵn để gửi quản lý — cùng kiểu Thưởng quý GH / Thưởng bốc hàng)
+  const FONT = 'Times New Roman', NAVY = '0F4573', RED = 'B5232A';
+  const BD = { style: 'thin', color: { rgb: 'A3AEBD' } }, BORDER = { top: BD, bottom: BD, left: BD, right: BD };
+  const XST = {
+    title: { font: { name: FONT, sz: 16, bold: true, color: { rgb: NAVY } }, alignment: { horizontal: 'center', vertical: 'center' } },
+    sub: { font: { name: FONT, sz: 11, italic: true, color: { rgb: '4B5563' } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true } },
+    head: fill => ({ font: { name: FONT, sz: 11, bold: true, color: { rgb: 'FFFFFF' } }, fill: { patternType: 'solid', fgColor: { rgb: fill } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border: BORDER }),
+    date: { font: { name: FONT, sz: 12, italic: true }, alignment: { horizontal: 'center' } },
+    sign: { font: { name: FONT, sz: 12, bold: true }, alignment: { horizontal: 'center' } },
+    signNote: { font: { name: FONT, sz: 10, italic: true, color: { rgb: '6B7280' } }, alignment: { horizontal: 'center' } },
+  };
+  const XFMT = { money: '#,##0;-#,##0;"–"', int: '#,##0;-#,##0;"–"', k1: '#,##0.0;-#,##0.0;"–"' };
+  // cột số lượt ('k1'): số chẵn hiện không có ",0", chỉ ngày đóng cặp (lượt chia đôi) mới có số lẻ
+  const soLe = (t, v) => (t === 'k1' && typeof v === 'number' && Number.isInteger(v)) ? 'int' : t;
+  // Một bảng đẹp: tiêu đề + giải thích + tiêu đề cột (1 hoặc 2 tầng) + dữ liệu + dòng tổng + ngày lập & chỗ ký.
+  // cols: [{ h, t: 'stt'|'ma'|'name'|'text'|'int'|'money'|'k1', w, accent, hf (màu nền tiêu đề), sz }]; groups: [{ label, span, accent }] (span 1 = cột đứng 2 tầng)
+  // muted(i) → chữ xám; to(i, c) → { fill, bold, color, t } tô riêng từng ô dữ liệu.
+  function bangDep(wb, name, { title, sub, cols, groups, rows, total, muted, to, kyTen = true }) {
+    const n = cols.length, aoa = [], merges = [], rowsH = [];
+    aoa.push([title]); merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: n - 1 } }); rowsH.push({ hpt: 28 });
+    aoa.push([sub]); merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: n - 1 } }); rowsH.push({ hpt: 34 });
+    aoa.push([]); rowsH.push({ hpt: 6 });
+    const headTop = aoa.length, headFill = [];
+    const fillOf = (x, accent) => x.hf || (accent ? RED : NAVY);
+    if (groups) {
+      const top = [], bot = []; let c = 0;
+      groups.forEach(g => {
+        if (g.span === 1) { top.push(cols[c].h); bot.push(null); headFill[c] = fillOf(cols[c], cols[c].accent); merges.push({ s: { r: headTop, c }, e: { r: headTop + 1, c } }); c++; }
+        else { top.push(g.label); for (let i = 1; i < g.span; i++) top.push(null); merges.push({ s: { r: headTop, c }, e: { r: headTop, c: c + g.span - 1 } }); for (let i = 0; i < g.span; i++) { bot.push(cols[c + i].h); headFill[c + i] = fillOf(cols[c + i], g.accent); } c += g.span; }
+      });
+      aoa.push(top, bot); rowsH.push({ hpt: 22 }, { hpt: 32 });
+    } else { aoa.push(cols.map(x => x.h)); cols.forEach((x, c) => { headFill[c] = fillOf(x, x.accent); }); rowsH.push({ hpt: 40 }); }
+    const headRows = groups ? 2 : 1, first = aoa.length;
+    rows.forEach(row => { aoa.push(row); rowsH.push({ hpt: 21 }); });
+    const totalRow = total ? aoa.length : -1;
+    if (total) { aoa.push(total); rowsH.push({ hpt: 24 }); }
+    const half = Math.ceil(n / 2);
+    let dateRow = -1, signRow = -1;
+    if (kyTen) {
+      const d = new Date();
+      aoa.push([]); rowsH.push({ hpt: 12 });
+      dateRow = aoa.length; const dr = []; dr[half] = `TP. Hồ Chí Minh, ngày ${d.getDate()} tháng ${d.getMonth() + 1} năm ${d.getFullYear()}`; aoa.push(dr); rowsH.push({ hpt: 20 });
+      signRow = aoa.length; const sr = []; sr[0] = 'NGƯỜI LẬP BIỂU'; sr[half] = 'QUẢN LÝ DUYỆT'; aoa.push(sr); rowsH.push({ hpt: 20 });
+      const nr = []; nr[0] = '(Ký, ghi rõ họ tên)'; nr[half] = '(Ký, ghi rõ họ tên)'; aoa.push(nr); rowsH.push({ hpt: 18 });
+      for (let i = 0; i < 4; i++) { aoa.push([]); rowsH.push({ hpt: 16 }); }
+      [dateRow, signRow, signRow + 1].forEach((r, i) => {
+        if (i) merges.push({ s: { r, c: 0 }, e: { r, c: half - 1 } });
+        merges.push({ s: { r, c: half }, e: { r, c: n - 1 } });
+      });
+    }
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const put = (r, c, s) => { const ref = XLSX.utils.encode_cell({ r, c }); if (!ws[ref]) ws[ref] = { t: 's', v: '' }; ws[ref].s = s; };
+    const cell = (t, { fill, bold, color, sz } = {}) => {
+      const s = { font: { name: FONT, sz: sz || 11, bold: !!bold, color: { rgb: color || '1F2937' } }, border: BORDER,
+        alignment: { vertical: 'center', horizontal: (t === 'name' || t === 'text') ? 'left' : (t === 'stt' || t === 'ma') ? 'center' : 'right', indent: (t === 'name' || t === 'text') ? 1 : 0, wrapText: t === 'text' } };
+      if (fill) s.fill = { patternType: 'solid', fgColor: { rgb: fill } };
+      if (XFMT[t]) s.numFmt = XFMT[t];
+      return s;
+    };
+    put(0, 0, XST.title); put(1, 0, XST.sub);
+    for (let r = headTop; r < headTop + headRows; r++) for (let c = 0; c < n; c++) put(r, c, XST.head(headFill[c] || NAVY));
+    rows.forEach((row, i) => {
+      const grey = muted && muted(i), dark = i % 2;
+      cols.forEach((col, c) => {
+        const o = Object.assign({ fill: col.accent ? (dark ? 'FBEAEA' : 'FDF3F3') : (dark ? 'F3F6FA' : null), bold: col.accent && !grey, color: grey ? '9CA3AF' : (col.accent ? '7F1D1D' : null), sz: col.sz }, (to && to(i, c)) || {});
+        put(first + i, c, cell(soLe(o.t || col.t, row[c]), o));
+      });
     });
-    const th = [['Mã Nv', 'Họ và Tên', 'Thành tiền', 'Ghi Chú'], ...result.perEmployee.map(e => [e.maNV, e.hoTen, Math.round(e.thuong), e.ghiChu || null]),
-      ['Tổng cộng', null, Math.round(result.perEmployee.reduce((s, e) => s + e.thuong, 0)), null]];
-    const wsT = XLSX.utils.aoa_to_sheet(th); wsT['!cols'] = width(th);
-    XLSX.utils.book_append_sheet(wb, wsT, 'THƯỞNG');
-    XLSX.writeFile(wb, `${FILE_PREFIX}_${result.quarterKey}.xlsx`);
+    if (total) {
+      const nameCol = Math.max(0, cols.findIndex(x => x.t === 'name'));
+      cols.forEach((col, c) => put(totalRow, c, cell(c <= nameCol ? 'name' : soLe(col.t, total[c]), { fill: col.accent ? 'F5D0D0' : 'D9E4F2', bold: true, color: col.accent ? '7F1D1D' : NAVY, sz: col.sz })));
+      if (nameCol > 0) merges.push({ s: { r: totalRow, c: 0 }, e: { r: totalRow, c: nameCol } });
+    }
+    if (kyTen) { put(dateRow, half, XST.date); put(signRow, 0, XST.sign); put(signRow, half, XST.sign); put(signRow + 1, 0, XST.signNote); put(signRow + 1, half, XST.signNote); }
+    ws['!merges'] = merges;
+    ws['!cols'] = cols.map(x => ({ wch: x.w }));
+    ws['!rows'] = rowsH;
+    ws['!margins'] = { left: 0.3, right: 0.3, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 };
+    XLSX.utils.book_append_sheet(wb, ws, name);
+    const idx = wb.SheetNames.length - 1;
+    wb.Workbook = wb.Workbook || { Names: [] };
+    wb.Workbook.Names.push({ Name: '_xlnm.Print_Titles', Sheet: idx, Ref: `'${name}'!$${headTop + 1}:$${headTop + headRows}` });
+    (wb.__freeze = wb.__freeze || [])[idx] = { row: headTop + headRows, col: cols.findIndex(x => x.t === 'name') + 1 };
+    (wb.__fitTall = wb.__fitTall || [])[idx] = rows.length <= 30;
+  }
+  // Thư viện không ghi được hướng giấy → sửa thẳng file .xlsx bằng JSZip: A4 ngang, vừa 1 trang bề ngang, căn giữa,
+  // cố định hàng tiêu đề (+ cột họ tên) khi cuộn. Lỗi thì vẫn xuất file bình thường (chưa chỉnh trang in).
+  const JSZIP_URL = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+  let jszipLoad = null;
+  const loadJSZip = () => window.JSZip ? Promise.resolve(window.JSZip) : (jszipLoad = jszipLoad || new Promise((ok, bad) => {
+    const s = document.createElement('script'); s.src = JSZIP_URL; s.onload = () => ok(window.JSZip); s.onerror = () => { jszipLoad = null; bad(new Error('Không tải được JSZip')); }; document.head.appendChild(s);
+  }));
+  async function chinhTrangIn(buf, JSZip, freeze, fitTall) {
+    const zip = await JSZip.loadAsync(buf);
+    for (let i = 0; i < freeze.length; i++) {
+      const p = `xl/worksheets/sheet${i + 1}.xml`, f = zip.file(p); if (!f) continue;
+      let x = await f.async('string');
+      if (!/<sheetPr[\s>/]/.test(x)) x = x.replace(/(<worksheet[^>]*>)/, '$1<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>');
+      const fr = freeze[i];
+      if (fr) {
+        const cell = XLSX.utils.encode_cell({ r: fr.row, c: fr.col });
+        const pane = fr.col > 0 ? `<pane xSplit="${fr.col}" ySplit="${fr.row}" topLeftCell="${cell}" activePane="bottomRight" state="frozen"/>` : `<pane ySplit="${fr.row}" topLeftCell="${cell}" activePane="bottomLeft" state="frozen"/>`;
+        x = x.replace(/<sheetView workbookViewId="0"\s*\/>/, `<sheetView workbookViewId="0">${pane}</sheetView>`);
+      }
+      x = x.replace(/<pageMargins/, '<printOptions horizontalCentered="1"/><pageMargins');
+      x = x.replace(/(<pageMargins[^>]*\/>)/, `$1<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="${fitTall && fitTall[i] ? 1 : 0}"/>`);
+      zip.file(p, x);
+    }
+    return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+  }
+  function luuFile(bytes, name) {
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  function taoExcel() {
+    const wb = XLSX.utils.book_new(), R = result.rules || RULES, M = result.months;
+    const Q = E.quarterLabel(result.quarterKey).toUpperCase(), TEN = (document.title || 'Thưởng').toUpperCase();
+    const vnd = v => Math.round(v).toLocaleString('vi-VN'), m0 = x => Math.round(x || 0);
+    // cùng thứ tự với bảng trên trang: thưởng quý cao → thấp
+    const list = [...result.perEmployee].sort((x, y) => (y.thuong - x.thuong) || x.hoTen.localeCompare(y.hoTen, 'vi'));
+    const quyTac = `Số lượt ${NGUON_TEN} mỗi ngày  ·  Thưởng mỗi ngày = (số lượt − ${R.nguong}) × ${vnd(R.donGia)}đ khi trên ${R.nguong} lượt  ·  Thưởng quý = trung bình ${M.length} tháng`;
+    const S = { stt: { h: 'STT', t: 'stt', w: 5 }, ma: { h: 'MÃ NV', t: 'ma', w: 9 }, ten: { h: 'HỌ VÀ TÊN', t: 'name', w: 26 } };
+    const luotThang = e => e.monthlyDetail.reduce((a, m) => a + m.soKien, 0);
+
+    // 1) Thưởng quý — bảng gửi quản lý
+    bangDep(wb, 'Thưởng quý', {
+      title: `BẢNG TỔNG HỢP ${TEN} ${Q}`, sub: `Kho vận CN.HCM  ·  ${quyTac}`,
+      groups: [{ span: 1 }, { span: 1 }, { span: 1 }, { label: 'THƯỞNG THEO THÁNG (đ)', span: M.length }, { label: 'CẢ QUÝ', span: 3, accent: true }, { span: 1 }],
+      cols: [S.stt, S.ma, S.ten, ...M.map(mk => ({ h: E.monthLabel(mk), t: 'money', w: 12 })),
+        { h: 'Tổng lượt', t: 'k1', w: 10, accent: true }, { h: `Tổng ${M.length} tháng (đ)`, t: 'money', w: 13, accent: true }, { h: `Thưởng quý (đ)`, t: 'money', w: 14, accent: true }, { h: 'GHI CHÚ', t: 'text', w: 28 }],
+      rows: list.map((e, i) => [i + 1, e.maNV, e.hoTen, ...e.monthlyDetail.map(m => m0(m.tongTien)), luotThang(e), m0(e.monthlyDetail.reduce((a, m) => a + m.tongTien, 0)), m0(e.thuong), e.ghiChu || '']),
+      muted: i => !list[i].thuong,
+      total: ['TỔNG CỘNG', null, null, ...M.map((mk, mi) => m0(list.reduce((a, e) => a + e.monthlyDetail[mi].tongTien, 0))), list.reduce((a, e) => a + luotThang(e), 0),
+        m0(list.reduce((a, e) => a + e.monthlyDetail.reduce((s, m) => s + m.tongTien, 0), 0)), m0(list.reduce((a, e) => a + e.thuong, 0)), ''],
+    });
+
+    // 2) Mỗi tháng 1 sheet: số lượt từng ngày (ô xanh = trên ngưỡng, ô tím = ngày đóng cặp)
+    const THU_X = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    M.forEach((mk, mi) => {
+      const [y, mo] = mk.split('-').map(Number), soNgay = new Date(y, mo, 0).getDate(), pm = pairMap(mk);
+      const days = Array.from({ length: soNgay }, (_, i) => i + 1);
+      const ds = [...list].sort((a, b) => b.monthlyDetail[mi].tongTien - a.monthlyDetail[mi].tongTien || b.monthlyDetail[mi].soKien - a.monthlyDetail[mi].soKien || a.hoTen.localeCompare(b.hoTen, 'vi'));
+      const val = v => (v ? Math.round(v * 10) / 10 : 0);
+      bangDep(wb, E.monthLabel(mk), {
+        title: `SỐ LƯỢT ${NGUON_TEN.toUpperCase()} THEO NGÀY — ${E.monthLabel(mk).toUpperCase()}/${y}`,
+        sub: `Ô xanh = trên ${R.nguong} lượt (có thưởng)  ·  ${result.adjustments.length ? 'Ô tím = ngày đóng cặp (lượt chia đôi)  ·  ' : ''}Thành tiền = Σ (số lượt − ${R.nguong}) × ${vnd(R.donGia)}đ các ngày trên ${R.nguong} lượt`,
+        cols: [S.stt, S.ma, { h: 'HỌ VÀ TÊN', t: 'name', w: 24 },
+          ...days.map(d => { const w = new Date(y, mo - 1, d).getDay(); return { h: `${d}\n${THU_X[w]}`, t: 'k1', w: 5.2, sz: 10, hf: w === 0 ? '6B7F99' : null }; }),
+          { h: 'TỔNG LƯỢT', t: 'k1', w: 9, accent: true }, { h: 'THÀNH TIỀN (đ)', t: 'money', w: 12, accent: true }],
+        rows: ds.map((e, i) => { const m = e.monthlyDetail[mi]; return [i + 1, e.maNV, e.hoTen, ...days.map(d => val(m.counts32[d])), val(m.soKien), m0(m.tongTien)]; }),
+        muted: i => !ds[i].monthlyDetail[mi].soKien,
+        to: (i, c) => {
+          const d = c - 2; if (d < 1 || d > soNgay) return null;
+          const e = ds[i], v = e.monthlyDetail[mi].counts32[d] || 0, p = pm.has(`${e.maNV}|${d}`), over = v > R.nguong;
+          const o = {};
+          if (p) Object.assign(o, { fill: 'EDE9FE', color: '5B21B6', bold: over });
+          else if (over) Object.assign(o, { fill: 'D1FAE5', color: '065F46', bold: true });
+          return o;
+        },
+        total: ['TỔNG CỘNG', null, null, ...days.map(d => val(ds.reduce((a, e) => a + (e.monthlyDetail[mi].counts32[d] || 0), 0))), val(ds.reduce((a, e) => a + e.monthlyDetail[mi].soKien, 0)), m0(ds.reduce((a, e) => a + e.monthlyDetail[mi].tongTien, 0))],
+        kyTen: false,
+      });
+    });
+
+    // 3) Danh sách đóng cặp (nếu có)
+    const byMa = {}; [...result.employees, ...helpers()].forEach(e => { byMa[e.maNV] = e; });
+    const adjs = [...result.adjustments].sort((a, b) => a.dateFrom.localeCompare(b.dateFrom) || a.dateTo.localeCompare(b.dateTo));
+    const dd = s => `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}`;
+    if (adjs.length) bangDep(wb, 'Đóng cặp', {
+      title: `DANH SÁCH ĐÓNG CẶP ${Q}`, sub: 'Những ngày 2 người đóng chung: số lượt trong ngày (hoặc buổi) được chia đôi cho mỗi người', kyTen: false,
+      cols: [S.stt, { h: 'TỪ NGÀY', t: 'ma', w: 12 }, { h: 'ĐẾN NGÀY', t: 'ma', w: 12 }, { h: 'BUỔI', t: 'ma', w: 9 }, { h: 'NHÂN VIÊN 1', t: 'name', w: 30 }, { h: 'NHÂN VIÊN 2', t: 'name', w: 30 }, { h: 'GHI CHÚ', t: 'text', w: 22 }],
+      rows: adjs.map((a, i) => [i + 1, dd(a.dateFrom), dd(a.dateTo), BUOI[a.buoi || ''], displayName(byMa[a.maNV1]) || a.maNV1, displayName(byMa[a.maNV2]) || a.maNV2, result.skippedAdj.includes(a.id) ? 'Không áp dụng (ngoài quý / thiếu người)' : '']),
+      muted: i => result.skippedAdj.includes(adjs[i].id),
+    });
+    return { wb, fname: `${FILE_PREFIX}_${result.quarterKey}.xlsx` };
+  }
+  $('tkExport').addEventListener('click', async () => {
+    if (!result) return;
+    const { wb, fname } = taoExcel();
+    try { luuFile(await chinhTrangIn(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }), await loadJSZip(), wb.__freeze || [], wb.__fitTall || []), fname); }
+    catch (e) { XLSX.writeFile(wb, fname); }
   });
+  // để kiểm thử file Excel (không dùng trong giao diện)
+  window.__khoExcel = async () => { const { wb, fname } = taoExcel(); return { fname, bytes: await chinhTrangIn(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }), await loadJSZip(), wb.__freeze || [], wb.__fitTall || []) }; };
 
   if (location.hash === '#nap-du-lieu') uploadOpen = true;
   renderAll();
