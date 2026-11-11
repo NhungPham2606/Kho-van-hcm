@@ -151,6 +151,8 @@
   const dots = () => { const a = A(); return a ? E.apDung(a.result, a.sua) : []; };
   const tinhSet = () => { const a = A() || {}; return { skip: new Set(a.boQua || []), add: new Set(a.chonThem || []) }; };
   const listNV = () => { const a = A(); return a ? E.tong(dots(), a.boQua, a.chonThem) : []; };
+  // Ghi chú từng nhân viên trong bảng tổng (vd nghỉ việc) — lưu theo quý: archive[q].ghiChu = { mã NV (hoặc tên): chữ }
+  const ghiChu = () => { const a = A(); return (a && a.ghiChu) || {}; };
   let search = '', vpF = '', editId = null, draft = null, sugList = [], uploadOpen = false, pending = null, busy = false;
   const files = [];
   const TABS = ['bang-tong', 'van-phong', 'chi-tiet', 'loc-du-lieu'];
@@ -192,13 +194,15 @@
     const all = listNV(), list = all.filter(match);
     $('btHead').innerHTML = '<th class="r" style="width:36px">STT</th><th>Mã NV</th><th style="min-width:170px">Họ và tên</th><th>Văn phòng</th>'
       + r.months.map(m => `<th class="r">${E.monthLabel(m)}<div class="muted" style="font-weight:400">thưởng</div></th>`).join('')
-      + '<th class="r">Số đợt</th><th class="r">Tổng kiện</th><th class="r">Tổng thưởng quý ↓</th>';
+      + '<th class="r">Số đợt</th><th class="r">Tổng kiện</th><th class="r">Tổng thưởng quý ↓</th><th>Ghi chú <span class="muted" style="font-weight:400">(vd: nghỉ việc từ …)</span></th>';
+    const gc = ghiChu();
     let html = list.map((p, i) => `<tr class="${p.thuong ? '' : 'off'}"><td class="r" style="color:#9ca3af">${i + 1}</td><td>${esc(p.ma) || '<span class="tag ng">thiếu mã</span>'}</td><td class="name">${esc(p.ten)}</td><td>${esc(p.vp)}</td>`
       + r.months.map(m => `<td class="r">${p.thang[m] ? money(p.thang[m]) : '<span class="muted">—</span>'}</td>`).join('')
-      + `<td class="r">${p.dot}</td><td class="r">${k1(p.kien)}</td><td class="r money">${money(p.thuong)}</td></tr>`).join('');
+      + `<td class="r">${p.dot}</td><td class="r">${k1(p.kien)}</td><td class="r money">${money(p.thuong)}</td>`
+      + `<td><input type="text" class="gc-in${gc[pkey(p)] ? ' co' : ''}" data-gc="${esc(pkey(p))}" value="${esc(gc[pkey(p)] || '')}" placeholder="ghi chú…" aria-label="Ghi chú cho ${esc(p.ten)}"></td></tr>`).join('');
     if (!search) {
       html += `<tr class="total"><td colspan="4">TỔNG CỘNG</td>${r.months.map(m => `<td class="r">${money(all.reduce((a, p) => a + (p.thang[m] || 0), 0))}</td>`).join('')}`
-        + `<td class="r">${num(all.reduce((a, p) => a + p.dot, 0))}</td><td class="r">${k1(all.reduce((a, p) => a + p.kien, 0))}</td><td class="r">${money(all.reduce((a, p) => a + p.thuong, 0))}</td></tr>`;
+        + `<td class="r">${num(all.reduce((a, p) => a + p.dot, 0))}</td><td class="r">${k1(all.reduce((a, p) => a + p.kien, 0))}</td><td class="r">${money(all.reduce((a, p) => a + p.thuong, 0))}</td><td></td></tr>`;
     }
     $('btBody').innerHTML = html;
   }
@@ -369,7 +373,7 @@
     const q = $('bhPendQ').value; if (!q) return;
     const r = E.compute(pending.books, q), old = archive[q] || {}, ids = new Set(r.batches.map(b => b.id));
     const sua = {}; Object.entries(old.sua || {}).forEach(([id, s]) => { if (ids.has(id)) sua[id] = s; });
-    archive[q] = { result: r, boQua: (old.boQua || []).filter(id => ids.has(id)), chonThem: (old.chonThem || []).filter(id => ids.has(id)), sua };
+    archive[q] = { result: r, boQua: (old.boQua || []).filter(id => ids.has(id)), chonThem: (old.chonThem || []).filter(id => ids.has(id)), sua, ghiChu: old.ghiChu || {} };
     const m = Object.assign({}, caiDat.vpTheoMa || {});
     r.batches.forEach(b => b.nguoi.forEach(p => { if (p.ma) m[p.ma] = b.vp; }));
     caiDat = Object.assign({}, caiDat, { vpTheoMa: m, savedAt: new Date().toISOString() }); saveCaiDat();
@@ -416,6 +420,19 @@
     if (e.target.id === 'edAdd' && e.key === 'Enter') { e.preventDefault(); if (sugList[0] && !$('edSug').hidden) { draft.nguoi.push({ ma: sugList[0].ma || '', ten: sugList[0].ten || '' }); rerenderEdit(true); } }
     if (e.target.id === 'edKien' && e.key === 'Enter') { e.preventDefault(); draft.kien = Math.max(0, Number(e.target.value) || 0); rerenderEdit(false); }
   });
+  // ---- ghi chú ở bảng tổng: lưu khi rời ô / bấm Enter
+  $('btBody').addEventListener('change', e => {
+    const k = e.target.dataset.gc; if (k === undefined) return;
+    const q = current(), a = A(); if (!a) return;
+    const v = e.target.value.replace(/\s+/g, ' ').trim();
+    a.ghiChu = Object.assign({}, a.ghiChu);
+    if (v) a.ghiChu[k] = v; else delete a.ghiChu[k];
+    e.target.value = v; e.target.classList.toggle('co', !!v);
+    touch(q);
+    const ok = document.createElement('span'); ok.className = 'gc-ok'; ok.textContent = '✓ đã lưu';
+    e.target.after(ok); setTimeout(() => ok.remove(), 1500);
+  });
+  $('btBody').addEventListener('keydown', e => { if (e.target.dataset.gc !== undefined && e.key === 'Enter') { e.preventDefault(); e.target.blur(); } });
   $('bhSearch').addEventListener('input', e => { search = e.target.value; renderTong(); renderChiTiet(); renderTabs(); });
   $('bhReload').addEventListener('click', () => { uploadOpen = true; renderTop(); $('bhUpload').scrollIntoView({ behavior: 'smooth' }); });
   $('bhUpCancel').addEventListener('click', () => { uploadOpen = false; msg($('bhUpMsg'), ''); renderTop(); });
@@ -546,8 +563,8 @@
       sub: `Văn phòng: ${vps.map(x => x.vp).join(', ')}  ·  ${quyTac}`,
       groups: [{ span: 1 }, { span: 1 }, { span: 1 }, { span: 1 }, { label: 'THƯỞNG THEO THÁNG (đ)', span: M.length }, { label: 'CẢ QUÝ', span: 3, accent: true }, { span: 1 }],
       cols: [S.stt, S.ma, S.ten, S.vp, ...M.map(m => ({ h: E.monthLabel(m), t: 'money', w: 12 })),
-        { h: 'Số đợt', t: 'int', w: 7, accent: true }, { h: 'Tổng kiện', t: 'k1', w: 10, accent: true }, { h: 'Tổng thưởng (đ)', t: 'money', w: 15, accent: true }, { h: 'GHI CHÚ', t: 'text', w: 14 }],
-      rows: L.map((p, i) => [i + 1, p.ma, p.ten, p.vp, ...M.map(m => m0(p.thang[m])), p.dot, r1(p.kien), m0(p.thuong), '']),
+        { h: 'Số đợt', t: 'int', w: 7, accent: true }, { h: 'Tổng kiện', t: 'k1', w: 10, accent: true }, { h: 'Tổng thưởng (đ)', t: 'money', w: 15, accent: true }, { h: 'GHI CHÚ', t: 'text', w: 22 }],
+      rows: L.map((p, i) => [i + 1, p.ma, p.ten, p.vp, ...M.map(m => m0(p.thang[m])), p.dot, r1(p.kien), m0(p.thuong), ghiChu()[pkey(p)] || '']),
       muted: i => !L[i].thuong,
       total: ['TỔNG CỘNG', null, null, null, ...M.map(m => m0(L.reduce((a, p) => a + (p.thang[m] || 0), 0))), L.reduce((a, p) => a + p.dot, 0), r1(L.reduce((a, p) => a + p.kien, 0)), m0(L.reduce((a, p) => a + p.thuong, 0)), ''],
     });
