@@ -180,5 +180,5 @@
     books.forEach(b => b.sheets.forEach(s => s.batches.forEach(x => { const q = quarterOf(x.ngay); n[q] = (n[q] || 0) + 1; })));
     return Object.entries(n).sort((a, b) => b[1] - a[1] || b[0].localeCompare(a[0])).map(x => x[0]);
   }
-  root.BocEngine = { RULES, key, fold, hintFrom, guessVP, parseWorkbook, compute, apDung, dotTinh, tong, suggestQuarter, quarterOf, quarterLabel, monthLabel };
+  root.BocEngine = { RULES, key, fold, hintFrom, guessVP, parseWorkbook, compute, apDung, dotTinh, tong, vpThuTu, suggestQuarter, quarterOf, quarterLabel, monthLabel };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

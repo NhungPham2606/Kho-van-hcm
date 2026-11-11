@@ -153,6 +153,13 @@
   const listNV = () => { const a = A(); return a ? E.tong(dots(), a.boQua, a.chonThem) : []; };
   // Ghi chú từng nhân viên trong bảng tổng (vd nghỉ việc) — lưu theo quý: archive[q].ghiChu = { mã NV (hoặc tên): chữ }
   const ghiChu = () => { const a = A(); return (a && a.ghiChu) || {}; };
+  // nhóm nhân viên theo văn phòng, theo thứ tự HCM → Cần Thơ → Khánh Hòa → Tây Nguyên (người làm 2 VP xếp theo VP đầu)
+  function nhomVP(L) {
+    const m = new Map();
+    L.forEach(p => { if (!m.has(p.vp)) m.set(p.vp, []); m.get(p.vp).push(p); });
+    const thuTu = v => E.vpThuTu(String(v).split(', ')[0]);
+    return [...m.entries()].map(([vp, list]) => ({ vp, list })).sort((a, b) => thuTu(a.vp) - thuTu(b.vp) || a.vp.localeCompare(b.vp, 'vi'));
+  }
   let search = '', vpF = '', editId = null, draft = null, sugList = [], uploadOpen = false, pending = null, busy = false;
   const files = [];
   const TABS = ['bang-tong', 'van-phong', 'chi-tiet', 'loc-du-lieu'];
@@ -196,10 +203,18 @@
       + r.months.map(m => `<th class="r">${E.monthLabel(m)}<div class="muted" style="font-weight:400">thưởng</div></th>`).join('')
       + '<th class="r">Số đợt</th><th class="r">Tổng kiện</th><th class="r">Tổng thưởng quý ↓</th><th>Ghi chú <span class="muted" style="font-weight:400">(vd: nghỉ việc từ …)</span></th>';
     const gc = ghiChu();
-    let html = list.map((p, i) => `<tr class="${p.thuong ? '' : 'off'}"><td class="r" style="color:#9ca3af">${i + 1}</td><td>${esc(p.ma) || '<span class="tag ng">thiếu mã</span>'}</td><td class="name">${esc(p.ten)}</td><td>${esc(p.vp)}</td>`
+    const rowHtml = (p, i) => `<tr class="${p.thuong ? '' : 'off'}"><td class="r" style="color:#9ca3af">${i + 1}</td><td>${esc(p.ma) || '<span class="tag ng">thiếu mã</span>'}</td><td class="name">${esc(p.ten)}</td><td>${esc(p.vp)}</td>`
       + r.months.map(m => `<td class="r">${p.thang[m] ? money(p.thang[m]) : '<span class="muted">—</span>'}</td>`).join('')
       + `<td class="r">${p.dot}</td><td class="r">${k1(p.kien)}</td><td class="r money">${money(p.thuong)}</td>`
-      + `<td><input type="text" class="gc-in${gc[pkey(p)] ? ' co' : ''}" data-gc="${esc(pkey(p))}" value="${esc(gc[pkey(p)] || '')}" placeholder="ghi chú…" aria-label="Ghi chú cho ${esc(p.ten)}"></td></tr>`).join('');
+      + `<td><input type="text" class="gc-in${gc[pkey(p)] ? ' co' : ''}" data-gc="${esc(pkey(p))}" value="${esc(gc[pkey(p)] || '')}" placeholder="ghi chú…" aria-label="Ghi chú cho ${esc(p.ten)}"></td></tr>`;
+    // nhóm theo văn phòng (HCM → Cần Thơ → Khánh Hòa → Tây Nguyên), trong nhóm xếp thưởng cao → thấp, STT đánh lại từng nhóm
+    const nCot = 8 + r.months.length;
+    let html = nhomVP(list).map(g => {
+      const s = k => g.list.reduce((a, p) => a + p[k], 0);
+      return `<tr class="grp"><td colspan="${nCot}">${esc(g.vp)} <span>· ${g.list.length} nhân viên · ${money(s('thuong'))}</span></td></tr>`
+        + g.list.map(rowHtml).join('')
+        + (g.list.length > 1 ? `<tr class="sub"><td colspan="4">Cộng ${esc(g.vp)}</td>${r.months.map(m => `<td class="r">${money(g.list.reduce((a, p) => a + (p.thang[m] || 0), 0))}</td>`).join('')}<td class="r">${num(s('dot'))}</td><td class="r">${k1(s('kien'))}</td><td class="r">${money(s('thuong'))}</td><td></td></tr>` : '');
+    }).join('');
     if (!search) {
       html += `<tr class="total"><td colspan="4">TỔNG CỘNG</td>${r.months.map(m => `<td class="r">${money(all.reduce((a, p) => a + (p.thang[m] || 0), 0))}</td>`).join('')}`
         + `<td class="r">${num(all.reduce((a, p) => a + p.dot, 0))}</td><td class="r">${k1(all.reduce((a, p) => a + p.kien, 0))}</td><td class="r">${money(all.reduce((a, p) => a + p.thuong, 0))}</td><td></td></tr>`;
@@ -215,7 +230,8 @@
       const x = by.get(b.vp); x.dot++; x.kien += b.kien; x.thuong += b.thuong * b.soNguoi;
       b.nguoi.forEach(p => { x.nv.add(pkey(p)); if (b.thuong > 0) x.co.add(pkey(p)); });
     });
-    return [...by.values()].sort((a, b) => b.thuong - a.thuong);
+    const thuTu = v => E.vpThuTu(String(v).split(', ')[0]);
+    return [...by.values()].sort((a, b) => thuTu(a.vp) - thuTu(b.vp) || b.thuong - a.thuong);
   }
   function renderVP() {
     if (!res()) return;
@@ -458,7 +474,8 @@
   const XFMT = { money: '#,##0;-#,##0;"–"', int: '#,##0;-#,##0;"–"', k1: '#,##0.0;-#,##0.0;"–"' };
   // cols: [{ h, t: 'stt'|'ma'|'name'|'text'|'int'|'money'|'k1', w, accent }]; groups: [{ label, span, accent }] (span 1 = cột đứng 2 tầng)
   // muted(i) → chữ xám; shade(i) → tô nền dòng (mặc định xen kẽ); gop: [{ r0, r1, cols }] gộp ô theo chiều dọc trong phần dữ liệu.
-  function bangDep(wb, name, { title, sub, cols, groups, rows, total, muted, shade, gop, kyTen = true }) {
+  // kieu(i) = 'grp' (dòng tên nhóm, gộp hết bề ngang) | 'sub' (dòng cộng nhóm) | undefined (dòng thường)
+  function bangDep(wb, name, { title, sub, cols, groups, rows, total, muted, shade, gop, kieu, kyTen = true }) {
     const n = cols.length, aoa = [], merges = [], rowsH = [];
     aoa.push([title]); merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: n - 1 } }); rowsH.push({ hpt: 28 });
     aoa.push([sub]); merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: n - 1 } }); rowsH.push({ hpt: 34 });
@@ -473,7 +490,7 @@
       aoa.push(top, bot); rowsH.push({ hpt: 22 }, { hpt: 32 });
     } else { aoa.push(cols.map(x => x.h)); cols.forEach((x, c) => { headFill[c] = x.accent ? RED : NAVY; }); rowsH.push({ hpt: 40 }); }
     const headRows = groups ? 2 : 1, first = aoa.length;
-    rows.forEach(row => { aoa.push(row); rowsH.push({ hpt: 21 }); });
+    rows.forEach((row, i) => { aoa.push(row); rowsH.push({ hpt: kieu && kieu(i) === 'grp' ? 24 : 21 }); });
     const totalRow = total ? aoa.length : -1;
     if (total) { aoa.push(total); rowsH.push({ hpt: 24 }); }
     const half = Math.ceil(n / 2);
@@ -501,7 +518,19 @@
     };
     put(0, 0, XST.title); put(1, 0, XST.sub);
     for (let r = headTop; r < headTop + headRows; r++) for (let c = 0; c < n; c++) put(r, c, XST.head(headFill[c] || NAVY));
+    const nameCol = Math.max(0, cols.findIndex(x => x.t === 'name'));
     rows.forEach((row, i) => {
+      const k = kieu && kieu(i);
+      if (k === 'grp') {
+        for (let c = 0; c < n; c++) put(first + i, c, { font: { name: FONT, sz: 12, bold: true, color: { rgb: NAVY } }, fill: { patternType: 'solid', fgColor: { rgb: 'DCE6F2' } }, border: BORDER, alignment: { vertical: 'center', horizontal: 'left', indent: 1 } });
+        merges.push({ s: { r: first + i, c: 0 }, e: { r: first + i, c: n - 1 } });
+        return;
+      }
+      if (k === 'sub') {
+        cols.forEach((col, c) => put(first + i, c, cell(c <= nameCol ? 'name' : col.t, { fill: col.accent ? 'F8E1E1' : 'EEF2F7', bold: true, color: col.accent ? '7F1D1D' : '334155' })));
+        if (nameCol > 0) merges.push({ s: { r: first + i, c: 0 }, e: { r: first + i, c: nameCol } });
+        return;
+      }
       const grey = muted && muted(i), dark = shade ? shade(i) : i % 2;
       cols.forEach((col, c) => put(first + i, c, cell(col.t, {
         fill: col.accent ? (dark ? 'FBEAEA' : 'FDF3F3') : (dark ? 'F3F6FA' : null),
@@ -509,7 +538,6 @@
     });
     (gop || []).forEach(g => { if (g.r1 > g.r0) g.cols.forEach(c => merges.push({ s: { r: first + g.r0, c }, e: { r: first + g.r1, c } })); });
     if (total) {
-      const nameCol = Math.max(0, cols.findIndex(x => x.t === 'name'));
       cols.forEach((col, c) => put(totalRow, c, cell(c <= nameCol ? 'name' : col.t, { fill: col.accent ? 'F5D0D0' : 'D9E4F2', bold: true, color: col.accent ? '7F1D1D' : NAVY })));
       if (nameCol > 0) merges.push({ s: { r: totalRow, c: 0 }, e: { r: totalRow, c: nameCol } });
     }
@@ -554,6 +582,15 @@
     const L = listNV(), T = tinhSet(), D = dots(), Q = E.quarterLabel(r.quarterKey).toUpperCase(), R = r.rules;
     const vnd = v => v.toLocaleString('vi-VN'), m0 = x => Math.round(x || 0), r1 = x => Math.round((x || 0) * 10) / 10;
     const vps = vpStats();
+    // bảng tổng: nhóm theo văn phòng — dòng tên VP, các nhân viên (STT đánh lại), dòng cộng VP
+    const LA_MA = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'], gc = ghiChu();
+    const bt = { rows: [], kieu: [], xam: [], ke: [] }, push = (row, k, x, ke) => { bt.rows.push(row); bt.kieu.push(k); bt.xam.push(x); bt.ke.push(ke); };
+    nhomVP(L).forEach((g, gi) => {
+      push([`${LA_MA[gi] || gi + 1}. VĂN PHÒNG ${g.vp.toUpperCase()}  —  ${g.list.length} nhân viên`], 'grp', false, 0);
+      g.list.forEach((p, i) => push([i + 1, p.ma, p.ten, p.vp, ...r.months.map(m => m0(p.thang[m])), p.dot, r1(p.kien), m0(p.thuong), gc[pkey(p)] || ''], undefined, !p.thuong, i % 2));
+      const s = k => g.list.reduce((a, p) => a + p[k], 0);
+      push([`Cộng ${g.vp}`, null, null, null, ...r.months.map(m => m0(g.list.reduce((a, p) => a + (p.thang[m] || 0), 0))), s('dot'), r1(s('kien')), m0(s('thuong')), ''], 'sub', false, 0);
+    });
     const quyTac = `Thưởng mỗi đợt = (Số kiện ÷ số người − ${R.nguong}) × ${vnd(R.donGia)}đ khi trên ${R.nguong} kiện/người  ·  Thưởng quý = cộng các đợt`;
     const S = { stt: { h: 'STT', t: 'stt', w: 5 }, ma: { h: 'MÃ NV', t: 'ma', w: 10 }, ten: { h: 'HỌ VÀ TÊN', t: 'name', w: 27 }, vp: { h: 'VĂN PHÒNG', t: 'text', w: 13 } };
     const M = r.months;
@@ -564,8 +601,7 @@
       groups: [{ span: 1 }, { span: 1 }, { span: 1 }, { span: 1 }, { label: 'THƯỞNG THEO THÁNG (đ)', span: M.length }, { label: 'CẢ QUÝ', span: 3, accent: true }, { span: 1 }],
       cols: [S.stt, S.ma, S.ten, S.vp, ...M.map(m => ({ h: E.monthLabel(m), t: 'money', w: 12 })),
         { h: 'Số đợt', t: 'int', w: 7, accent: true }, { h: 'Tổng kiện', t: 'k1', w: 10, accent: true }, { h: 'Tổng thưởng (đ)', t: 'money', w: 15, accent: true }, { h: 'GHI CHÚ', t: 'text', w: 22 }],
-      rows: L.map((p, i) => [i + 1, p.ma, p.ten, p.vp, ...M.map(m => m0(p.thang[m])), p.dot, r1(p.kien), m0(p.thuong), ghiChu()[pkey(p)] || '']),
-      muted: i => !L[i].thuong,
+      rows: bt.rows, kieu: i => bt.kieu[i], muted: i => bt.xam[i], shade: i => bt.ke[i],
       total: ['TỔNG CỘNG', null, null, null, ...M.map(m => m0(L.reduce((a, p) => a + (p.thang[m] || 0), 0))), L.reduce((a, p) => a + p.dot, 0), r1(L.reduce((a, p) => a + p.kien, 0)), m0(L.reduce((a, p) => a + p.thuong, 0)), ''],
     });
     // 2) Theo văn phòng
