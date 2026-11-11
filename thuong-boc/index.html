@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="vi" data-base="../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Thưởng bốc hàng quý</title>
+<link rel="icon" href="../assets/logo.png?v=2" type="image/png">
+<link rel="stylesheet" href="../assets/theme.css?v=20261003a">
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<style>
+  /* Trang Thưởng bốc hàng quý — cùng giao diện với Thưởng kho / Thưởng quý GH */
+  .content.tk-wide { max-width: none; padding: 16px 20px; }
+  .tk { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; color: #333; }
+  .tk .tk-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
+  .tk .tk-card-body { padding: 16px; }
+  .tk .tk-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 14px 16px; border-bottom: 1px solid #f3f4f6; }
+  .tk .tk-card-head h3 { margin: 0; font-size: 14px; font-weight: 600; color: #1f2937; }
+  .tk .tk-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-bottom: 10px; }
+  .tk .tk-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .tk .tk-lbl { font-size: 11px; color: #6b7280; margin-right: 4px; }
+  .tk .b { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 500; padding: 7px 14px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff; color: #374151; cursor: pointer; text-decoration: none; white-space: nowrap; transition: all .15s; line-height: 1.3; }
+  .tk .b:hover { background: #f9fafb; }
+  .tk .b.pri { background: #1a56db; border-color: #1a56db; color: #fff; } .tk .b.pri:hover { background: #1343b0; }
+  .tk .b.ok { background: #0e9f6e; border-color: #0e9f6e; color: #fff; } .tk .b.ok:hover { background: #0b7a56; }
+  .tk .b.del { background: #e02424; border-color: #e02424; color: #fff; } .tk .b.del:hover { background: #b91c1c; }
+  .tk .b.sm { padding: 5px 10px; font-size: 12px; }
+  .tk .b.xs { padding: 2px 8px; font-size: 11px; }
+  .tk .tk-banner { display: inline-block; font-size: 12px; color: #065f46; background: #ecfdf5; padding: 6px 12px; border-radius: 8px; }
+  .tk .tk-sync { font-size: 11px; color: #9ca3af; margin-top: 8px; }
+  .tk .tk-err { margin-top: 12px; padding: 10px 14px; background: #fee2e2; color: #991b1b; border-radius: 8px; font-size: 12px; }
+  .tk .tk-okmsg { margin-top: 12px; padding: 10px 14px; background: #ecfdf5; color: #065f46; border-radius: 8px; font-size: 12px; }
+  .tk .gh-warn { margin-top: 10px; padding: 10px 14px; background: #fffbeb; color: #92400e; border: 1px solid #fde68a; border-radius: 8px; font-size: 12px; line-height: 1.7; }
+  .tk .tk-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tk .tk-stat { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; }
+  .tk .tk-stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #9ca3af; font-weight: 500; }
+  .tk .tk-stat .v { font-size: 24px; font-weight: 700; margin-top: 4px; color: #1f2937; }
+  .tk .tk-stat.blue .v { color: #1a56db; }
+  .tk .tk-stat.green .v { color: #0e9f6e; font-size: 18px; }
+  .tk .tk-search { position: relative; min-width: 180px; max-width: 220px; flex: 1; }
+  .tk .tk-search input { width: 100%; box-sizing: border-box; font: inherit; font-size: 12px; padding: 7px 10px 7px 30px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; outline: none; }
+  .tk .tk-search input:focus { border-color: #1a56db; box-shadow: 0 0 0 2px #1a56db22; }
+  .tk .tk-search svg { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: #9ca3af; }
+  .tk .tw { overflow: auto; max-height: calc(100vh - 380px); }
+  .tk table.dt { border-collapse: collapse; width: 100%; font-size: 12px; }
+  .tk table.dt th { position: sticky; top: 0; background: #f9fafb; color: #4b5563; text-align: left; font-weight: 600; padding: 8px 10px; border-bottom: 2px solid #e5e7eb; white-space: nowrap; z-index: 1; }
+  .tk table.dt td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; white-space: nowrap; color: #374151; vertical-align: top; }
+  .tk table.dt tbody tr:hover td { background: #eff6ff; }
+  .tk table.dt .r { text-align: right; }
+  .tk table.dt td.name { font-weight: 600; }
+  .tk table.dt td.ppl { white-space: normal; min-width: 260px; max-width: 520px; line-height: 1.6; }
+  .tk table.dt td.note { font-size: 11px; color: #6b7280; white-space: normal; min-width: 140px; max-width: 280px; }
+  .tk table.dt tr.total td { background: #f0f9ff; font-weight: 700; }
+  .tk table.dt tr.total td:first-child { color: #1e40af; }
+  .tk table.dt td.money { color: #1a56db; font-weight: 700; }
+  .tk table.dt tr.off td { color: #9ca3af; }
+  .tk table.dt tr.off td.money { color: #9ca3af; font-weight: 400; }
+  .tk table.dt td.ck { width: 34px; text-align: center; }
+  .tk table.dt tr.edit td { background: #f8fbff; border-bottom: 2px solid #c7d2fe; white-space: normal; }
+  .tk table.dt tbody tr.edit:hover td { background: #f8fbff; }
+  .tk .tag { display: inline-block; font-size: 10.5px; font-weight: 600; border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
+  .tk .tag.sua { background: #ede9fe; color: #6d28d9; } .tk .tag.dao { background: #fef3c7; color: #92400e; } .tk .tag.ng { background: #fee2e2; color: #991b1b; }
+  .tk .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; background: #fff; border: 1px solid #d1d5db; color: #374151; border-radius: 20px; padding: 3px 6px 3px 10px; margin: 0 6px 6px 0; }
+  .tk .chip.moi { border-color: #8b5cf6; background: #f5f3ff; }
+  .tk .chip button { border: 0; background: none; color: #991b1b; font-weight: 700; cursor: pointer; padding: 0 3px; font-size: 13px; }
+  .tk .ed-add { position: relative; display: inline-block; }
+  .tk .ed-add input { width: 280px; }
+  .tk .ed-sug { position: absolute; z-index: 5; left: 0; top: 100%; margin-top: 2px; min-width: 280px; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; box-shadow: 0 8px 24px rgba(15,23,42,.14); }
+  .tk .ed-sug button { display: block; width: 100%; text-align: left; border: 0; background: none; font: inherit; font-size: 12px; padding: 6px 10px; cursor: pointer; color: #374151; }
+  .tk .ed-sug button:hover { background: #eff6ff; color: #1a56db; }
+  .tk .tk-foot { padding: 10px 16px; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+  .tk .tk-zone { border: 2px dashed #d1d5db; border-radius: 10px; padding: 26px 24px; text-align: center; cursor: pointer; background: #f9fafb; transition: all .2s; }
+  .tk .tk-zone:hover, .tk .tk-zone.drag { border-color: #1a56db; background: #eff6ff; }
+  .tk .tk-zone.has { border-color: #0e9f6e; background: #f0fdf4; }
+  .tk .tk-zone h4 { margin: 0 0 6px; font-size: 14px; font-weight: 600; color: #374151; }
+  .tk .tk-zone p { margin: 0 auto 10px; font-size: 12px; color: #6b7280; max-width: 760px; line-height: 1.6; }
+  .tk .gh-files { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; font-size: 12px; }
+  .tk .gh-files .f { display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 4px 8px; }
+  .tk .gh-files .f button { border: 0; background: none; color: #991b1b; font-weight: 700; cursor: pointer; }
+  .tk .gh-files .none { color: #9ca3af; }
+  .tk select, .tk input[type=text], .tk input[type=number] { font: inherit; font-size: 12px; padding: 7px 8px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; outline: none; }
+  .tk input[type=number] { width: 90px; }
+  .tk select:focus, .tk input:focus { border-color: #1a56db; }
+  .tk .tk-notes { font-size: 12px; color: #6b7280; line-height: 1.7; }
+  .tk .muted { font-size: 11px; color: #9ca3af; }
+  .tk ul.loc { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: #4b5563; line-height: 1.7; }
+  @media (max-width: 900px) { .tk .tw { max-height: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar" aria-label="Menu"></aside>
+  <div class="sb-overlay"></div>
+  <div class="main">
+    <div class="main-bar">
+      <button class="menu-btn" type="button" aria-label="Mở menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <nav class="crumbs" aria-label="Đường dẫn"><a href="../">Trang chủ</a><span>›</span><span aria-current="page">Thưởng bốc hàng quý</span></nav>
+    </div>
+    <main class="content tk-wide">
+      <div class="tk" id="bh" data-owner="NhungPham2606" data-repo="BAO-CAO-GIAO-HANG" data-dir="thuong-boc">
+
+        <div class="tk-card" id="bhTop" hidden>
+          <div class="tk-card-body">
+            <div class="tk-bar">
+              <div class="tk-row"><span class="tk-lbl">Dữ liệu đã lưu:</span><span class="tk-row" id="bhChips"></span></div>
+              <div class="tk-row">
+                <button class="b" type="button" id="bhReload">Nạp file quý khác</button>
+                <button class="b del" type="button" id="bhDelete">Xóa quý này</button>
+                <button class="b ok" type="button" id="bhExport"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Xuất Excel</button>
+              </div>
+            </div>
+            <div class="tk-banner" id="bhBanner"></div>
+            <div class="tk-sync" id="bhSync"></div>
+            <div id="bhMsg"></div>
+          </div>
+        </div>
+
+        <div class="tk-card" id="bhUpload">
+          <div class="tk-card-head"><h3>Nạp file nhập hàng của các văn phòng</h3></div>
+          <div class="tk-card-body">
+            <div id="bhUpMsg"></div>
+            <div class="tk-zone" id="bhZone" tabindex="0" role="button" aria-label="Chọn file nhập hàng các văn phòng">
+              <h4>Thả file nhập hàng của các văn phòng vào đây (chọn được nhiều file cùng lúc)</h4>
+              <p>HCM, Cần Thơ, Tây Nguyên, Khánh Hòa… — mỗi file có các cột <b>Ngày · Số kiện · Mã NV · Tên</b>, mỗi đợt nhập ghi ngày + số kiện ở dòng đầu, người tham gia ở các dòng dưới. File có nhiều sheet (theo tháng / theo quý) cứ thả nguyên file, trang tự lấy đúng quý.</p>
+              <div class="gh-files" id="bhFiles"></div>
+            </div>
+            <input type="file" id="bhFile" accept=".xlsx,.xls" multiple hidden>
+            <div class="tk-row" style="margin-top:12px">
+              <button class="b pri" type="button" id="bhRead">Đọc file</button>
+              <span class="muted" id="bhStep"></span>
+              <button class="b sm" type="button" id="bhUpCancel" hidden>Đóng, quay lại quý đang xem</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tk-card" id="bhPending" hidden>
+          <div class="tk-card-head"><h3>Kiểm tra văn phòng và chọn quý</h3></div>
+          <div class="tk-card-body">
+            <div class="muted" style="font-size:12px;margin-bottom:10px;line-height:1.7">Kiểm tra cột <b>Văn phòng</b> của từng file (trang tự đoán theo tiêu đề / mã nhân viên đã gặp; sửa được). Sheet ghi quý khác sẽ tự bỏ qua.</div>
+            <div class="tw" style="max-height:none"><table class="dt"><thead><tr><th>File</th><th>Văn phòng</th><th>Sheet đọc được</th><th>Số đợt theo quý</th></tr></thead><tbody id="bhPendBody"></tbody></table></div>
+            <datalist id="bhVPs"><option value="HCM"><option value="Cần Thơ"><option value="Tây Nguyên"><option value="Khánh Hòa"></datalist>
+            <div id="bhPendWarn"></div>
+            <div class="tk-row" style="margin:14px 0 16px"><b style="font-size:12px">Tính cho quý:</b><select id="bhPendQ"></select></div>
+            <div class="tk-row">
+              <button class="b pri" type="button" id="bhConfirm">Xác nhận, tính thưởng</button>
+              <button class="b" type="button" id="bhCancel">Huỷ</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="bhMain" hidden>
+          <div class="tk-stats">
+            <div class="tk-stat blue"><div class="l">Nhân viên có thưởng</div><div class="v" id="stNV"></div></div>
+            <div class="tk-stat"><div class="l">Số đợt bốc hàng</div><div class="v" id="stDot"></div></div>
+            <div class="tk-stat"><div class="l">Tổng kiện nhập</div><div class="v" id="stKien"></div></div>
+            <div class="tk-stat green"><div class="l">Tổng thưởng quý</div><div class="v" id="stTong"></div></div>
+          </div>
+          <div class="tk-card">
+            <div class="tk-card-head">
+              <div class="tk-row" id="bhTabs">
+                <a class="b sm" href="#bang-tong" data-tab="bang-tong">Bảng tổng thưởng</a>
+                <a class="b sm" href="#van-phong" data-tab="van-phong">Theo văn phòng</a>
+                <a class="b sm" href="#chi-tiet" data-tab="chi-tiet">Chi tiết từng đợt</a>
+                <a class="b sm" href="#loc-du-lieu" data-tab="loc-du-lieu">Dữ liệu đã lọc</a>
+              </div>
+              <div class="tk-search" id="bhSearchBox">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                <input id="bhSearch" placeholder="Tìm tên / mã nhân viên...">
+              </div>
+            </div>
+            <div data-pane="bang-tong"><div class="tw"><table class="dt"><thead><tr id="btHead"></tr></thead><tbody id="btBody"></tbody></table></div></div>
+            <div data-pane="van-phong" hidden><div class="tw"><table class="dt"><thead><tr><th>Văn phòng</th><th class="r">Số đợt</th><th class="r">Tổng kiện nhập</th><th class="r">Số NV tham gia</th><th class="r">Số NV có thưởng</th><th class="r">Tổng thưởng ↓</th><th>File</th></tr></thead><tbody id="vpBody"></tbody></table></div></div>
+            <div data-pane="chi-tiet" hidden>
+              <div class="tk-row" style="padding:10px 16px 0;gap:6px"><span class="tk-row" id="ctVP"></span><span class="muted" style="margin-left:8px">Bỏ tick = đợt không tính thưởng · <b>Sửa</b> để thêm / bớt người hoặc sửa số kiện</span></div>
+              <div class="tw" style="margin-top:10px"><table class="dt"><thead><tr><th class="ck">Tính</th><th>Văn phòng</th><th>Ngày</th><th class="r">Số kiện</th><th class="r">Số người</th><th class="r">Kiện / người</th><th class="r">Thưởng / người</th><th>Người tham gia</th><th>Ghi chú</th><th></th></tr></thead><tbody id="ctBody"></tbody></table></div>
+            </div>
+            <div data-pane="loc-du-lieu" hidden><div class="tk-card-body" id="locBody"></div></div>
+            <div class="tk-foot" id="bhFoot"></div>
+          </div>
+        </div>
+
+        <div class="tk-card" id="huong-dan">
+          <div class="tk-card-head"><h3>Quy tắc tính (theo file THƯỞNG BỐC HÀNG_QUÝ 2.2026_HCM)</h3></div>
+          <div class="tk-card-body tk-notes">
+            <div>• <b>Mỗi đợt nhập hàng</b>: kiện / người = <b>Số kiện ÷ số người có tên trong đợt</b> (tên ghi trùng trong cùng đợt chỉ tính 1 lần).</div>
+            <div>• <b>Thưởng mỗi người mỗi đợt</b> = (kiện / người − <span data-rule="nguong"></span>) × <span data-rule="donGia"></span>đ, chỉ tính khi trên <span data-rule="nguong"></span> kiện / người; dưới mức này thưởng 0đ (không trừ).</div>
+            <div>• <b>Thưởng quý</b> = cộng các đợt trong quý của mọi văn phòng; một người làm ở nhiều văn phòng được cộng chung theo Mã NV.</div>
+            <div>• <b>Số kiện</b> ghi chữ như "147 kiện nhà máy" lấy số đầu tiên; ghi "496 kiện + 50 cái Palet" thì cộng lại (546).</div>
+            <div>• <b>Ngày</b>: Excel đôi khi đảo ngày/tháng (vd 7/9 thành 9/7) — trang tự chọn ngày đúng quý và đúng thứ tự các đợt, đánh dấu <span class="tag dao">đã đảo ngày</span> để bạn kiểm tra.</div>
+            <div>• Đợt có ghi chữ <b>"ngoài giờ"</b> mặc định không tính (đã trả ngoài giờ) — tick lại nếu cần. Đợt trùng hệt nhau giữa các file chỉ tính 1 lần.</div>
+            <div>• Thiếu Mã NV / tên thì lấy theo các đợt khác hoặc <b>bảng chấm công</b>. Người được thêm tay vào đợt (vd tài xế phụ bốc) thì bấm <b>Sửa</b> ở tab Chi tiết từng đợt.</div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+    <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel được đọc trong trình duyệt; kết quả theo quý lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
+  </div>
+</div>
+<script src="../assets/flows.js?v=20261111c"></script>
+<script src="../assets/layout.js?v=20261010a"></script>
+<script src="boc-engine.js?v=20261111b"></script>
+<script src="app.js?v=20261111b"></script>
+</body>
+</html>

@@ -81,6 +81,17 @@ window.KVH_MENU = [
     ],
   },
   {
+    ten: 'Thưởng bốc hàng quý', icon: 'box', trangThai: 'Theo quý',
+    moTa: 'Thưởng bốc hàng (nhập hàng) theo quý: thả file nhập hàng của các văn phòng HCM, Cần Thơ, Tây Nguyên, Khánh Hòa → bảng tổng thưởng (trên 18 kiện/người × 2.000đ mỗi đợt).',
+    muc: [
+      { ten: 'Bảng tổng thưởng', href: 'thuong-boc/#bang-tong' },
+      { ten: 'Theo văn phòng', href: 'thuong-boc/#van-phong' },
+      { ten: 'Chi tiết từng đợt', href: 'thuong-boc/#chi-tiet' },
+      { ten: 'Nạp file văn phòng', href: 'thuong-boc/#nap-du-lieu' },
+      { ten: 'Quy tắc', href: 'thuong-boc/#huong-dan' },
+    ],
+  },
+  {
     ten: 'Tổng Hợp KPIs', icon: 'chart', trangThai: 'Hằng tháng',
     moTa: 'Tổng hợp điểm KPIs từng nhân viên (file Excel Kho, PDF Kế toán), điểm trừ, xếp loại, mức thưởng; xuất Excel theo mẫu VP.HCM.',
     muc: [
