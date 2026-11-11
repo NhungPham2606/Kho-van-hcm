@@ -119,6 +119,7 @@
   .tk table.dt td.ck { width: 34px; text-align: center; }
   .tk input.ma-in { width: 78px; padding: 4px 6px; font-size: 12px; }
   .tk input.ma-in.miss { border-color: #f59e0b; background: #fffbeb; }
+  .tk #diemList { width: 100%; box-sizing: border-box; font: inherit; font-size: 12px; line-height: 1.6; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; resize: vertical; }
   @media (max-width: 1200px) { .tk .gh-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .tk .gh-slot { padding: 18px 14px; text-align: left; }
   .tk .gh-slot h4 { font-size: 13px; }
@@ -158,6 +159,7 @@
             </div>
             <div class="tk-banner" id="ghBanner"></div>
             <div class="tk-sync" id="ghSync"></div>
+            <div id="ghRuleWarn"></div>
             <div id="ghMsg"></div>
           </div>
         </div>
@@ -270,7 +272,14 @@
             <div>• <b>Thưởng đơn hàng mỗi ngày</b> = (số đơn − <span data-rule="donNguong"></span>) × <span data-rule="donGia"></span>đ, chỉ tính khi trên <span data-rule="donNguong"></span> đơn/ngày.</div>
             <div>• <b>Thưởng theo KM mỗi ngày</b> = (số km − <span data-rule="kmNguong"></span>) × <span data-rule="kmGia"></span>đ, chỉ tính khi trên <span data-rule="kmNguong"></span> km/ngày.</div>
             <div>• <b>Thưởng quý</b> = cộng dồn các ngày trong quý (không chia trung bình); tổng = thưởng đơn hàng + thưởng theo KM. Mã NV lấy từ sheet "mã nv" / bảng chấm ngoài giờ; còn thiếu thì tự lấy từ <b>bảng chấm công</b> (6 tháng gần nhất), không có nữa thì nhập tay ở tab Danh sách tính thưởng.</div>
+            <div>• <b>Địa điểm trả Check là kho / văn phòng công ty</b> (danh sách bên dưới): dòng giao hàng trả check tại đó <b>không tính thưởng</b> (cả đơn hàng lẫn km).</div>
             <div>• <b>Danh sách tính thưởng</b>: chỉ những nhân viên được chọn (theo file danh sách ở ô 4, hoặc tick ở tab Danh sách tính thưởng) mới vào bảng thưởng, tổng tiền và file Excel; người không chọn vẫn xem được số liệu ở tab đó. Không có danh sách = tính tất cả.</div>
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f3f4f6">
+              <div style="font-weight:600;color:#1f2937;margin-bottom:4px">Địa điểm trả Check không tính thưởng</div>
+              <div class="muted" style="margin-bottom:6px">Mỗi dòng 1 địa chỉ, ghi đúng như cột "Địa điểm trả Check" (không phân biệt hoa thường / có dấu hay không). Áp dụng khi tính quý mới — quý đã tính thì bấm <b>Nạp file quý khác</b> và nạp lại file để tính lại.</div>
+              <textarea id="diemList" rows="11" spellcheck="false"></textarea>
+              <div class="tk-row" style="margin-top:8px"><button class="b sm pri" type="button" id="diemSave">Lưu danh sách</button><button class="b sm" type="button" id="diemReset">Về danh sách mặc định</button><span class="muted" id="diemMsg"></span></div>
+            </div>
           </div>
         </div>
 
@@ -281,7 +290,7 @@
 </div>
 <script src="../assets/flows.js?v=20261111b"></script>
 <script src="../assets/layout.js?v=20261010a"></script>
-<script src="gh-engine.js?v=20261111c"></script>
-<script src="app.js?v=20261111d"></script>
+<script src="gh-engine.js?v=20261111e"></script>
+<script src="app.js?v=20261111e"></script>
 </body>
 </html>

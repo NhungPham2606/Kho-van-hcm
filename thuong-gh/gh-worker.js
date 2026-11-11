@@ -1,5 +1,5 @@
 // Đọc 3 nhóm file Thưởng quý GH ở luồng riêng (file chấm ngoài giờ/kiện hàng có thể 10–30MB).
-importScripts('https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js', 'gh-engine.js?v=20261111c');
+importScripts('https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js', 'gh-engine.js?v=20261111e');
 
 self.onmessage = e => {
   try {

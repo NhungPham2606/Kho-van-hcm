@@ -9,7 +9,7 @@
   const OWNER = root.dataset.owner, REPO = root.dataset.repo, DIR = root.dataset.dir;
   const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
   const LS_KEY = 'kvh-thuonggh-v1', LS_SEL = 'kvh-thuonggh-sel', TOKEN_KEY = 'kvh-gh-token';
-  const VER = '20261111d';
+  const VER = '20261111e';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = n => Math.round(n || 0).toLocaleString('vi-VN') + 'đ';
@@ -80,6 +80,34 @@
   }
   function touch(q) { archive[q].savedAt = new Date().toISOString(); persistLocal(); scheduleSave(q); }
 
+  // ------------------------------------------------------------ cài đặt dùng chung (lưu máy + hệ thống: thuong-gh/cai-dat.json)
+  const CD_KEY = 'kvh-thuonggh-caidat';
+  let caiDat = {}; try { caiDat = JSON.parse(localStorage.getItem(CD_KEY) || '{}'); } catch (e) {}
+  let cdSha = null;
+  const diemList = () => Array.isArray(caiDat.diemLoaiTru) ? caiDat.diemLoaiTru : E.DIEM_LOAI_TRU;
+  function renderCaiDat() { if (document.activeElement !== $('diemList')) $('diemList').value = diemList().join('\n'); }
+  async function pullCaiDat() {
+    if (!token) return;
+    try {
+      const meta = await gh(`/contents/${DIR}/cai-dat.json?ref=main&t=${Date.now()}`);
+      cdSha = meta.sha;
+      const remote = JSON.parse(b64dec(meta.content || '') || '{}');
+      if ((remote.savedAt || '') >= (caiDat.savedAt || '')) { caiDat = remote; try { localStorage.setItem(CD_KEY, JSON.stringify(caiDat)); } catch (e) {} renderCaiDat(); }
+      else saveCaiDat();
+    } catch (e) { if (e.status === 404 && caiDat.savedAt) saveCaiDat(); }
+  }
+  async function saveCaiDat() {
+    try { localStorage.setItem(CD_KEY, JSON.stringify(caiDat)); } catch (e) {}
+    if (!token) return 'đã lưu trên máy này (chưa kết nối hệ thống)';
+    try {
+      const body = { message: `${DIR} cai dat (tu web)`, content: b64enc(JSON.stringify(caiDat)), branch: 'main' };
+      if (cdSha) body.sha = cdSha;
+      const r = await gh(`/contents/${DIR}/cai-dat.json`, { method: 'PUT', body: JSON.stringify(body) });
+      cdSha = r.content.sha;
+      return 'đã lưu lên hệ thống';
+    } catch (e) { cdSha = null; return 'đã lưu trên máy này, chưa lưu được lên hệ thống (' + e.message + ')'; }
+  }
+
   // ------------------------------------------------------------ Mã NV còn thiếu: lấy từ bảng chấm công
   // Trên máy: dữ liệu trang Chấm công (localStorage kvh-chamcong-v1); thêm 6 tháng gần nhất trên hệ thống (nếu có token).
   // Tháng mới nhất được ưu tiên. Người không có trong chấm công thì nhập tay ở tab Danh sách tính thưởng.
@@ -146,6 +174,7 @@
     const files = [...(r.files.giao || []), ...(r.files.kien || []), ...(r.files.ngoai || [])];
     $('ghBanner').innerHTML = `✓ ${files.length} file (${esc(files.join(', '))}) · <b>${num(r.stats.tinh)}</b> dòng giao trực tiếp được tính · Đang xem <b>${E.quarterLabel(r.quarterKey)}</b>`;
     $('ghSync').textContent = syncMsg;
+    $('ghRuleWarn').innerHTML = r.stats.diemLoai === undefined ? '<div class="gh-warn">⚠ Quý này được tính trước khi có quy tắc <b>địa điểm trả Check là kho / văn phòng không tính thưởng</b> — bấm <b>Nạp file quý khác</b> và nạp lại 3 file (+ danh sách NV) để tính lại cho đúng.</div>' : '';
   }
   function renderStats() {
     const r = res(); if (!r) return;
@@ -206,6 +235,8 @@
       + row('− Không tìm thấy đối tác vận chuyển', s.khongRoDoiTac, s.khongRoDoiTac ? 'Mã kiện hàng không có trong file 2 — kiểm tra lại file kiện hàng' : '')
       + row('− Đi ô tô', s.oto)
       + row('− Đơn ngoài giờ (đã được trả ngoài giờ)', s.ngoaiGio, `${num(r.ngoaiGioCount)} mã đơn ngoài giờ "Đạt" đọc được từ file`)
+      + (s.diemLoai === undefined ? `<tr><td colspan="3" class="muted">⚠ Quý này tính trước khi có quy tắc "địa điểm trả Check là kho / văn phòng không tính thưởng" — bấm Nạp file quý khác và nạp lại file để tính lại.</td></tr>`
+        : row('− Trả check tại kho / văn phòng (không tính thưởng)', s.diemLoai, (s.diemLoaiChiTiet || []).length ? `<details><summary style="cursor:pointer">${(s.diemLoaiChiTiet || []).length} địa điểm — bấm để xem</summary>${(s.diemLoaiChiTiet || []).map(([d, n]) => `${num(n)} · ${esc(d)}`).join('<br>')}</details>` : ''))
       + (s.khongDatTinh ? row('(trong số còn lại) đơn ngoài giờ "Không đạt" vẫn tính thưởng', s.khongDatTinh, `${num(r.khongDatCount)} mã "Không đạt" trong bảng chấm — không được trả ngoài giờ nên vẫn tính thưởng giao hàng`) : '')
       + `<tr class="total"><td>= Dòng giao trực tiếp được tính thưởng</td><td class="r">${num(s.tinh)}</td><td>${num(s.kmSua)} dòng quãng đường &gt; ${r.rules.kmMax} km đã thay bằng km trung bình</td></tr>`
       + `</tbody></table><div class="muted" style="margin-top:12px;line-height:1.7">File đã đọc — giao hàng: ${esc((r.giaoSheets || []).join('; ') || '—')} · kiện hàng: ${esc((r.files.kien || []).join(', ') || '—')} (${num(r.kienCount)} mã kiện) · ngoài giờ: ${esc((r.files.ngoai || []).join(', ') || '—')}</div>`;
@@ -298,7 +329,7 @@
   $('ghConfirm').addEventListener('click', () => {
     if (!pending) return;
     const q = $('ghPendingQ').value;
-    const rs = E.compute(pending, q);
+    const rs = E.compute(pending, q, { diemLoaiTru: diemList() });
     archive[q] = { result: rs, chon: rs.coDS ? rs.nhanVien.filter(p => p.trongDS).map(p => E.key(p.nv)) : null };
     sel = q; pending = null; uploadOpen = false; ctMonth = '';
     slotFiles.giao = []; slotFiles.kien = []; slotFiles.ngoai = []; slotFiles.ds = [];
@@ -382,11 +413,20 @@
     const ngoai = r.nhanVien.filter(p => !incl(p, set));
     if (ngoai.length) add('Không tính thưởng', [['MÃ NV', 'HỌ VÀ TÊN', 'SỐ NGÀY GIAO', 'THƯỞNG ĐƠN (nếu tính)', 'THƯỞNG KM (nếu tính)', 'TỔNG (nếu tính)'], ...ngoai.map(p => [p.maNV, p.nv, p.ngayLam, Math.round(p.thuongDon), Math.round(p.thuongKm), Math.round(p.tong)])]);
     const s = r.stats;
-    add('Lọc dữ liệu', [['Bước', 'Số dòng'], ['Dòng có ngày trả trong quý', s.tong], ['Đơn chành / đối tác khác', s.chanh], ['Không rõ đối tác', s.khongRoDoiTac], ['Đi ô tô', s.oto], ['Đơn ngoài giờ', s.ngoaiGio], ['Dòng được tính thưởng', s.tinh], [`Quãng đường > ${r.rules.kmMax} km đã thay bằng trung bình`, s.kmSua]]);
+    add('Lọc dữ liệu', [['Bước', 'Số dòng'], ['Dòng có ngày trả trong quý', s.tong], ['Đơn chành / đối tác khác', s.chanh], ['Không rõ đối tác', s.khongRoDoiTac], ['Đi ô tô', s.oto], ['Đơn ngoài giờ', s.ngoaiGio], ['Trả check tại kho / văn phòng', s.diemLoai || 0], ['Dòng được tính thưởng', s.tinh], [`Quãng đường > ${r.rules.kmMax} km đã thay bằng trung bình`, s.kmSua]]);
     XLSX.writeFile(wb, `ThuongGiaoHang_${r.quarterKey}.xlsx`);
   });
 
+  $('diemSave').addEventListener('click', async () => {
+    const lines = [...new Set($('diemList').value.split(/\r?\n/).map(x => x.replace(/\s+/g, ' ').trim()).filter(Boolean))];
+    caiDat = Object.assign({}, caiDat, { diemLoaiTru: lines, savedAt: new Date().toISOString() });
+    $('diemMsg').textContent = 'Đang lưu…';
+    $('diemMsg').textContent = `${lines.length} địa điểm — ${await saveCaiDat()}. Nạp lại file quý để áp dụng cho quý đã tính.`;
+    renderCaiDat();
+  });
+  $('diemReset').addEventListener('click', () => { $('diemList').value = E.DIEM_LOAI_TRU.join('\n'); $('diemMsg').textContent = 'Đã điền lại danh sách mặc định — bấm Lưu danh sách để áp dụng.'; });
+
   if (location.hash === '#nap-du-lieu') uploadOpen = true;
-  renderAll();
-  if (token) pullFromRepo(); else fillAll();
+  renderAll(); renderCaiDat();
+  if (token) { pullFromRepo(); pullCaiDat(); } else fillAll();
 })();

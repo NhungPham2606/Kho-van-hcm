@@ -23,13 +23,29 @@
    ============================================================================ */
 (function (root) {
   'use strict';
-  const RULES = { donNguong: 8, donGia: 10000, kmNguong: 40, kmGia: 1000, trungDonPhut: 10, trungDiemPhut: 15, kmMax: 200 };
+  // Địa điểm trả Check là kho / văn phòng công ty → dòng đó không tính thưởng (yêu cầu 11/11/2026). Sửa được trên trang.
+  const DIEM_LOAI_TRU = [
+    '30, Hàn Mặc Tử, Thành phố Hồ Chí Minh, Hồ Chí Minh',
+    '21/2, Hàn Mặc Tử, Thành phố Hồ Chí Minh, Hồ Chí Minh',
+    '15, Hàn Mặc Tử, Thành phố Hồ Chí Minh, Hồ Chí Minh',
+    '26, Hàn Mặc Tử, Thành phố Hồ Chí Minh, Hồ Chí Minh',
+    'Đường Cộng Hòa 3, P. Phú Thọ Hòa, P. Phú Thọ Hòa, Thành Phố Hồ Chí Minh',
+    'Đường Số 8, P. Hưng Phú, P. Hưng Phú, Thành Phố Cần Thơ',
+    'Đường Số 94, P. Nam Nha Trang, P. Nam Nha Trang, Khánh Hòa',
+    'Đường Số 10, P. Hưng Phú, P. Hưng Phú, Thành Phố Cần Thơ',
+    '75, Phạm Văn Nhờ, Cái Răng, Cần Thơ',
+    'P. Tân An, P. Tân An, Đắk Lắk',
+    'P. Buôn Ma Thuột, P. Buôn Ma Thuột, Đắk Lắk',
+  ];
+  const RULES = { donNguong: 8, donGia: 10000, kmNguong: 40, kmGia: 1000, trungDonPhut: 10, trungDiemPhut: 15, kmMax: 200, diemLoaiTru: DIEM_LOAI_TRU };
   const pad2 = n => (n < 10 ? '0' : '') + n;
   const norm = s => String(s ?? '').normalize('NFC').replace(/\s+/g, ' ').trim();
   // so khớp không phân biệt hoa/thường + 2 kiểu đặt dấu (Thuỳ = Thùy) — giống so sánh của Excel
   const toneFix = s => s.normalize('NFD').replace(/([ou])([̣̀́̃̉])([aey])/g, '$1$3$2').normalize('NFC');
   const key = s => toneFix(norm(s).toLowerCase());
   const fold = s => norm(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+  // so địa chỉ: không dấu, không phân biệt hoa thường, bỏ khác biệt khoảng trắng quanh dấu phẩy / dấu chấm cuối
+  const diaChiKey = s => fold(s).replace(/\s*,\s*/g, ', ').replace(/[\s,.]+$/, '');
   // Mã đơn gốc: "DH010426/55088.1-KM" → "DH010426/55088"
   const baseCode = c => String(c).trim().toUpperCase().replace(/\.\d+(-KM)?$/, '').replace(/-KM$/, '').trim();
   const splitCodes = s => norm(s).split(/[,;\n]+/).map(x => x.trim()).filter(Boolean).map(baseCode);
@@ -239,7 +255,8 @@
     rules = Object.assign({}, RULES, rules || {});
     const months = new Set(quarterMonths(q)), ng = new Set(parsed.ngoaiGio), kien = parsed.kienMap || {};
     const kd = new Set(parsed.khongDat || []);
-    const st = { tong: 0, ngoaiQuy: 0, khongGio: 0, chanh: 0, khongRoDoiTac: 0, oto: 0, ngoaiGio: 0, khongDatTinh: 0, tinh: 0, kmSua: 0 };
+    const loaiDiem = new Set((rules.diemLoaiTru || []).map(diaChiKey).filter(Boolean)), diemDem = {};
+    const st = { tong: 0, ngoaiQuy: 0, khongGio: 0, chanh: 0, khongRoDoiTac: 0, oto: 0, ngoaiGio: 0, diemLoai: 0, khongDatTinh: 0, tinh: 0, kmSua: 0 };
     const rows = [];
     parsed.giao.forEach(r => {
       if (r.t == null) { st.khongGio++; return; }
@@ -250,6 +267,7 @@
       if (!fold(dt).includes('truc tiep')) { st.chanh++; return; }
       if (fold(r.pt) === 'o to') { st.oto++; return; }
       if (r.codes.some(c => ng.has(c))) { st.ngoaiGio++; return; }
+      if (loaiDiem.size && loaiDiem.has(diaChiKey(r.diem))) { st.diemLoai++; diemDem[r.diem] = (diemDem[r.diem] || 0) + 1; return; }
       if (r.codes.some(c => kd.has(c))) st.khongDatTinh++; // ngoài giờ "Không đạt" → vẫn tính
       rows.push(r);
     });
@@ -297,11 +315,12 @@
     const nhanVien = Object.values(per).map(p => Object.assign(p, { tong: p.thuongDon + p.thuongKm }))
       .sort((a, b) => b.tong - a.tong || key(a.nv).localeCompare(key(b.nv)));
     markRoster(nhanVien, parsed.roster || []);
+    st.diemLoaiChiTiet = Object.entries(diemDem).sort((a, b) => b[1] - a[1]);
     if (rules.debug) return { rows, days: list, nhanVien, stats: st };
     return { quarterKey: q, months: qm, rules, stats: st, days: list, nhanVien,
       files: parsed.files, giaoSheets: parsed.giaoSheets, ngoaiGioCount: parsed.ngoaiGio.length, khongDatCount: (parsed.khongDat || []).length, kienCount: parsed.kienCount,
       coDS: (parsed.roster || []).length > 0 };
   }
 
-  root.GhEngine = { RULES, key, collectRoster, markRoster, newAcc, parseOne, finish, parseFiles, compute, monthCounts, suggestQuarter, quarterMonths, quarterLabel, monthLabel, splitCodes, baseCode, pad2 };
+  root.GhEngine = { RULES, DIEM_LOAI_TRU, diaChiKey, key, collectRoster, markRoster, newAcc, parseOne, finish, parseFiles, compute, monthCounts, suggestQuarter, quarterMonths, quarterLabel, monthLabel, splitCodes, baseCode, pad2 };
 })(typeof self !== 'undefined' ? self : (typeof window !== 'undefined' ? window : globalThis));
