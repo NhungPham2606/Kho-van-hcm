@@ -134,18 +134,24 @@
 
   // 3) Đơn ngoài giờ: cột "Mã Hóa Đơn/Mã đơn hàng" (bảng chấm ngoài giờ) hoặc "Mã các đơn hàng" của sheet
   //    KHÔNG phải danh sách giao hàng (không có cột Quãng đường).
-  function parseNgoaiGio(XLSX, wb, set) {
+  //    Bảng chấm có cột "ĐẠT/KO ĐẠT": dòng "Không"/"KO ĐẠT" = KHÔNG được trả ngoài giờ → đơn đó vẫn tính thưởng
+  //    giao hàng (yêu cầu 11/11/2026). Chỉ dòng Đạt (hoặc để trống) mới bị trừ. Danh sách tự ghép không có cột
+  //    này thì trừ hết.
+  const isKhongDat = v => /^(khong|ko)\b/.test(fold(v));
+  function parseNgoaiGio(XLSX, wb, set, khong) {
     let n = 0;
     wb.SheetNames.forEach(s => {
       const aoa = sheetAoa(XLSX, wb.Sheets[s]);
-      let h = findHeader(aoa, ['ma hoa don/ma don hang']), c = h ? h.idx['ma hoa don/ma don hang'] : -1;
-      if (!h) {
+      let h = findHeader(aoa, ['ma hoa don/ma don hang']), c = h ? h.idx['ma hoa don/ma don hang'] : -1, cs = -1;
+      if (h) cs = Object.keys(h.idx).filter(k => /(ko|khong) dat/.test(k)).map(k => h.idx[k])[0] ?? -1;
+      else {
         h = findHeader(aoa, ['ma cac don hang']);
         if (!h || 'quang duong' in h.idx) return;
         c = h.idx['ma cac don hang'];
       }
       for (let r = h.r + 1; r < aoa.length; r++) {
         const x = aoa[r]; if (!x || !x[c]) continue;
+        if (cs >= 0 && isKhongDat(x[cs])) { if (khong) splitCodes(x[c]).forEach(k => khong.add(k)); continue; }
         splitCodes(x[c]).forEach(k => { if (!set.has(k)) { set.add(k); n++; } });
       }
     });
@@ -154,7 +160,7 @@
 
   // Đọc từng file một (worker đọc xong file nào bỏ workbook đó ngay cho nhẹ máy), rồi finish().
   function newAcc() {
-    return { giao: [], giaoSheets: [], kienMap: {}, kienCount: 0, ng: new Set(), names: {}, roster: [], files: { giao: [], kien: [], ngoai: [], ds: [] }, warnings: [], giaoFiles: 0 };
+    return { giao: [], giaoSheets: [], kienMap: {}, kienCount: 0, ng: new Set(), khong: new Set(), names: {}, roster: [], files: { giao: [], kien: [], ngoai: [], ds: [] }, warnings: [], giaoFiles: 0 };
   }
   function parseOne(XLSX, slot, name, wb, acc) {
     if (slot === 'giao') {
@@ -165,7 +171,7 @@
       acc.giaoSheets.push(`${name} › ${g.sheet}`);
       g.rows.forEach(r => { r.f = acc.giaoFiles; acc.giao.push(r); });
       // file tổng hợp kiểu quý 2: có sẵn sheet đơn ngoài giờ / mã nv thì dùng luôn
-      parseNgoaiGio(XLSX, wb, acc.ng); collectNames(XLSX, wb, acc.names);
+      parseNgoaiGio(XLSX, wb, acc.ng, acc.khong); collectNames(XLSX, wb, acc.names);
     } else if (slot === 'kien') {
       acc.files.kien.push(name);
       const n = parseKien(XLSX, wb, acc.kienMap);
@@ -177,7 +183,7 @@
       collectNames(XLSX, wb, acc.names);
     } else {
       acc.files.ngoai.push(name);
-      const n = parseNgoaiGio(XLSX, wb, acc.ng);
+      const n = parseNgoaiGio(XLSX, wb, acc.ng, acc.khong);
       if (!n) acc.warnings.push(`"${name}": không thấy cột Mã Hóa Đơn/Mã đơn hàng hoặc Mã các đơn hàng`);
       collectNames(XLSX, wb, acc.names);
     }
@@ -189,8 +195,10 @@
       acc.giao = acc.giao.filter(r => { const k = r.kien + '|' + r.t; if (seen.has(k) && seen.get(k) !== r.f) return false; seen.set(k, r.f); return true; });
     }
     acc.giao.forEach(r => { delete r.f; });
-    const out = Object.assign({}, acc, { ngoaiGio: [...acc.ng] });
-    delete out.ng; delete out.giaoFiles;
+    // mã vừa có dòng Đạt vừa có dòng Không đạt → coi là đã trả ngoài giờ (vẫn trừ)
+    const khongDat = [...acc.khong].filter(k => !acc.ng.has(k));
+    const out = Object.assign({}, acc, { ngoaiGio: [...acc.ng], khongDat });
+    delete out.ng; delete out.khong; delete out.giaoFiles;
     return out;
   }
   // Đọc cả 3 nhóm file (mỗi phần tử: { name, wb }) — dùng khi kiểm tra bằng Node.
@@ -230,7 +238,8 @@
   function compute(parsed, q, rules) {
     rules = Object.assign({}, RULES, rules || {});
     const months = new Set(quarterMonths(q)), ng = new Set(parsed.ngoaiGio), kien = parsed.kienMap || {};
-    const st = { tong: 0, ngoaiQuy: 0, khongGio: 0, chanh: 0, khongRoDoiTac: 0, oto: 0, ngoaiGio: 0, tinh: 0, kmSua: 0 };
+    const kd = new Set(parsed.khongDat || []);
+    const st = { tong: 0, ngoaiQuy: 0, khongGio: 0, chanh: 0, khongRoDoiTac: 0, oto: 0, ngoaiGio: 0, khongDatTinh: 0, tinh: 0, kmSua: 0 };
     const rows = [];
     parsed.giao.forEach(r => {
       if (r.t == null) { st.khongGio++; return; }
@@ -241,6 +250,7 @@
       if (!fold(dt).includes('truc tiep')) { st.chanh++; return; }
       if (fold(r.pt) === 'o to') { st.oto++; return; }
       if (r.codes.some(c => ng.has(c))) { st.ngoaiGio++; return; }
+      if (r.codes.some(c => kd.has(c))) st.khongDatTinh++; // ngoài giờ "Không đạt" → vẫn tính
       rows.push(r);
     });
     st.tinh = rows.length;
@@ -289,7 +299,7 @@
     markRoster(nhanVien, parsed.roster || []);
     if (rules.debug) return { rows, days: list, nhanVien, stats: st };
     return { quarterKey: q, months: qm, rules, stats: st, days: list, nhanVien,
-      files: parsed.files, giaoSheets: parsed.giaoSheets, ngoaiGioCount: parsed.ngoaiGio.length, kienCount: parsed.kienCount,
+      files: parsed.files, giaoSheets: parsed.giaoSheets, ngoaiGioCount: parsed.ngoaiGio.length, khongDatCount: (parsed.khongDat || []).length, kienCount: parsed.kienCount,
       coDS: (parsed.roster || []).length > 0 };
   }
 

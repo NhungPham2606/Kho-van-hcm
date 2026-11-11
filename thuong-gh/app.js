@@ -9,7 +9,7 @@
   const OWNER = root.dataset.owner, REPO = root.dataset.repo, DIR = root.dataset.dir;
   const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
   const LS_KEY = 'kvh-thuonggh-v1', LS_SEL = 'kvh-thuonggh-sel', TOKEN_KEY = 'kvh-gh-token';
-  const VER = '20261111b';
+  const VER = '20261111c';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = n => Math.round(n || 0).toLocaleString('vi-VN') + 'đ';
@@ -164,7 +164,8 @@
       + row('− Đơn chành / đối tác khác (không có chữ "trực tiếp")', s.chanh)
       + row('− Không tìm thấy đối tác vận chuyển', s.khongRoDoiTac, s.khongRoDoiTac ? 'Mã kiện hàng không có trong file 2 — kiểm tra lại file kiện hàng' : '')
       + row('− Đi ô tô', s.oto)
-      + row('− Đơn ngoài giờ', s.ngoaiGio, `${num(r.ngoaiGioCount)} mã đơn ngoài giờ đọc được từ file`)
+      + row('− Đơn ngoài giờ (đã được trả ngoài giờ)', s.ngoaiGio, `${num(r.ngoaiGioCount)} mã đơn ngoài giờ "Đạt" đọc được từ file`)
+      + (s.khongDatTinh ? row('(trong số còn lại) đơn ngoài giờ "Không đạt" vẫn tính thưởng', s.khongDatTinh, `${num(r.khongDatCount)} mã "Không đạt" trong bảng chấm — không được trả ngoài giờ nên vẫn tính thưởng giao hàng`) : '')
       + `<tr class="total"><td>= Dòng giao trực tiếp được tính thưởng</td><td class="r">${num(s.tinh)}</td><td>${num(s.kmSua)} dòng quãng đường &gt; ${r.rules.kmMax} km đã thay bằng km trung bình</td></tr>`
       + `</tbody></table><div class="muted" style="margin-top:12px;line-height:1.7">File đã đọc — giao hàng: ${esc((r.giaoSheets || []).join('; ') || '—')} · kiện hàng: ${esc((r.files.kien || []).join(', ') || '—')} (${num(r.kienCount)} mã kiện) · ngoài giờ: ${esc((r.files.ngoai || []).join(', ') || '—')}</div>`;
   }
@@ -238,7 +239,7 @@
   function showPending() {
     const p = pending, hasDT = p.kienCount > 0 || p.giao.some(r => r.dt);
     $('ghPendingInfo').innerHTML = `Đã đọc <b>${num(p.giao.length)}</b> dòng giao hàng (${esc(p.giaoSheets.join('; '))})`
-      + ` · <b>${num(p.kienCount)}</b> mã kiện có đối tác vận chuyển · <b>${num(p.ngoaiGio.length)}</b> mã đơn ngoài giờ · ${Object.keys(p.names).length} nhân viên có Mã NV`
+      + ` · <b>${num(p.kienCount)}</b> mã kiện có đối tác vận chuyển · <b>${num(p.ngoaiGio.length)}</b> mã đơn ngoài giờ bị trừ${(p.khongDat || []).length ? ` (${num(p.khongDat.length)} mã "Không đạt" vẫn được tính)` : ''} · ${Object.keys(p.names).length} nhân viên có Mã NV`
       + (p.roster.length ? ` · danh sách tính thưởng: <b>${p.roster.length}</b> người.` : ' · chưa có danh sách tính thưởng (sẽ tính tất cả, chọn lại được sau).');
     $('ghVols').innerHTML = E.monthCounts(p).map(v => `<tr><td>${E.monthLabel(v.monthKey)}/${v.monthKey.slice(0, 4)}</td><td class="r">${num(v.n)}</td></tr>`).join('');
     const warns = [...p.warnings];
