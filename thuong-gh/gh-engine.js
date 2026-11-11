@@ -36,6 +36,18 @@
     '75, Phạm Văn Nhờ, Cái Răng, Cần Thơ',
     'P. Tân An, P. Tân An, Đắk Lắk',
     'P. Buôn Ma Thuột, P. Buôn Ma Thuột, Đắk Lắk',
+    // thêm 11/11/2026: các cách ghi khác của cùng kho / văn phòng
+    '28, Hàn Mặc Tử, Thành phố Hồ Chí Minh, Hồ Chí Minh',
+    'Đường Cộng Hòa 3, P. Tân Thành, Hồ Chí Minh, Q. Tân Phú, Thành Phố Hồ Chí Minh',
+    '28, Hàn Mặc Tử, P. Phú Thọ Hòa, P. Phú Thọ Hòa, Thành Phố Hồ Chí Minh',
+    'Đường Số 94, X. Vĩnh Thái, TP. Nha Trang, TP. Nha Trang, Khánh Hòa',
+    '29b, Cộng Hòa 3, Thành phố Hồ Chí Minh, Hồ Chí Minh',
+    'Hàn Mặc Tử, P. Phú Thọ Hòa, P. Phú Thọ Hòa, Thành Phố Hồ Chí Minh',
+    '28, Hàn Mặc Tử, P. Tân Thành, Hồ Chí Minh, Q. Tân Phú, Thành Phố Hồ Chí Minh',
+    '29C, Cộng Hòa 3, Thành phố Hồ Chí Minh, Hồ Chí Minh',
+    '75, Phạm Văn Nhờ, Hưng Phú, Cần Thơ',
+    '29D, Cộng Hòa 3, Thành phố Hồ Chí Minh, Hồ Chí Minh',
+    '29D, Cộng Hòa 3, Q, Thành phố Hồ Chí Minh, Hồ Chí Minh',
   ];
   const RULES = { donNguong: 8, donGia: 10000, kmNguong: 40, kmGia: 1000, trungDonPhut: 10, trungDiemPhut: 15, kmMax: 200, diemLoaiTru: DIEM_LOAI_TRU };
   const pad2 = n => (n < 10 ? '0' : '') + n;
