@@ -9,7 +9,7 @@
   const OWNER = root.dataset.owner, REPO = root.dataset.repo, DIR = root.dataset.dir;
   const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
   const LS_KEY = 'kvh-thuonggh-v1', LS_SEL = 'kvh-thuonggh-sel', TOKEN_KEY = 'kvh-gh-token';
-  const VER = '20261111c';
+  const VER = '20261111d';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const money = n => Math.round(n || 0).toLocaleString('vi-VN') + 'đ';
@@ -52,10 +52,12 @@
       for (const q of Object.keys(archive)) if (!repoSha[q]) scheduleSave(q, 0);
       syncMsg = 'Đã đồng bộ với hệ thống — mở trên máy khác cũng thấy.';
       persistLocal(); renderAll();
+      fillAll();
     } catch (e) {
       syncMsg = e.status === 401 ? 'Token hết hạn/không đúng — kết nối lại ở Báo cáo giao hàng → Cập nhật dữ liệu. Dữ liệu vẫn lưu trên máy này.'
         : 'Không đồng bộ được với hệ thống: ' + e.message + '. Dữ liệu vẫn lưu trên máy này.';
       renderTop();
+      fillAll();
     }
   }
   function scheduleSave(q, delay = 1500) {
@@ -77,6 +79,45 @@
     }, delay);
   }
   function touch(q) { archive[q].savedAt = new Date().toISOString(); persistLocal(); scheduleSave(q); }
+
+  // ------------------------------------------------------------ Mã NV còn thiếu: lấy từ bảng chấm công
+  // Trên máy: dữ liệu trang Chấm công (localStorage kvh-chamcong-v1); thêm 6 tháng gần nhất trên hệ thống (nếu có token).
+  // Tháng mới nhất được ưu tiên. Người không có trong chấm công thì nhập tay ở tab Danh sách tính thưởng.
+  let staffDir = null;
+  async function loadStaffDir() {
+    if (staffDir) return staffDir;
+    const dir = {}, done = new Set();
+    const addSheet = (k, sh) => {
+      done.add(k);
+      ((sh && sh.rows) || []).forEach(r => {
+        if (!r || r.t !== 'nv' || !r.ma || !r.ten) return;
+        const kk = E.key(r.ten);
+        if (!dir[kk]) dir[kk] = { ma: String(r.ma).trim(), nguon: `bảng chấm công T${Number(k.slice(5))}/${k.slice(0, 4)}` };
+      });
+    };
+    const local = {}; try { Object.assign(local, JSON.parse(localStorage.getItem('kvh-chamcong-v1') || '{}')); } catch (e) {}
+    let remote = [];
+    if (token) {
+      try { remote = (await gh(`/contents/cham-cong?ref=main&t=${Date.now()}`)).map(i => i.name).filter(n => /^\d{4}-\d{2}\.json$/.test(n)).map(n => n.slice(0, 7)); } catch (e) {}
+    }
+    const months = [...new Set([...Object.keys(local).filter(k => /^\d{4}-\d{2}$/.test(k)), ...remote])].sort().reverse().slice(0, 6);
+    for (const k of months) {
+      if (local[k]) { addSheet(k, local[k]); continue; }
+      try { const meta = await gh(`/contents/cham-cong/${k}.json?ref=main`); addSheet(k, JSON.parse(b64dec(meta.content || '') || '{}')); } catch (e) {}
+    }
+    staffDir = dir;
+    return dir;
+  }
+  async function fillMaNV(q) {
+    const r = archive[q] && archive[q].result;
+    if (!r || !r.nhanVien.some(p => !p.maNV)) return 0;
+    const dir = await loadStaffDir();
+    let n = 0;
+    r.nhanVien.forEach(p => { if (p.maNV) return; const d = dir[E.key(p.nv)]; if (d) { p.maNV = d.ma; p.maNguon = d.nguon; n++; } });
+    if (n) { touch(q); renderAll(); }
+    return n;
+  }
+  async function fillAll() { for (const q of quarters()) await fillMaNV(q); }
 
   // ------------------------------------------------------------ trạng thái
   const quarters = () => Object.keys(archive).filter(q => archive[q] && archive[q].result).sort().reverse();
@@ -180,7 +221,10 @@
       const k = E.key(p.nv), note = [];
       if (r.coDS) note.push(p.trongDS ? 'Có trong file danh sách' : 'Không có trong file danh sách');
       if (!p.ngayLam) note.push('không có đơn giao trực tiếp trong quý');
-      return `<tr class="${on(p) ? '' : 'off'}"><td class="ck"><input type="checkbox" data-chon="${esc(k)}"${on(p) ? ' checked' : ''} aria-label="Tính thưởng cho ${esc(p.nv)}"></td><td>${esc(p.maNV)}</td><td class="name">${esc(p.nv)}</td><td class="r">${p.ngayLam}</td><td class="r">${money(p.thuongDon)}</td><td class="r">${money(p.thuongKm)}</td><td class="r${on(p) ? ' money' : ''}">${money(p.tong)}</td><td class="muted">${note.join(' · ')}</td></tr>`;
+      if (p.maNguon) note.push(p.maNguon === 'nhập tay' ? 'Mã NV nhập tay' : `Mã NV lấy từ ${p.maNguon}`);
+      return `<tr class="${on(p) ? '' : 'off'}"><td class="ck"><input type="checkbox" data-chon="${esc(k)}"${on(p) ? ' checked' : ''} aria-label="Tính thưởng cho ${esc(p.nv)}"></td>`
+        + `<td><input type="text" class="ma-in${p.maNV ? '' : ' miss'}" data-ma="${esc(k)}" value="${esc(p.maNV)}" placeholder="nhập mã" aria-label="Mã NV của ${esc(p.nv)}"></td>`
+        + `<td class="name">${esc(p.nv)}</td><td class="r">${p.ngayLam}</td><td class="r">${money(p.thuongDon)}</td><td class="r">${money(p.thuongKm)}</td><td class="r${on(p) ? ' money' : ''}">${money(p.tong)}</td><td class="muted">${note.join(' · ')}</td></tr>`;
     }).join('');
   }
   function renderAll() { renderTop(); renderStats(); renderTabs(); renderQuy(); renderLoai('don', 'tdHead', 'tdBody'); renderLoai('km', 'tkmHead', 'tkmBody'); renderChiTiet(); renderDS(); renderLoc(); renderSlots(); }
@@ -259,6 +303,7 @@
     sel = q; pending = null; uploadOpen = false; ctMonth = '';
     slotFiles.giao = []; slotFiles.kien = []; slotFiles.ngoai = []; slotFiles.ds = [];
     touch(q); renderAll();
+    fillMaNV(q).then(n => { if (n) msg($('ghMsg'), `Đã tự điền ${n} Mã NV còn thiếu từ bảng chấm công — xem tab Danh sách tính thưởng.`, true); });
     const r = archive[q].result;
     msg($('ghMsg'), `Đã tính ${E.quarterLabel(q)}: ${num(r.stats.tinh)} dòng giao trực tiếp, ${listNV().length}/${r.nhanVien.length} nhân viên được tính thưởng${r.coDS ? ' (theo file danh sách)' : ''}.`, true);
     setTimeout(() => msg($('ghMsg'), ''), 8000);
@@ -281,6 +326,12 @@
     const r = res(), set = chonSet() || new Set(r.nhanVien.map(p => E.key(p.nv)));
     if (e.target.checked) set.add(k); else set.delete(k);
     setChon([...set]);
+  });
+  $('dsBody').addEventListener('change', e => {
+    const k = e.target.dataset.ma; if (k === undefined) return;
+    const q = current(), r = res(), p = r && r.nhanVien.find(x => E.key(x.nv) === k); if (!p) return;
+    p.maNV = e.target.value.trim(); p.maNguon = p.maNV ? 'nhập tay' : '';
+    touch(q); renderAll();
   });
   $('dsAll').addEventListener('click', () => { const r = res(); if (r) setChon(r.nhanVien.map(p => E.key(p.nv))); });
   $('dsNone').addEventListener('click', () => setChon([]));
@@ -337,5 +388,5 @@
 
   if (location.hash === '#nap-du-lieu') uploadOpen = true;
   renderAll();
-  pullFromRepo();
+  if (token) pullFromRepo(); else fillAll();
 })();

@@ -117,6 +117,8 @@
   .tk .gh-slot .opt { font-size: 10.5px; font-weight: 600; color: #6b7280; background: #f3f4f6; border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
   .tk table.dt tr.off td { color: #9ca3af; }
   .tk table.dt td.ck { width: 34px; text-align: center; }
+  .tk input.ma-in { width: 78px; padding: 4px 6px; font-size: 12px; }
+  .tk input.ma-in.miss { border-color: #f59e0b; background: #fffbeb; }
   @media (max-width: 1200px) { .tk .gh-slots { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .tk .gh-slot { padding: 18px 14px; text-align: left; }
   .tk .gh-slot h4 { font-size: 13px; }
@@ -267,7 +269,7 @@
             <div>• <b>Trùng đơn</b>: cùng người giao, cùng Người nhận hàng, trả cách lần trước không quá <span data-rule="trungDonPhut"></span> phút → không đếm đơn dòng đó.</div>
             <div>• <b>Thưởng đơn hàng mỗi ngày</b> = (số đơn − <span data-rule="donNguong"></span>) × <span data-rule="donGia"></span>đ, chỉ tính khi trên <span data-rule="donNguong"></span> đơn/ngày.</div>
             <div>• <b>Thưởng theo KM mỗi ngày</b> = (số km − <span data-rule="kmNguong"></span>) × <span data-rule="kmGia"></span>đ, chỉ tính khi trên <span data-rule="kmNguong"></span> km/ngày.</div>
-            <div>• <b>Thưởng quý</b> = cộng dồn các ngày trong quý (không chia trung bình); tổng = thưởng đơn hàng + thưởng theo KM. Mã NV lấy từ sheet "mã nv" hoặc bảng chấm ngoài giờ.</div>
+            <div>• <b>Thưởng quý</b> = cộng dồn các ngày trong quý (không chia trung bình); tổng = thưởng đơn hàng + thưởng theo KM. Mã NV lấy từ sheet "mã nv" / bảng chấm ngoài giờ; còn thiếu thì tự lấy từ <b>bảng chấm công</b> (6 tháng gần nhất), không có nữa thì nhập tay ở tab Danh sách tính thưởng.</div>
             <div>• <b>Danh sách tính thưởng</b>: chỉ những nhân viên được chọn (theo file danh sách ở ô 4, hoặc tick ở tab Danh sách tính thưởng) mới vào bảng thưởng, tổng tiền và file Excel; người không chọn vẫn xem được số liệu ở tab đó. Không có danh sách = tính tất cả.</div>
           </div>
         </div>
@@ -280,6 +282,6 @@
 <script src="../assets/flows.js?v=20261111b"></script>
 <script src="../assets/layout.js?v=20261010a"></script>
 <script src="gh-engine.js?v=20261111c"></script>
-<script src="app.js?v=20261111c"></script>
+<script src="app.js?v=20261111d"></script>
 </body>
 </html>
