@@ -310,11 +310,11 @@
         }
         ngay.push({ d, w, k, s, qd, dat, them, dau, cuoi, kd: a ? [a[0], a[1], a[2]] : null, sd: b ? [b[1], b[2]] : null, cap: capKho.has(`${u}|${d}`) || capSan.has(`${u}|${d}`), ma: ccRow ? norm(ccRow[d - 1]) : '' });
       }
-      const tb = cong > 0 ? tong.qd / cong : 0;
+      const tb = cong > 0 ? tong.qd / cong : 0, tbKho = cong > 0 ? tong.kho / cong : 0, tbSan = cong > 0 ? tong.san / cong : 0;
       const l = loi[u] || {};
       return {
         maNV: u, hoTen: ten.get(u), nhom: nhomOf(u), ngay, cong, coCC: !!ccRow, ngayLuot, ngayKhongLuot, ngayDat, ngayTinh, ngayThem, maxQd,
-        ...tong, tb, tyLeDat: ngayTinh ? ngayDat / ngayTinh : 0,
+        ...tong, tb, tbKho, tbSan, tyLeDat: ngayTinh ? ngayDat / ngayTinh : 0,
         gioDau: soGio ? gioDau / soGio : null, gioCuoi: soGio ? gioCuoi / soGio : null,
         soNgayCap: ngay.filter(x => x.cap).length, soLoi: Math.max(0, Number(l.so) || 0), noiDungLoi: l.noiDung || '', ghiChu: l.ghiChu || '',
       };
@@ -344,16 +344,17 @@
     // trung bình nhóm = tổng lượt quy đổi ÷ tổng ngày công của những người trong nhóm đủ ngày công tối thiểu
     const nhom = {};
     chon.forEach(r => {
-      const g = nhom[r.nhom] || (nhom[r.nhom] = { ten: r.nhom, so: 0, qd: 0, cong: 0, tb: 0 });
+      const g = nhom[r.nhom] || (nhom[r.nhom] = { ten: r.nhom, so: 0, qd: 0, kho: 0, san: 0, cong: 0, tb: 0 });
       g.so++;
-      if (r.cong >= cfg.congToiThieu) { g.qd += r.qd; g.cong += r.cong; }
+      if (r.cong >= cfg.congToiThieu) { g.qd += r.qd; g.kho += r.kho; g.san += r.san; g.cong += r.cong; }
     });
-    Object.values(nhom).forEach(g => { g.tb = g.cong ? g.qd / g.cong : 0; });
+    // riêng từng mảng: kho HCM (truyền thống) và sàn — lượt / ngày công của nhóm
+    Object.values(nhom).forEach(g => { g.tb = g.cong ? g.qd / g.cong : 0; g.tbKho = g.cong ? g.kho / g.cong : 0; g.tbSan = g.cong ? g.san / g.cong : 0; });
     const tatCaDu = chon.filter(r => r.cong >= cfg.congToiThieu);
     const congTo = tatCaDu.reduce((a, r) => a + r.cong, 0);
     const tbTo = congTo ? tatCaDu.reduce((a, r) => a + r.qd, 0) / congTo : 0;
     chon.forEach(r => {
-      r.tbNhom = nhom[r.nhom].tb;
+      r.tbNhom = nhom[r.nhom].tb; r.tbKhoNhom = nhom[r.nhom].tbKho; r.tbSanNhom = nhom[r.nhom].tbSan;
       r.soVoiNhom = r.tbNhom ? r.tb / r.tbNhom : 0;
       r.dNS = r1(cfg.dNS * Math.min(1, r.soVoiNhom / (cfg.nsDinh / 100)));
       r.dOD = r1(cfg.dOD * r.tyLeDat);
@@ -388,16 +389,23 @@
   function nhanXet(r, ctx) {
     const cfg = merge(ctx && ctx.cfg), mo = ctx && ctx.ky ? Number(ctx.ky.slice(5)) : '';
     const tc = [];
-    // 1) Năng suất — so với trung bình nhóm
-    const s = r.soVoiNhom, can = r.tbNhom * 0.9;
-    if (!r.tbNhom) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'tt', text: 'Chưa đủ dữ liệu nhóm để so sánh.' });
-    else if (s >= 1.1) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'dat', text: `Cao: ${vn1(r.tb)} lượt/ngày công, hơn TB nhóm ${Math.round((s - 1) * 100)}% (nhóm ${vn1(r.tbNhom)}).` });
-    else if (s >= 0.9) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'dat', text: `Đạt: ${vn1(r.tb)} lượt/ngày công, ngang TB nhóm (${vn1(r.tbNhom)}, ${pc(s)}).` });
+    // 1) Năng suất — so với trung bình nhóm; ghi riêng từng mảng: Kho HCM (truyền thống) và Sàn (lượt / ngày công)
+    const s = r.soVoiNhom, can = r.tbNhom * 0.9, hs = Number(cfg.heSoSan) || 0;
+    const mang = (ten, tb, tbN, tong) => !tong ? `${ten}: không có lượt trong tháng` : `${ten}: ${vn1(tb)} lượt/ngày công (TB nhóm ${vn1(tbN)}${tbN ? ', bằng ' + pc(tb / tbN) : ''})`;
+    const chiTiet = [mang('Kho HCM (truyền thống)', r.tbKho, r.tbKhoNhom, r.kho),
+      mang('Sàn', r.tbSan, r.tbSanNhom, r.san) + (r.san && hs ? ` = ${vn1(r.tbSan * hs)} lượt quy đổi` : '')];
+    const tong = `${vn1(r.tb)} lượt quy đổi/ngày công (kho + sàn × ${String(hs).replace('.', ',')})`;
+    if (!r.tbNhom) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'tt', text: 'Chưa đủ dữ liệu nhóm để so sánh.', chiTiet });
+    else if (s >= 1.1) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'dat', text: `Cao: tổng ${tong}, hơn TB nhóm ${Math.round((s - 1) * 100)}% (nhóm ${vn1(r.tbNhom)}).`, chiTiet });
+    else if (s >= 0.9) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'dat', text: `Đạt: tổng ${tong}, ngang TB nhóm (${vn1(r.tbNhom)}, ${pc(s)}).`, chiTiet });
     else {
       const thieu = Math.ceil(can - r.tb);
-      tc.push({ ma: 'ns', ten: 'Năng suất', muc: s >= 0.7 ? 'chua' : 'thieu',
-        text: `${s >= 0.7 ? 'Chưa đạt' : 'Thấp'}: ${vn1(r.tb)} lượt/ngày công, chỉ bằng ${pc(s)} TB nhóm (${vn1(r.tbNhom)}).`,
-        khacPhuc: `Tăng sản lượng thêm khoảng ${thieu} lượt/ngày công để đạt tối thiểu 90% TB nhóm (${vn1(can)} lượt).` });
+      // mảng nào đang thấp hơn so với nhóm
+      const ty = [['kho', r.tbKhoNhom ? r.tbKho / r.tbKhoNhom : null], ['sàn', r.tbSanNhom ? r.tbSan / r.tbSanNhom : null]].filter(x => x[1] !== null).sort((a, b) => a[1] - b[1]);
+      tc.push({ ma: 'ns', ten: 'Năng suất', muc: s >= 0.7 ? 'chua' : 'thieu', chiTiet,
+        text: `${s >= 0.7 ? 'Chưa đạt' : 'Thấp'}: tổng ${tong}, chỉ bằng ${pc(s)} TB nhóm (${vn1(r.tbNhom)}).`,
+        khacPhuc: `Tăng sản lượng thêm khoảng ${thieu} lượt quy đổi/ngày công (≈ ${thieu} lượt kho${hs ? ` hoặc ${Math.ceil(thieu / hs)} lượt sàn` : ''}) để đạt tối thiểu 90% TB nhóm (${vn1(can)})`
+          + (ty.length ? `; mảng ${ty[0][0]} đang thấp nhất (${pc(ty[0][1])} TB nhóm).` : '.') });
     }
     // 2) Ổn định — ngày có công đạt định mức
     const duoi = r.ngay.filter(x => x.w > 0 && x.qd > 0 && !x.dat && !x.it).map(x => x.d);

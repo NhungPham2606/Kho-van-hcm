@@ -9,7 +9,7 @@
   const OWNER = root.dataset.owner, REPO = root.dataset.repo, DIR = root.dataset.dir;
   const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
   const LS_KEY = 'kvh-danhgia-v1', LS_CFG = 'kvh-danhgia-caidat', LS_CAP = 'kvh-danhgia-dongcap', LS_SEL = 'kvh-danhgia-sel', TOKEN_KEY = 'kvh-gh-token';
-  const VER = '20261113d';
+  const VER = '20261113e';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const num = n => Math.round(n || 0).toLocaleString('vi-VN');
@@ -269,7 +269,7 @@
         <td class="r" title="${congTip}">${nSmart(r.cong)}${r.coCC ? '' : '<span class="muted">*</span>'}</td>
         <td class="r" title="Tạo kiện ${num(r.tao)} · Bốc ${num(r.bocK)} · Đóng ${num(r.dongK)}">${num(r.kho)}</td>
         <td class="r" title="Bốc ${num(r.bocS)} · Đóng ${num(r.dongS)}">${num(r.san)}</td>
-        <td class="r">${num(r.qd)}</td><td class="r bold">${n1(r.tb)}</td>
+        <td class="r">${num(r.qd)}</td><td class="r bold" title="Kho HCM (truyền thống): ${n1(r.tbKho)} lượt/ngày công · Sàn: ${n1(r.tbSan)} lượt/ngày công">${n1(r.tb)}</td>
         <td class="r" title="Trung bình nhóm ${esc(r.nhom)}: ${n1(r.tbNhom)}">${pct(r.soVoiNhom)}</td>
         <td class="r" title="${r.ngayDat}/${r.ngayTinh} ngày có công đạt ${cfg.dmNgay} lượt quy đổi">${pct(r.tyLeDat)}</td>
         <td class="r${r.ngayKhongLuot >= 3 ? ' bold' : ''}" style="${r.ngayKhongLuot >= 3 ? 'color:#991b1b' : ''}">${r.ngayKhongLuot || '–'}</td>
@@ -294,7 +294,7 @@
   }
   function nxText(r, nx, ky) {
     return [`NHẬN XÉT ${DG.kyLabel(ky).toUpperCase()} — ${r.hoTen} (${r.maNV})`, nx.tomTat,
-      ...nx.tieuChi.map(t => `• ${t.ten}: ${mkLabel(t)} — ${t.text}`),
+      ...nx.tieuChi.map(t => `• ${t.ten}: ${mkLabel(t)} — ${t.text}` + (t.chiTiet ? t.chiTiet.map(x => `\n   – ${x}`).join('') : '')),
       ...(nx.khacPhuc.length ? ['Cần khắc phục:', ...nx.khacPhuc.map((k, i) => `${i + 1}. ${k}`)] : ['Không có điểm cần khắc phục — tiếp tục duy trì.']),
       ...(r.ghiChu ? ['Ghi chú quản lý: ' + r.ghiChu] : [])].join('\n');
   }
@@ -312,7 +312,7 @@
         <div class="nx-head"><div class="nm">${r.hang ? r.hang + '. ' : ''}${esc(r.hoTen)}<small>${esc(r.maNV)} · ${esc(r.nhom)}</small></div>
           <div class="tk-row">${xlBadge(r.xepLoai)} <b style="color:#1a56db">${n1(r.diem)}</b> <button class="b xs" type="button" data-nxcopy="${esc(r.maNV)}" title="Chép nhận xét dạng chữ để gửi Zalo / mail">Sao chép</button></div></div>
         <div class="nx-sum">${esc(nx.tomTat)}</div>
-        <div class="nx-tc">${nx.tieuChi.map(t => `<div class="t">${esc(t.ten)}</div><div><span class="mk m-${t.muc}">${esc(mkLabel(t))}</span>${esc(t.text)}</div>`).join('')}</div>
+        <div class="nx-tc">${nx.tieuChi.map(t => `<div class="t">${esc(t.ten)}</div><div><span class="mk m-${t.muc}">${esc(mkLabel(t))}</span>${esc(t.text)}${t.chiTiet ? t.chiTiet.map(x => `<div class="ct">– ${esc(x)}</div>`).join('') : ''}</div>`).join('')}</div>
         ${nx.khacPhuc.length ? `<div class="nx-kp"><b>Cần khắc phục</b><ol>${nx.khacPhuc.map(k => `<li>${esc(k)}</li>`).join('')}</ol></div>` : '<div class="nx-ok">Không có điểm cần khắc phục — tiếp tục duy trì.</div>'}
         ${r.ghiChu ? `<div class="nx-gc"><b>Ghi chú quản lý:</b> ${esc(r.ghiChu)}</div>` : ''}
       </div>`;
@@ -1293,7 +1293,7 @@
       { h: 'NĂNG SUẤT', t: 'text', w: 30 }, { h: 'ỔN ĐỊNH', t: 'text', w: 32 }, { h: 'CHUYÊN CẦN', t: 'text', w: 28 }, { h: 'CHẤT LƯỢNG', t: 'text', w: 24 },
       { h: 'CẦN KHẮC PHỤC', t: 'text', w: 50 }, { h: 'GHI CHÚ QUẢN LÝ', t: 'text', w: 22 }];
     const nxRows = list.map(r => { const nx = nxMap.get(r.maNV); return [r.hang || '', r.maNV, r.hoTen, r.xepLoai, r.diem,
-      ...TC.map(m => { const t = nx.tieuChi.find(x => x.ma === m); return t ? `${mkLabel(t)}: ${t.text}` : ''; }),
+      ...TC.map(m => { const t = nx.tieuChi.find(x => x.ma === m); return t ? `${mkLabel(t)}: ${t.text}` + (t.chiTiet ? t.chiTiet.map(x => `\n– ${x}`).join('') : '') : ''; }),
       nx.khacPhuc.length ? nx.khacPhuc.map((k, i) => `${i + 1}. ${k}`).join('\n') : 'Không có — tiếp tục duy trì.', r.ghiChu || '']; });
     bangDep(wb, 'Nhận xét', {
       title: `NHẬN XÉT ĐÁNH GIÁ NHÂN VIÊN KHO VẬN ${T}`,
