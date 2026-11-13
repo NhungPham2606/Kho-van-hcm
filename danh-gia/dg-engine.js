@@ -150,12 +150,29 @@
     });
     return { list, creditKeys, nameKeys };
   }
+  // Tên đăng nhập (cột "Người tạo kiện") không có trong bảng mã → đoán theo họ tên: "0201huyentt.kho" = tên "huyen" +
+  // chữ đầu họ, tên đệm "tt" (Trịnh Thu Huyền); "0201duydbt.kho" (chữ đầu đảo thứ tự) cũng nhận. Chỉ nhận khi ra đúng 1 người.
+  function doanUser(user, list) {
+    const core = String(user).toLowerCase().replace(/^\d+/, '').split('.')[0];
+    if (!/^[a-z]{3,}$/.test(core)) return null;
+    const hits = list.filter(e => {
+      const w = fold(e.hoTen).split(' ').filter(Boolean);
+      if (w.length < 2) return false;
+      const ten = w[w.length - 1], ini = w.slice(0, -1).map(x => x[0]).join('');
+      if (core === ten + ini) return true;
+      if (!core.startsWith(ten)) return false;
+      const rest = core.slice(ten.length);
+      return rest.length === ini.length && [...rest].sort().join('') === [...ini].sort().join('');
+    });
+    return hits.length === 1 ? hits[0].maNV : null;
+  }
   function ganMa(T, mnvRows) {
-    const bm = bangMa(mnvRows), nv = {}, khongKhop = [];
-    if (!T) return { nv, khongKhop, employees: bm.list };
+    const bm = bangMa(mnvRows), nv = {}, khongKhop = [], doan = [];
+    if (!T) return { nv, khongKhop, doan, employees: bm.list };
     Object.keys(T.raw).forEach(k => {
       const s = k.slice(2);
-      const ma = k.startsWith('u:') ? bm.creditKeys.get(s) : (bm.creditKeys.get(s) || bm.nameKeys.get(key(parseCreditName(s))));
+      let ma = k.startsWith('u:') ? bm.creditKeys.get(s) : (bm.creditKeys.get(s) || bm.nameKeys.get(key(parseCreditName(s))));
+      if (!ma && k.startsWith('u:')) { ma = doanUser(T.goc[k] || s, bm.list); if (ma) doan.push([T.goc[k] || s, ma]); }
       const days = T.raw[k];
       if (!ma) { let c = 0; Object.values(days).forEach(a => { c += a[0] + a[1] + a[2]; }); khongKhop.push([T.goc[k] || s, c]); return; }
       const o = nv[ma] || (nv[ma] = {});
@@ -168,7 +185,7 @@
       });
     });
     khongKhop.sort((a, b) => b[1] - a[1]);
-    return { nv, khongKhop, employees: bm.list };
+    return { nv, khongKhop, doan, employees: bm.list };
   }
   // tháng nên lưu: từ 8 ngày dữ liệu và ≥ 25% số lượt của tháng nhiều nhất (file tháng hay lẫn vài ngày của tháng kề bên)
   const thangChinh = file => {
@@ -269,6 +286,29 @@
   // o: { nv: [{maNV, hoTen}], chon: Set|null (chỉ đánh giá những mã này), nhom: {maNV: tên nhóm},
   //      cap: {kho: [adj], san: [adj]}, cc: {maNV: [mã ngày]} | null, loi: {maNV: {so, ghiChu}}, cfg }
   const NHOM_MD = 'Kho vận HCM';
+  const VP_CHUA_RO = 'Chưa rõ VP';
+  // Văn phòng theo bảng chấm công (cột phòng ban / dòng team): HCM, Cần Thơ, Đắk Lắk (Tây Nguyên), Khánh Hòa
+  const VP_THU_TU = ['VP HCM', 'VP Cần Thơ', 'VP Đắk Lắk', 'VP Khánh Hòa'];
+  function tenVP(pb, team) {
+    const f = fold(`${pb || ''} ${team || ''}`);
+    if (/can tho/.test(f)) return 'VP Cần Thơ';
+    if (/dak lak|dac lac|tay nguyen|buon ma/.test(f)) return 'VP Đắk Lắk';
+    if (/khanh hoa|nha trang/.test(f)) return 'VP Khánh Hòa';
+    if (/hcm|ho chi minh/.test(f)) return 'VP HCM';
+    return String(pb || '').trim() || '';
+  }
+  // { maNV: tên VP } từ JSON 1 tháng của trang Chấm công
+  function vpTuChamCong(sh) {
+    const out = {}; let team = '';
+    if (!sh || !Array.isArray(sh.rows)) return out;
+    sh.rows.forEach(r => {
+      if (!r) return;
+      if (r.t === 'team') team = r.text || '';
+      else if (r.t === 'nv' && r.ma) { const v = tenVP(r.pb, team); if (v) out[norm(r.ma)] = v; }
+    });
+    return out;
+  }
+  const thuTuVP = v => { const i = VP_THU_TU.indexOf(v); return i < 0 ? (v === VP_CHUA_RO ? 99 : 50) : i; };
   function tinhThang(ky, src, o) {
     o = o || {};
     const cfg = merge(o.cfg), heSoSan = Number(cfg.heSoSan) || 0;
@@ -277,7 +317,10 @@
     const trongThang = list => (list || []).filter(a => a.dateFrom <= `${ky}-31` && a.dateTo >= `${ky}-01`);
     const capK = trongThang(o.cap && o.cap.kho), capS = trongThang(o.cap && o.cap.san);
     const capKho = new Set(), capSan = new Set(), capInfo = {};
-    const cc = o.cc || null, loi = o.loi || {}, nhomOf = u => (o.nhom && o.nhom[u]) || NHOM_MD;
+    const cc = o.cc || null, loi = o.loi || {};
+    // nhóm so sánh: văn phòng của người đó; đặt thêm nhóm (vd. "Đóng gói") thì là nhóm con trong văn phòng
+    const vpOf = u => (o.vp && o.vp[u]) || VP_CHUA_RO;
+    const nhomOf = u => { const v = vpOf(u), g = o.nhom && o.nhom[u]; return g && g !== NHOM_MD && g !== v ? `${v} · ${g}` : v; };
     const ten = new Map((o.nv || []).map(e => [e.maNV, e.hoTen]));
     const tenNgan = u => { const t = ten.get(u) || (o.tenKhac && o.tenKhac[u]) || u; return String(t).trim().split(/\s+/).slice(-2).join(' '); };
     chiaCap(kho, ky, capK, capKho, cc, capInfo, tenNgan);
@@ -313,7 +356,7 @@
       const tb = cong > 0 ? tong.qd / cong : 0, tbKho = cong > 0 ? tong.kho / cong : 0, tbSan = cong > 0 ? tong.san / cong : 0;
       const l = loi[u] || {};
       return {
-        maNV: u, hoTen: ten.get(u), nhom: nhomOf(u), ngay, cong, coCC: !!ccRow, ngayLuot, ngayKhongLuot, ngayDat, ngayTinh, ngayThem, maxQd,
+        maNV: u, hoTen: ten.get(u), vp: vpOf(u), nhom: nhomOf(u), ngay, cong, coCC: !!ccRow, ngayLuot, ngayKhongLuot, ngayDat, ngayTinh, ngayThem, maxQd,
         ...tong, tb, tbKho, tbSan, tyLeDat: ngayTinh ? ngayDat / ngayTinh : 0,
         gioDau: soGio ? gioDau / soGio : null, gioCuoi: soGio ? gioCuoi / soGio : null,
         soNgayCap: ngay.filter(x => x.cap).length, soLoi: Math.max(0, Number(l.so) || 0), noiDungLoi: l.noiDung || '', ghiChu: l.ghiChu || '',
@@ -364,13 +407,24 @@
     });
     const xep = [...chon].filter(r => r.xepLoai !== '—').sort((a, b) => b.diem - a.diem || b.tb - a.tb);
     xep.forEach((r, i) => { r.hang = i + 1; });
+    const vpStats = {};
+    chon.forEach(r => {
+      const v = vpStats[r.vp] || (vpStats[r.vp] = { ten: r.vp, so: 0, soXep: 0, cong: 0, qd: 0, kho: 0, san: 0, diem: 0, loi: 0, khongLuot: 0, xl: { A: 0, B: 0, C: 0, D: 0, '—': 0 } });
+      v.so++; v.xl[r.xepLoai]++; v.loi += r.soLoi; v.khongLuot += r.ngayKhongLuot;
+      if (r.cong >= cfg.congToiThieu) { v.cong += r.cong; v.qd += r.qd; v.kho += r.kho; v.san += r.san; }
+      if (r.xepLoai !== '—') { v.soXep++; v.diem += r.diem; r.hangVP = v.soXep; }
+    });
+    // hạng trong VP theo thứ tự điểm (xep đã sắp)
+    Object.values(vpStats).forEach(v => { v.soXep = 0; });
+    xep.forEach(r => { const v = vpStats[r.vp]; v.soXep++; r.hangVP = v.soXep; });
+    Object.values(vpStats).forEach(v => { v.tb = v.cong ? v.qd / v.cong : 0; v.tbKho = v.cong ? v.kho / v.cong : 0; v.tbSan = v.cong ? v.san / v.cong : 0; v.diemTB = v.soXep ? v.diem / v.soXep : 0; });
     // tổng theo ngày (những người được đánh giá)
     const theoNgay = Array.from({ length: soNgay }, (_, i) => {
       const d = i + 1; let k = 0, s = 0, nguoi = 0;
       chon.forEach(r => { const x = r.ngay[i]; k += x.k; s += x.s; if (x.qd > 0) nguoi++; });
       return { d, thu: thu(d), k, s, qd: k + s * heSoSan, nguoi };
     });
-    return { ky, cfg, heSoSan, rows: chon, tatCa: rows, nhom, tbTo, soXep: xep.length, theoNgay, capInfo, ngayIt,
+    return { ky, cfg, heSoSan, rows: chon, tatCa: rows, nhom, vpStats, tbTo, soXep: xep.length, theoNgay, capInfo, ngayIt,
       coKho: !!src.kho, coSan: !!src.san, coCC: !!cc, capKho: capK.length, capSan: capS.length };
   }
 
@@ -390,22 +444,22 @@
     const cfg = merge(ctx && ctx.cfg), mo = ctx && ctx.ky ? Number(ctx.ky.slice(5)) : '';
     const tc = [];
     // 1) Năng suất — so với trung bình nhóm; ghi riêng từng mảng: Kho HCM (truyền thống) và Sàn (lượt / ngày công)
-    const s = r.soVoiNhom, can = r.tbNhom * 0.9, hs = Number(cfg.heSoSan) || 0;
-    const mang = (ten, tb, tbN, tong) => !tong ? `${ten}: không có lượt trong tháng` : `${ten}: ${vn1(tb)} lượt/ngày công (TB nhóm ${vn1(tbN)}${tbN ? ', bằng ' + pc(tb / tbN) : ''})`;
+    const s = r.soVoiNhom, can = r.tbNhom * 0.9, hs = Number(cfg.heSoSan) || 0, TBN = `TB ${r.nhom || 'nhóm'}`;
+    const mang = (ten, tb, tbN, tong) => !tong ? `${ten}: không có lượt trong tháng` : `${ten}: ${vn1(tb)} lượt/ngày công (${TBN} ${vn1(tbN)}${tbN ? ', bằng ' + pc(tb / tbN) : ''})`;
     const chiTiet = [mang('Kho HCM (truyền thống)', r.tbKho, r.tbKhoNhom, r.kho),
       mang('Sàn', r.tbSan, r.tbSanNhom, r.san) + (r.san && hs ? ` = ${vn1(r.tbSan * hs)} lượt quy đổi` : '')];
     const tong = `${vn1(r.tb)} lượt quy đổi/ngày công (kho + sàn × ${String(hs).replace('.', ',')})`;
     if (!r.tbNhom) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'tt', text: 'Chưa đủ dữ liệu nhóm để so sánh.', chiTiet });
-    else if (s >= 1.1) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'dat', text: `Cao: tổng ${tong}, hơn TB nhóm ${Math.round((s - 1) * 100)}% (nhóm ${vn1(r.tbNhom)}).`, chiTiet });
-    else if (s >= 0.9) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'dat', text: `Đạt: tổng ${tong}, ngang TB nhóm (${vn1(r.tbNhom)}, ${pc(s)}).`, chiTiet });
+    else if (s >= 1.1) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'dat', text: `Cao: tổng ${tong}, hơn ${TBN} ${Math.round((s - 1) * 100)}% (${TBN} ${vn1(r.tbNhom)}).`, chiTiet });
+    else if (s >= 0.9) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'dat', text: `Đạt: tổng ${tong}, ngang ${TBN} (${vn1(r.tbNhom)}, ${pc(s)}).`, chiTiet });
     else {
       const thieu = Math.ceil(can - r.tb);
       // mảng nào đang thấp hơn so với nhóm
       const ty = [['kho', r.tbKhoNhom ? r.tbKho / r.tbKhoNhom : null], ['sàn', r.tbSanNhom ? r.tbSan / r.tbSanNhom : null]].filter(x => x[1] !== null).sort((a, b) => a[1] - b[1]);
       tc.push({ ma: 'ns', ten: 'Năng suất', muc: s >= 0.7 ? 'chua' : 'thieu', chiTiet,
-        text: `${s >= 0.7 ? 'Chưa đạt' : 'Thấp'}: tổng ${tong}, chỉ bằng ${pc(s)} TB nhóm (${vn1(r.tbNhom)}).`,
-        khacPhuc: `Tăng sản lượng thêm khoảng ${thieu} lượt quy đổi/ngày công (≈ ${thieu} lượt kho${hs ? ` hoặc ${Math.ceil(thieu / hs)} lượt sàn` : ''}) để đạt tối thiểu 90% TB nhóm (${vn1(can)})`
-          + (ty.length ? `; mảng ${ty[0][0]} đang thấp nhất (${pc(ty[0][1])} TB nhóm).` : '.') });
+        text: `${s >= 0.7 ? 'Chưa đạt' : 'Thấp'}: tổng ${tong}, chỉ bằng ${pc(s)} ${TBN} (${vn1(r.tbNhom)}).`,
+        khacPhuc: `Tăng sản lượng thêm khoảng ${thieu} lượt quy đổi/ngày công (≈ ${thieu} lượt kho${hs ? ` hoặc ${Math.ceil(thieu / hs)} lượt sàn` : ''}) để đạt tối thiểu 90% ${TBN} (${vn1(can)})`
+          + (ty.length ? `; mảng ${ty[0][0]} đang thấp nhất (${pc(ty[0][1])} ${TBN}).` : '.') });
     }
     // 2) Ổn định — ngày có công đạt định mức
     const duoi = r.ngay.filter(x => x.w > 0 && x.qd > 0 && !x.dat && !x.it).map(x => x.d);
@@ -431,10 +485,10 @@
     if (r.gioDau === null || !g) tc.push({ ma: 'gio', ten: 'Giờ làm', muc: 'tt', text: 'Không có giờ quét.' });
     else {
       const muon = r.gioDau - g.dau >= 60, som = g.cuoi - r.gioCuoi >= 60;
-      const t = `Quét TB từ ${hhmm(r.gioDau)} đến ${hhmm(r.gioCuoi)} (nhóm ${hhmm(g.dau)}–${hhmm(g.cuoi)})`;
+      const t = `Quét TB từ ${hhmm(r.gioDau)} đến ${hhmm(r.gioCuoi)} (${r.nhom || 'nhóm'} ${hhmm(g.dau)}–${hhmm(g.cuoi)})`;
       if (!muon && !som) tc.push({ ma: 'gio', ten: 'Giờ làm', muc: 'dat', text: t + '.' });
       else tc.push({ ma: 'gio', ten: 'Giờ làm', muc: 'chua', text: t + (muon ? ' — bắt đầu muộn' : '') + (som ? (muon ? ', ' : ' — ') + 'kết thúc sớm' : '') + '.',
-        khacPhuc: `Xem lại ${muon ? 'việc buổi sáng (lượt quét đầu tiên muộn hơn nhóm khoảng ' + vn1((r.gioDau - g.dau) / 60) + ' giờ)' : ''}${muon && som ? ' và ' : ''}${som ? 'việc cuối ngày (ngừng quét sớm hơn nhóm)' : ''} — nếu làm việc khác thì ghi chú lại.` });
+        khacPhuc: `Xem lại ${muon ? 'việc buổi sáng (lượt quét đầu tiên muộn hơn ' + (r.nhom || 'nhóm') + ' khoảng ' + vn1((r.gioDau - g.dau) / 60) + ' giờ)' : ''}${muon && som ? ' và ' : ''}${som ? 'việc cuối ngày (ngừng quét sớm hơn ' + (r.nhom || 'nhóm') + ')' : ''} — nếu làm việc khác thì ghi chú lại.` });
     }
     // 6) So với tháng trước (tham khảo)
     const p = ctx && ctx.prev;
@@ -447,7 +501,7 @@
     const TEN = { ns: 'năng suất', od: 'ổn định', cc: 'chuyên cần', cl: 'chất lượng', gio: 'giờ làm', xh: 'tiến bộ' };
     const dat = tc.filter(x => x.muc === 'dat' && x.ma !== 'xh' && x.ma !== 'gio').map(x => TEN[x.ma]);
     const kp = tc.filter(x => x.khacPhuc).map(x => x.khacPhuc);
-    const xl = r.xepLoai === '—' ? `Chưa xếp loại (dưới ${cfg.congToiThieu} ngày công)` : `Xếp loại ${r.xepLoai} (${vn1(r.diem)} điểm, hạng ${r.hang || '–'})`;
+    const xl = r.xepLoai === '—' ? `Chưa xếp loại (dưới ${cfg.congToiThieu} ngày công)` : `Xếp loại ${r.xepLoai} (${vn1(r.diem)} điểm, hạng ${r.hangVP || r.hang || '–'} ${r.vp || ''})`;
     const tomTat = `${xl}. ${dat.length ? 'Đạt: ' + dat.join(', ') + '.' : 'Chưa đạt tiêu chí nào.'}${kp.length ? ` Cần khắc phục ${kp.length} điểm.` : ' Không có điểm cần khắc phục.'}`
       + (r.soNgayCap ? ` Có ${r.soNgayCap} ngày đóng cặp (lượt đã chia đôi).` : '');
     return { tieuChi: tc, dat, khacPhuc: kp, tomTat };
@@ -462,7 +516,7 @@
 
   const kyLabel = ky => { const [y, m] = ky.split('-'); return `Tháng ${Number(m)}/${y}`; };
   const quyCua = ky => { const [y, m] = ky.split('-').map(Number); return `${y}-Q${Math.ceil(m / 3)}`; };
-  const DG = { CFG, NHOM_MD, buoiLam, nhanXet, gioNhom, docFile, ganMa, bangMa, thangChinh, tinhThang, congNgay, chamCongMap, kyLabel, quyCua, pad2, fold, key };
+  const DG = { CFG, NHOM_MD, VP_CHUA_RO, VP_THU_TU, tenVP, vpTuChamCong, thuTuVP, buoiLam, nhanXet, gioNhom, doanUser, docFile, ganMa, bangMa, thangChinh, tinhThang, congNgay, chamCongMap, kyLabel, quyCua, pad2, fold, key };
   if (typeof module !== 'undefined' && module.exports) module.exports = DG;
   root.DG = DG;
 })(typeof self !== 'undefined' ? self : (typeof window !== 'undefined' ? window : globalThis));

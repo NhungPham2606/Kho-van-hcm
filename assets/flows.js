@@ -74,6 +74,7 @@ window.KVH_MENU = [
     muc: [
       { ten: 'Bảng đánh giá', href: 'danh-gia/#bang-danh-gia' },
       { ten: 'Nhận xét từng người', href: 'danh-gia/#nhan-xet' },
+      { ten: 'So sánh văn phòng', href: 'danh-gia/#so-sanh-vp' },
       { ten: 'Dashboard', href: 'danh-gia/#dashboard' },
       { ten: 'Theo ngày', href: 'danh-gia/#theo-ngay' },
       { ten: 'Đóng cặp', href: 'danh-gia/#dong-cap' },

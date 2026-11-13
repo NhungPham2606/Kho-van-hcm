@@ -9,7 +9,7 @@
   const OWNER = root.dataset.owner, REPO = root.dataset.repo, DIR = root.dataset.dir;
   const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
   const LS_KEY = 'kvh-danhgia-v1', LS_CFG = 'kvh-danhgia-caidat', LS_CAP = 'kvh-danhgia-dongcap', LS_SEL = 'kvh-danhgia-sel', TOKEN_KEY = 'kvh-gh-token';
-  const VER = '20261113e';
+  const VER = '20261113g';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const num = n => Math.round(n || 0).toLocaleString('vi-VN');
@@ -174,22 +174,50 @@
     return k ? new Set(archive[k].kho.roster.ds) : null;
   }
 
+  // Bảng mã dùng cho 1 tháng: bảng mã nv (file kho / dự phòng) + nhân viên gán tay (mục Danh sách) + những người có trong
+  // bảng chấm công tháng đó mà bảng mã nv chưa có (nhân viên mới: file kho chưa cập nhật "bảng mã nv" vẫn khớp được theo họ tên).
+  function rowsFor(ky) {
+    const mnv = mnvFor(ky), rows = mnv ? [...mnv.rows] : [], have = new Set(rows.map(r => String(r[0]).trim())), moi = new Set();
+    (caiDat.nvThem || []).forEach(x => { rows.push([x.maNV, x.maHT || '', x.hoTen]); have.add(x.maNV); moi.add(x.maNV); });
+    const sh = ccOf(ky);
+    if (sh && Array.isArray(sh.rows)) sh.rows.forEach(r => {
+      const ma = String(r.ma || '').trim(), ten = String(r.ten || '').trim();
+      if (r.t === 'nv' && ma && ten && !have.has(ma)) { rows.push([ma, '', ten]); have.add(ma); moi.add(ma); }
+    });
+    return rows.length ? { rows, moi, nguon: (mnv ? mnv.nguon : 'bảng chấm công') + (moi.size ? ` + ${moi.size} người lấy từ chấm công / gán tay` : '') } : null;
+  }
+
+  // Văn phòng của từng người: bảng chấm công tháng đó (phòng ban / dòng team), thiếu thì tháng chấm công khác; sửa tay ở mục Danh sách
+  function vpMap(ky) {
+    const out = {};
+    const them = sh => { const m = DG.vpTuChamCong(sh); Object.keys(m).forEach(u => { if (!out[u]) out[u] = m[u]; }); };
+    them(ccOf(ky));
+    Object.keys(LS_OTHER.cc).filter(k => KY_RE.test(k) && k !== ky).sort().reverse().forEach(k => them(LS_OTHER.cc[k]));
+    Object.keys(ext.cc).filter(k => ext.cc[k]).forEach(k => them(ext.cc[k]));
+    Object.assign(out, caiDat.vp || {});
+    return out;
+  }
+
   // ------------------------------------------------------------ tính
   const memo = new Map();
   function tinh(ky) {
     if (!ky || !archive[ky]) return null;
     if (memo.has(ky)) return memo.get(ky);
-    const e = archive[ky], mnv = mnvFor(ky);
-    if (!mnv) { const r = { loi: 'Chưa có bảng mã nv để khớp tên — thả kèm file kho (có sheet "bảng mã nv").' }; memo.set(ky, r); return r; }
+    const e = archive[ky], mnv = rowsFor(ky);
+    if (!mnv) { const r = { loi: 'Chưa có bảng mã nv để khớp tên — thả kèm file kho (có sheet "bảng mã nv") hoặc nạp bảng chấm công tháng này.' }; memo.set(ky, r); return r; }
     const K = e.kho ? DG.ganMa(e.kho.raw, mnv.rows) : null, S = e.san ? DG.ganMa(e.san.raw, mnv.rows) : null;
     const employees = DG.bangMa(mnv.rows).list, roster = rosterFor(ky);
-    const chon = new Set(employees.map(x => x.maNV).filter(u => caiDat.chon[u] !== undefined ? caiDat.chon[u] : (roster ? roster.has(u) : true)));
+    // mặc định: theo sheet THƯỞNG của file kho; người mới (chấm công / gán tay) và tháng không có sheet THƯỞNG thì được đánh giá
+    const chon = new Set(employees.map(x => x.maNV).filter(u => caiDat.chon[u] !== undefined ? caiDat.chon[u] : (roster && !mnv.moi.has(u) ? roster.has(u) : true)));
     const sh = caiDat.dungCC !== false ? ccOf(ky) : null;
     const cl = caiDat.dungCap !== false ? capList(ky).filter(a => a.dung) : [];
     const cap = { kho: cl.filter(a => apCo(a, 'kho')), san: cl.filter(a => apCo(a, 'san')) };
     const tenKhac = {}; dongCap.ngoai.forEach(h => { tenKhac[h.maNV] = h.hoTen; });
-    const res = DG.tinhThang(ky, { kho: K, san: S }, { nv: employees, chon, nhom: caiDat.nhom, cap, tenKhac, cc: sh ? DG.chamCongMap(sh) : null, loi: e.loi || {}, cfg: caiDat.cfg });
-    Object.assign(res, { mnvNguon: mnv.nguon, khongKhopKho: K ? K.khongKhop : [], roster, ccTen: sh && res.coCC ? sh.ten : '' });
+    const res = DG.tinhThang(ky, { kho: K, san: S }, { nv: employees, chon, nhom: caiDat.nhom, vp: vpMap(ky), cap, tenKhac, cc: sh ? DG.chamCongMap(sh) : null, loi: e.loi || {}, cfg: caiDat.cfg });
+    // tên quét trong file chưa khớp mã NV (gộp kho + sàn) — để gán tay ở mục Danh sách
+    const kk = new Map();
+    [[K, 'kho'], [S, 'sàn']].forEach(([x, nguon]) => (x ? x.khongKhop : []).forEach(([n, c]) => { const o = kk.get(n) || { ten: n, kho: 0, san: 0 }; o[nguon === 'kho' ? 'kho' : 'san'] += c; kk.set(n, o); }));
+    Object.assign(res, { mnvNguon: mnv.nguon, doan: K ? K.doan : [], khongKhop: [...kk.values()].sort((a, b) => (b.kho + b.san) - (a.kho + a.san)), moi: mnv.moi, roster, ccTen: sh && res.coCC ? sh.ten : '' });
     memo.set(ky, res);
     return res;
   }
@@ -199,11 +227,21 @@
   const cfgNow = () => Object.assign({}, DG.CFG, caiDat.cfg || {});
 
   // ------------------------------------------------------------ giao diện
-  const TABS = ['bang-danh-gia', 'nhan-xet', 'dashboard', 'theo-ngay', 'dong-cap', 'xu-huong', 'chat-luong', 'danh-sach', 'nap-du-lieu', 'tieu-chi'];
+  const TABS = ['bang-danh-gia', 'nhan-xet', 'so-sanh-vp', 'dashboard', 'theo-ngay', 'dong-cap', 'xu-huong', 'chat-luong', 'danh-sach', 'nap-du-lieu', 'tieu-chi'];
   const tab = () => { const h = location.hash.slice(1); if (!kys().length && !['tieu-chi', 'dong-cap'].includes(h)) return 'nap-du-lieu'; return TABS.includes(h) ? h : 'bang-danh-gia'; };
-  let search = '', tnMode = 'qd', pending = [], busy = false;
-  const match = r => !search || fold(r.hoTen).includes(search) || String(r.maNV).includes(search);
-  const sortHang = list => [...list].sort((a, b) => (a.hang || 1e9) - (b.hang || 1e9) || b.tb - a.tb || a.hoTen.localeCompare(b.hoTen, 'vi'));
+  let search = '', tnMode = 'qd', pending = [], busy = false, vpLoc = '';
+  try { vpLoc = localStorage.getItem('kvh-danhgia-vploc') || ''; } catch (e) {}
+  const match = r => (!vpLoc || r.vp === vpLoc) && (!search || fold(r.hoTen).includes(search) || String(r.maNV).includes(search));
+  // sắp theo văn phòng (HCM, Cần Thơ, Đắk Lắk, Khánh Hòa…) rồi hạng trong văn phòng
+  const sortHang = list => [...list].sort((a, b) => DG.thuTuVP(a.vp) - DG.thuTuVP(b.vp) || String(a.vp).localeCompare(String(b.vp), 'vi')
+    || (a.hangVP || 1e9) - (b.hangVP || 1e9) || b.tb - a.tb || a.hoTen.localeCompare(b.hoTen, 'vi'));
+  const vpCua = res => Object.keys(res.vpStats || {}).sort((a, b) => DG.thuTuVP(a) - DG.thuTuVP(b) || a.localeCompare(b, 'vi'));
+  function renderVPSel() {
+    const res = tinh(current()), ds = res && !res.loi ? vpCua(res) : [];
+    if (vpLoc && !ds.includes(vpLoc)) ds.push(vpLoc);
+    $('dgVP').innerHTML = `<option value="">Tất cả văn phòng</option>` + ds.map(v => `<option value="${esc(v)}"${v === vpLoc ? ' selected' : ''}>${esc(v)}${res && res.vpStats && res.vpStats[v] ? ` (${res.vpStats[v].so})` : ''}</option>`).join('');
+  }
+  $('dgVP').addEventListener('change', e => { vpLoc = e.target.value; try { localStorage.setItem('kvh-danhgia-vploc', vpLoc); } catch (er) {} renderAll(); });
 
   function renderTop() {
     const ks = kys(), ky = current();
@@ -229,7 +267,7 @@
     const tong = k => R.reduce((a, r) => a + r[k], 0);
     box.innerHTML = `
       <div class="tk-stat blue"><div class="l">Nhân viên được đánh giá</div><div class="v">${R.length}</div><div class="s">${res.soXep} người đủ ${cfgNow().congToiThieu} ngày công để xếp loại</div></div>
-      <div class="tk-stat"><div class="l">Bình quân tổ / ngày công</div><div class="v">${n1(res.tbTo)}</div><div class="s">lượt quy đổi${Object.keys(res.nhom).length > 1 ? ' · ' + Object.values(res.nhom).map(g => `${esc(g.ten)} ${n1(g.tb)}`).join(' · ') : ''}</div></div>
+      <div class="tk-stat"><div class="l">Bình quân tổ / ngày công</div><div class="v">${n1(res.tbTo)}</div><div class="s">lượt quy đổi${Object.keys(res.vpStats || {}).length > 1 ? ' · ' + vpCua(res).map(v => `${esc(v.replace('VP ', ''))} ${n1(res.vpStats[v].tb)}`).join(' · ') : ''}</div></div>
       <div class="tk-stat"><div class="l">Lượt kho</div><div class="v">${num(tong('kho'))}</div><div class="s">tạo kiện ${num(tong('tao'))} · bốc ${num(tong('bocK'))} · đóng ${num(tong('dongK'))}</div></div>
       <div class="tk-stat"><div class="l">Lượt sàn</div><div class="v">${num(tong('san'))}</div><div class="s">bốc ${num(tong('bocS'))} · đóng ${num(tong('dongS'))} (= ${num(tong('san') * res.heSoSan)} quy đổi)</div></div>
       <div class="tk-stat"><div class="l">Xếp loại</div><div class="xl">${['A', 'B', 'C', 'D'].map(x => `${xlBadge(x)} <b>${cnt(x)}</b>`).join(' &nbsp;')}</div><div class="s">${cnt('—') ? cnt('—') + ' người chưa đủ ngày công' : '&nbsp;'}</div></div>`;
@@ -239,7 +277,8 @@
     const t = tab();
     root.querySelectorAll('#dgTabs [data-tab]').forEach(a => a.classList.toggle('on', a.dataset.tab === t));
     root.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== t; });
-    $('dgSearchBox').hidden = ['nap-du-lieu', 'tieu-chi', 'dashboard', 'dong-cap'].includes(t);
+    $('dgSearchBox').hidden = ['nap-du-lieu', 'tieu-chi', 'dashboard', 'dong-cap', 'so-sanh-vp'].includes(t);
+    $('dgVP').hidden = ['nap-du-lieu', 'tieu-chi', 'dong-cap', 'so-sanh-vp'].includes(t);
     $('dgStats').hidden = $('dgStats').hidden || ['nap-du-lieu', 'tieu-chi'].includes(t);
   }
 
@@ -249,19 +288,25 @@
   // ---- Bảng đánh giá
   function renderBang() {
     const ky = current(), res = tinh(ky), cfg = cfgNow();
-    $('bgHead').innerHTML = `<tr><th class="c">Hạng</th><th>Mã NV</th><th>Họ và tên</th><th class="c">Xếp loại</th><th class="r">Tổng điểm</th><th class="r">So tháng trước</th>
+    $('bgHead').innerHTML = `<tr><th class="c" title="Hạng trong văn phòng">Hạng<small>trong VP</small></th><th>Mã NV</th><th>Họ và tên</th><th class="c">Xếp loại</th><th class="r">Tổng điểm</th><th class="r">So tháng trước</th>
       <th class="r">Năng suất<small>/${cfg.dNS}</small></th><th class="r">Ổn định<small>/${cfg.dOD}</small></th><th class="r">Chất lượng<small>/${cfg.dCL}</small></th>
-      <th>Nhóm</th><th class="r">Ngày công</th><th class="r">Lượt kho</th><th class="r">Lượt sàn</th><th class="r">Quy đổi</th><th class="r">TB / ngày công</th>
-      <th class="r">So TB nhóm</th><th class="r">Ngày đạt ĐM</th><th class="r">Có công<small>không lượt</small></th><th class="r">Lỗi CL</th></tr>`;
+      <th>Văn phòng / nhóm</th><th class="r">Ngày công</th><th class="r">Lượt kho</th><th class="r">Lượt sàn</th><th class="r">Quy đổi</th><th class="r">TB / ngày công</th>
+      <th class="r">So TB VP</th><th class="r">Ngày đạt ĐM</th><th class="r">Có công<small>không lượt</small></th><th class="r">Lỗi CL</th></tr>`;
     if (!res || res.loi) { $('bgBody').innerHTML = emptyRow(19, noData(res)); $('bgFoot').innerHTML = ''; return; }
     const pk = prevKy(ky), prev = pk ? tinh(pk) : null, pm = new Map(prev && !prev.loi ? prev.rows.map(r => [r.maNV, r]) : []);
     const list = sortHang(res.rows).filter(match);
+    let vpTruoc = null;
     $('bgBody').innerHTML = list.map(r => {
+      let head = '';
+      if (r.vp !== vpTruoc) {
+        vpTruoc = r.vp; const v = res.vpStats[r.vp];
+        head = `<tr class="grp"><td colspan="19">${esc(r.vp)} <span>· ${v.so} người · bình quân ${n1(v.tb)} lượt quy đổi / ngày công (kho ${n1(v.tbKho)} · sàn ${n1(v.tbSan)}) · điểm TB ${n1(v.diemTB)} · A ${v.xl.A} · B ${v.xl.B} · C ${v.xl.C} · D ${v.xl.D}</span></td></tr>`;
+      }
       const p = pm.get(r.maNV), d = p && p.xepLoai !== '—' && r.xepLoai !== '—' ? r.diem - p.diem : null;
       const cmp = d === null ? '<span class="muted">–</span>' : `<span class="${d > 0.05 ? 'up' : d < -0.05 ? 'down' : 'muted'}">${d > 0.05 ? '▲' : d < -0.05 ? '▼' : '='} ${n1(Math.abs(d))}</span> <span class="muted">(${esc(p.xepLoai)})</span>`;
       const congTip = r.coCC ? 'Theo bảng chấm công' : 'Không có trong chấm công — tính theo ngày có lượt quét';
-      return `<tr class="${r.xepLoai === '—' ? 'muted' : ''}">
-        <td class="c bold">${r.hang || '–'}</td><td>${esc(r.maNV)}</td>
+      return head + `<tr class="${r.xepLoai === '—' ? 'muted' : ''}">
+        <td class="c bold" title="Hạng chung cả chi nhánh: ${r.hang || '–'}">${r.hangVP || '–'}</td><td>${esc(r.maNV)}</td>
         <td class="name">${esc(r.hoTen)}${r.soNgayCap ? `<span class="chip cap" title="Có ${r.soNgayCap} ngày đóng cặp — lượt đã chia đôi">cặp ${r.soNgayCap}n</span>` : ''}${r.ngayThem ? `<span class="chip" title="${r.ngayThem} ngày có quét vào ngày nghỉ / CN / chấm phép — đã tính thêm công">+${r.ngayThem} ngày</span>` : ''}</td>
         <td class="c">${xlBadge(r.xepLoai)}</td><td class="r bold" style="color:#1a56db">${n1(r.diem)}</td><td class="r">${cmp}</td>
         <td class="r">${n1(r.dNS)}</td><td class="r">${n1(r.dOD)}</td><td class="r">${n1(r.dCL)}</td>
@@ -275,7 +320,7 @@
         <td class="r${r.ngayKhongLuot >= 3 ? ' bold' : ''}" style="${r.ngayKhongLuot >= 3 ? 'color:#991b1b' : ''}">${r.ngayKhongLuot || '–'}</td>
         <td class="r" title="${esc(r.noiDungLoi)}">${r.soLoi || '–'}</td></tr>`;
     }).join('') || emptyRow(19, 'Không có ai khớp tìm kiếm.');
-    $('bgFoot').innerHTML = `Tổng điểm = <b>Năng suất</b> (đạt ${cfg.nsDinh}% trung bình nhóm = đủ ${cfg.dNS}đ) + <b>Ổn định</b> (tỷ lệ ngày có công đạt ${cfg.dmNgay} lượt quy đổi × ${cfg.dOD}) + <b>Chất lượng</b> (${cfg.dCL} − ${cfg.truLoi}/lỗi). `
+    $('bgFoot').innerHTML = `Mỗi văn phòng xếp hạng riêng; năng suất so với trung bình văn phòng của người đó. Tổng điểm = <b>Năng suất</b> (đạt ${cfg.nsDinh}% trung bình VP = đủ ${cfg.dNS}đ) + <b>Ổn định</b> (tỷ lệ ngày có công đạt ${cfg.dmNgay} lượt quy đổi × ${cfg.dOD}) + <b>Chất lượng</b> (${cfg.dCL} − ${cfg.truLoi}/lỗi). `
       + `Xếp loại A ≥ ${cfg.A} · B ≥ ${cfg.B} · C ≥ ${cfg.C} · D dưới ${cfg.C}. Lượt quy đổi = lượt kho + lượt sàn × ${String(res.heSoSan).replace('.', ',')}. `
       + `<span class="muted">*</span> = không có trong chấm công, ngày công theo ngày có lượt quét. Rê chuột lên số để xem chi tiết. Xem cách tính / sửa ở mục <a href="#tieu-chi">Tiêu chí</a>.`
       + (pk ? '' : ' Chưa có tháng trước để so sánh.');
@@ -309,7 +354,7 @@
     $('nxGrid').innerHTML = list.map(r => {
       const nx = map.get(r.maNV);
       return `<div class="nx-card">
-        <div class="nx-head"><div class="nm">${r.hang ? r.hang + '. ' : ''}${esc(r.hoTen)}<small>${esc(r.maNV)} · ${esc(r.nhom)}</small></div>
+        <div class="nx-head"><div class="nm">${r.hangVP ? r.hangVP + '. ' : ''}${esc(r.hoTen)}<small>${esc(r.maNV)} · ${esc(r.nhom)}</small></div>
           <div class="tk-row">${xlBadge(r.xepLoai)} <b style="color:#1a56db">${n1(r.diem)}</b> <button class="b xs" type="button" data-nxcopy="${esc(r.maNV)}" title="Chép nhận xét dạng chữ để gửi Zalo / mail">Sao chép</button></div></div>
         <div class="nx-sum">${esc(nx.tomTat)}</div>
         <div class="nx-tc">${nx.tieuChi.map(t => `<div class="t">${esc(t.ten)}</div><div><span class="mk m-${t.muc}">${esc(mkLabel(t))}</span>${esc(t.text)}${t.chiTiet ? t.chiTiet.map(x => `<div class="ct">– ${esc(x)}</div>`).join('') : ''}</div>`).join('')}</div>
@@ -327,6 +372,39 @@
     catch (err) { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e2) {} t.remove(); }
     b.textContent = 'Đã chép ✓'; setTimeout(() => { b.textContent = 'Sao chép'; }, 1500);
   });
+
+  // ---- So sánh văn phòng
+  function renderVP() {
+    const res = tinh(current());
+    $('vpHead').innerHTML = `<tr><th>Văn phòng</th><th class="r">Số NV<small>đánh giá</small></th><th class="r">Ngày công</th><th class="r">Lượt kho</th><th class="r">Lượt sàn</th>
+      <th class="r">Kho / ngày công</th><th class="r">Sàn / ngày công</th><th class="r">Quy đổi / ngày công</th><th class="r">Điểm TB</th><th class="c">A</th><th class="c">B</th><th class="c">C</th><th class="c">D</th><th class="r">Lỗi CL</th><th class="r">Ngày có công<small>không lượt</small></th></tr>`;
+    if (!res || res.loi) { $('vpBody').innerHTML = emptyRow(15, noData(res)); $('vpChart').innerHTML = ''; return; }
+    const ds = vpCua(res), S = res.vpStats;
+    const tong = ds.reduce((a, v) => { const x = S[v]; ['so', 'cong', 'kho', 'san', 'qd', 'loi', 'khongLuot', 'soXep', 'diem'].forEach(k => { a[k] = (a[k] || 0) + x[k]; }); ['A', 'B', 'C', 'D'].forEach(k => { a[k] = (a[k] || 0) + x.xl[k]; }); return a; }, {});
+    const dong = (ten, x, xl, cls) => `<tr class="${cls || ''}"${ten && !cls ? ` style="cursor:pointer" data-vpchon="${esc(ten)}" title="Bấm để chỉ xem ${esc(ten)}"` : ''}><td class="name">${esc(ten)}</td><td class="r">${x.so}</td><td class="r">${nSmart(x.cong)}</td><td class="r">${num(x.kho)}</td><td class="r">${num(x.san)}</td>
+      <td class="r">${x.cong ? n1(x.kho / x.cong) : '–'}</td><td class="r">${x.cong ? n1(x.san / x.cong) : '–'}</td><td class="r bold">${x.cong ? n1(x.qd / x.cong) : '–'}</td><td class="r bold" style="color:#1a56db">${x.soXep ? n1(x.diem / x.soXep) : '–'}</td>
+      ${['A', 'B', 'C', 'D'].map(k => `<td class="c">${xl[k] ? xlBadge(k) + ' ' + xl[k] : '<span class="muted">–</span>'}</td>`).join('')}<td class="r">${x.loi || '–'}</td><td class="r">${x.khongLuot || '–'}</td></tr>`;
+    $('vpBody').innerHTML = ds.map(v => dong(v, S[v], S[v].xl)).join('') + (ds.length > 1 ? dong('CẢ CHI NHÁNH', tong, tong, 'total') : '');
+    // biểu đồ thanh ngang: kho + sàn quy đổi / ngày công từng VP
+    const W = 620, L = 120, R = 70, BH = 22, GAP = 12, max = niceMax(Math.max(1, ...ds.map(v => S[v].tb)));
+    const xs = val => L + (W - L - R) * val / max;
+    let y = 6, out = '';
+    ds.forEach(v => {
+      const x = S[v], k = x.tbKho, s = x.tbSan * res.heSoSan, id = 'vp' + v;
+      tips[id] = `<b>${esc(v)}</b>${x.so} người · ${nSmart(x.cong)} ngày công<br><i style="background:var(--kho)"></i>Kho ${n1(k)} lượt / ngày công<br><i style="background:var(--san)"></i>Sàn ${n1(x.tbSan)} lượt (= ${n1(s)} quy đổi) / ngày công<br>Tổng ${n1(x.tb)} lượt quy đổi · điểm TB ${n1(x.diemTB)}`;
+      const wk = xs(k) - L, ws = xs(k + s) - xs(k);
+      out += `<g data-tip="${esc(id)}"><rect x="0" y="${y - 3}" width="${W}" height="${BH + 6}" fill="transparent"/>`
+        + `<text x="${L - 8}" y="${y + BH / 2 + 4}" font-size="12" text-anchor="end" fill="#374151">${esc(v)}</text>`
+        + (wk > 0 ? `<path d="${ws > 2 ? `M${L},${y}H${L + wk}V${y + BH}H${L}Z` : barPath(L, y, wk, BH, 4)}" fill="var(--kho)"/>` : '')
+        + (ws > 2 ? `<path d="${barPath(L + wk + 2, y, ws - 2, BH, 4)}" fill="var(--san)"/>` : '')
+        + `<text x="${xs(k + s) + 6}" y="${y + BH / 2 + 4}" font-size="12" fill="#1f2937">${n1(x.tb)}</text></g>`;
+      y += BH + GAP;
+    });
+    const grid = [0, max / 4, max / 2, max * 3 / 4, max].map(t => `<line x1="${xs(t)}" x2="${xs(t)}" y1="0" y2="${y}" stroke="#eef0f3"/><text x="${xs(t)}" y="${y + 14}" font-size="10" text-anchor="middle" fill="#9ca3af">${num(t)}</text>`).join('');
+    $('vpChart').innerHTML = `<svg viewBox="0 0 ${W} ${y + 20}" width="100%" role="img" aria-label="Bình quân lượt mỗi ngày công theo văn phòng">${grid}${out}</svg>`;
+    bindTips($('vpChart'));
+  }
+  $('vpBody').addEventListener('click', e => { const t = e.target.closest('[data-vpchon]'); if (!t) return; vpLoc = t.dataset.vpchon; try { localStorage.setItem('kvh-danhgia-vploc', vpLoc); } catch (er) {} location.hash = '#bang-danh-gia'; renderAll(); });
 
   // ---- Dashboard (biểu đồ SVG, rê chuột xem số)
   let tipEl = null;
@@ -456,8 +534,9 @@
     const people = new Map();
     res.forEach(x => x.r.rows.forEach(r => { if (!people.has(r.maNV)) people.set(r.maNV, r.hoTen); }));
     const last = res[res.length - 1].r, lastMap = new Map(last.rows.map(r => [r.maNV, r]));
-    const ids = [...people.keys()].sort((a, b) => ((lastMap.get(a) || {}).hang || 1e9) - ((lastMap.get(b) || {}).hang || 1e9) || people.get(a).localeCompare(people.get(b), 'vi'));
-    $('xhBody').innerHTML = ids.filter(u => match({ maNV: u, hoTen: people.get(u) })).map(u => {
+    const xep = sortHang(last.tatCa.filter(r => people.has(r.maNV))).map(r => r.maNV);
+    const ids = [...people.keys()].sort((a, b) => (xep.indexOf(a) + 1 || 1e9) - (xep.indexOf(b) + 1 || 1e9) || people.get(a).localeCompare(people.get(b), 'vi'));
+    $('xhBody').innerHTML = ids.filter(u => match({ maNV: u, hoTen: people.get(u), vp: (last.tatCa.find(r => r.maNV === u) || {}).vp })).map(u => {
       const vals = res.map(x => x.r.rows.find(r => r.maNV === u));
       const sc = vals.filter(v => v && v.xepLoai !== '—');
       const d = sc.length >= 2 ? sc[sc.length - 1].diem - sc[sc.length - 2].diem : null;
@@ -494,24 +573,51 @@
   // ---- Danh sách & nhóm
   function renderDS() {
     const ky = current(), res = tinh(ky);
-    if (!res || res.loi) { $('dsBody').innerHTML = emptyRow(9, noData(res)); $('dsFoot').innerHTML = ''; return; }
+    if (!res || res.loi) { $('dsBody').innerHTML = emptyRow(10, noData(res)); $('dsFoot').innerHTML = ''; return; }
     const chon = new Set(res.rows.map(r => r.maNV));
     const list = [...res.tatCa].sort((a, b) => (chon.has(b.maNV) - chon.has(a.maNV)) || a.nhom.localeCompare(b.nhom, 'vi') || a.hoTen.localeCompare(b.hoTen, 'vi')).filter(match);
-    const nhoms = [...new Set([DG.NHOM_MD, ...Object.values(caiDat.nhom || {}), 'Đóng gói', 'Soạn hàng'])];
+    const nhoms = [...new Set([...Object.values(caiDat.nhom || {}), 'Đóng gói', 'Soạn hàng'])].filter(g => g && g !== DG.NHOM_MD);
+    const vps = [...new Set([...DG.VP_THU_TU, ...vpCua(res)])].filter(v => v !== DG.VP_CHUA_RO);
     $('dsNhom').innerHTML = nhoms.map(g => `<option value="${esc(g)}">`).join('');
     $('dsBody').innerHTML = list.map(r => `<tr data-ma="${esc(r.maNV)}" class="${chon.has(r.maNV) ? '' : 'muted'}">
       <td class="c"><input type="checkbox" data-k="chon"${chon.has(r.maNV) ? ' checked' : ''}></td><td>${esc(r.maNV)}</td><td class="name">${esc(r.hoTen)}</td>
-      <td><input type="text" data-k="nhom" list="dsNhom" value="${esc(caiDat.nhom[r.maNV] || '')}" placeholder="${esc(DG.NHOM_MD)}" style="width:170px"></td>
+      <td><select data-k="vp" title="${caiDat.vp && caiDat.vp[r.maNV] ? 'Đã sửa tay' : 'Theo bảng chấm công'}"><option value="">${esc(vpTuDong(r.maNV) || DG.VP_CHUA_RO)} (tự động)</option>${vps.map(v => `<option value="${esc(v)}"${caiDat.vp && caiDat.vp[r.maNV] === v ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></td>
+      <td><input type="text" data-k="nhom" list="dsNhom" value="${esc(caiDat.nhom[r.maNV] && caiDat.nhom[r.maNV] !== DG.NHOM_MD ? caiDat.nhom[r.maNV] : '')}" placeholder="(cả VP)" style="width:130px"></td>
       <td class="r">${nSmart(r.cong)}</td><td class="r">${num(r.kho)}</td><td class="r">${num(r.san)}</td><td class="r">${n1(r.tb)}</td>
-      <td>${res.roster ? (res.roster.has(r.maNV) ? 'Có' : '<span class="muted">Không</span>') : '<span class="muted">(file không có sheet THƯỞNG)</span>'}</td></tr>`).join('') || emptyRow(9, 'Không có ai khớp tìm kiếm.');
-    const kk = (res.khongKhopKho || []).filter(([n]) => !/^(adminit|online|system|admin)$/i.test(n));
-    $('dsFoot').innerHTML = `Khớp tên bằng ${esc(res.mnvNguon)}. Ai không có trong bảng mã nv thì không hiện ở đây.`
-      + (kk.length ? ` <details style="margin-top:6px"><summary style="cursor:pointer;color:#1a56db">${kk.length} tên trong file kho không khớp bảng mã nv (thường là kho Đà Nẵng / người ngoài) — bấm để soát</summary><div style="column-width:260px;margin-top:6px">${kk.slice(0, 40).map(([n, c]) => `<div>${esc(n)} — ${num(c)} lượt</div>`).join('')}</div></details>` : '');
+      <td>${res.moi && res.moi.has(r.maNV) ? '<span class="chip warn" title="Chưa có trong bảng mã nv của file kho — lấy từ chấm công / gán tay">NV mới</span>' : res.roster ? (res.roster.has(r.maNV) ? 'Có' : '<span class="muted">Không</span>') : '<span class="muted">(file không có sheet THƯỞNG)</span>'}</td></tr>`).join('') || emptyRow(10, 'Không có ai khớp tìm kiếm.');
+    const kk = (res.khongKhop || []).filter(x => !/^(adminit|online|system|admin)$/i.test(x.ten) && x.kho + x.san >= 20);
+    const ganTay = caiDat.nvThem || [];
+    const vpCo = [...new Set(res.tatCa.map(r => r.vp))].sort((a, b) => DG.thuTuVP(a) - DG.thuTuVP(b));
+    $('dsFoot').innerHTML = `<div class="tk-row" style="margin-bottom:8px"><b style="font-size:12px">Đánh giá cả văn phòng:</b>${vpCo.map(v => { const all = res.tatCa.filter(r => r.vp === v), co = all.filter(r => chon.has(r.maNV)).length; return `<button class="b xs" type="button" data-tickvp="${esc(v)}" data-on="${co < all.length ? 1 : 0}" title="${co}/${all.length} người đang được đánh giá">${co < all.length ? '✓ Tick' : 'Bỏ tick'} ${esc(v)} (${co}/${all.length})</button>`; }).join('')}</div>`
+      + `Khớp tên bằng ${esc(res.mnvNguon)}. Nhân viên mới chưa có trong "bảng mã nv" của file kho được lấy theo họ tên trong bảng chấm công tháng đó (ghi "NV mới").`
+      + (kk.length ? `<details style="margin-top:8px"${kk.some(x => x.kho + x.san >= 200) ? '' : ''}><summary style="cursor:pointer;color:#1a56db">${kk.length} tên quét trong file chưa khớp mã NV nào (không được đánh giá) — bấm để xem / gán mã NV</summary>
+          <div class="muted" style="margin:6px 0">Thường là kho Đà Nẵng hoặc người ngoài. Nếu là nhân viên của mình: gõ Mã NV rồi bấm Gán — áp dụng cho mọi tháng.</div>
+          <table class="dt" style="max-width:720px"><thead><tr><th>Tên trong file</th><th class="r">Lượt kho</th><th class="r">Lượt sàn</th><th>Mã NV</th><th></th></tr></thead><tbody>
+          ${kk.slice(0, 60).map((x, i) => `<tr data-kk="${i}"><td class="name">${esc(x.ten)}</td><td class="r">${num(x.kho)}</td><td class="r">${num(x.san)}</td><td><input type="text" data-gan="ma" placeholder="vd. 020401" style="width:90px"></td><td><button class="b xs" type="button" data-gan="ok">Gán</button></td></tr>`).join('')}
+          </tbody></table></details>` : '')
+      + (res.doan && res.doan.length ? `<div style="margin-top:8px">Tự khớp tên đăng nhập Tạo kiện theo họ tên (bảng mã nv chưa có): ${res.doan.map(([u, m]) => `${esc(u)} → ${esc((res.tatCa.find(r => r.maNV === m) || {}).hoTen || m)}`).join(' · ')}. Sai thì gán lại tay ở bảng trên.</div>` : '')
+      + (ganTay.length ? `<div style="margin-top:8px">Đã gán tay: ${ganTay.map((x, i) => `<span class="chip">${esc(x.maNV)} – ${esc(x.hoTen)}${x.maHT && x.maHT !== x.hoTen ? ` (${esc(x.maHT)})` : ''} <button type="button" data-boGan="${i}" aria-label="Bỏ">×</button></span>`).join(' ')}</div>` : '');
+    $('dsFoot')._kk = kk;
   }
+  $('dsFoot').addEventListener('click', e => {
+    const tv = e.target.closest('[data-tickvp]');
+    if (tv) { const res = tinh(current()); res.tatCa.filter(r => r.vp === tv.dataset.tickvp).forEach(r => { caiDat.chon[r.maNV] = tv.dataset.on === '1'; }); touchCfg(); renderAll(); return; }
+    const b = e.target.closest('[data-gan="ok"]'), bo = e.target.closest('[data-bogan]');
+    if (bo) { caiDat.nvThem = (caiDat.nvThem || []).filter((_, i) => i !== Number(bo.dataset.bogan)); touchCfg(); renderAll(); return; }
+    if (!b) return;
+    const tr = b.closest('[data-kk]'), x = ($('dsFoot')._kk || [])[Number(tr.dataset.kk)], ma = tr.querySelector('[data-gan="ma"]').value.trim();
+    if (!x || !ma) return;
+    // tên của mã đó (nếu đã có trong bảng mã / chấm công) để hiện đúng họ tên; username (Tạo kiện) / tên quét lưu làm mã hệ thống
+    const co = nguoiList().find(p => !p.ngoai && p.maNV === ma);
+    caiDat.nvThem = [...(caiDat.nvThem || []), { maNV: ma, hoTen: co ? co.hoTen : x.ten, maHT: x.ten }];
+    touchCfg(); renderAll();
+  });
+  function vpTuDong(ma) { const sv = caiDat.vp; caiDat.vp = {}; const v = vpMap(current())[ma]; caiDat.vp = sv; return v || ''; }
   $('dsBody').addEventListener('change', ev => {
     const inp = ev.target.closest('[data-k]'), tr = ev.target.closest('[data-ma]'); if (!inp || !tr) return;
     const ma = tr.dataset.ma;
     if (inp.dataset.k === 'chon') caiDat.chon[ma] = inp.checked;
+    else if (inp.dataset.k === 'vp') { caiDat.vp = Object.assign({}, caiDat.vp); if (inp.value) caiDat.vp[ma] = inp.value; else delete caiDat.vp[ma]; }
     else { const v = inp.value.trim(); if (v && v !== DG.NHOM_MD) caiDat.nhom[ma] = v; else delete caiDat.nhom[ma]; }
     touchCfg(); renderAll();
   });
@@ -523,7 +629,7 @@
   const ddmm = s => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '';
   const kyNay = () => current() || (() => { const d = new Date(); return `${d.getFullYear()}-${DG.pad2(d.getMonth() + 1)}`; })();
   function nguoiList() {
-    const mnv = mnvFor(kyNay());
+    const mnv = rowsFor(kyNay());
     const emps = mnv ? DG.bangMa(mnv.rows).list : [];
     return [...emps.map(e => ({ maNV: e.maNV, hoTen: e.hoTen, ngoai: false })), ...dongCap.ngoai.map(h => ({ maNV: h.maNV, hoTen: h.hoTen, ngoai: true }))];
   }
@@ -1137,15 +1243,30 @@
   $('cfgReset').addEventListener('click', () => { if (!confirm('Đưa tất cả tiêu chí về mặc định?')) return; caiDat.cfg = {}; caiDat.dungCC = true; caiDat.dungCap = true; touchCfg(); memo.clear(); renderAll(); $('cfgMsg').textContent = 'Đã về mặc định.'; });
 
   // ------------------------------------------------------------ vẽ tất cả
+  function gopNgoai() {
+    if (!dongCap.ngoai.length) return;
+    const ds = nguoiList().filter(p => !p.ngoai), byTen = new Map(ds.map(p => [DG.key(p.hoTen), p.maNV]));
+    let doi = false;
+    dongCap.ngoai = dongCap.ngoai.filter(h => {
+      const m = String(h.hoTen || '').match(/^\s*(\d{5,7})[\s\-–:.,]+(.+)$/);
+      const ma = m ? m[1] : byTen.get(DG.key(h.hoTen));
+      if (!ma) return true;
+      dongCap.list.forEach(a => { if (a.maNV1 === h.maNV) { a.maNV1 = ma; doi = true; } if (a.maNV2 === h.maNV) { a.maNV2 = ma; doi = true; } });
+      if (m && !ds.some(p => p.maNV === ma)) caiDat.nvThem = [...(caiDat.nvThem || []), { maNV: ma, hoTen: m[2].trim(), maHT: '' }];
+      doi = true; return false;
+    });
+    if (doi) { touchCap(); touchCfg(); }
+  }
   function renderAll(skipCL) {
     memo.clear();
+    gopNgoai(); memo.clear();
     renderTop(); renderStats(); renderTabs();
-    renderBang(); renderNX(); renderDash(); renderNgay(); renderCap(); renderXu();
+    renderVPSel(); renderBang(); renderNX(); renderVP(); renderDash(); renderNgay(); renderCap(); renderXu();
     if (!skipCL) renderCL();
     renderDS(); renderNap(); renderCfg();
   }
   $('dgChips').addEventListener('click', e => { const b = e.target.closest('[data-ky]'); if (!b) return; sel = b.dataset.ky; persistLocal(); renderAll(); });
-  $('dgSearch').addEventListener('input', e => { search = fold(e.target.value); renderBang(); renderNX(); renderNgay(); renderXu(); renderCL(); renderDS(); });
+  $('dgSearch').addEventListener('input', e => { search = fold(e.target.value); renderBang(); renderNX(); renderVP(); renderNgay(); renderXu(); renderCL(); renderDS(); });
   $('tnMode').addEventListener('click', e => { const b = e.target.closest('[data-tn]'); if (!b) return; tnMode = b.dataset.tn; renderNgay(); });
   window.addEventListener('hashchange', () => { renderTabs(); renderStats(); renderTabs(); });
 
@@ -1264,13 +1385,13 @@
     const ky = current(), res = tinh(ky), cfg = cfgNow();
     const wb = XLSX.utils.book_new(), T = DG.kyLabel(ky).toUpperCase(), [y, m] = ky.split('-').map(Number);
     const list = sortHang(res.rows), r1 = x => Math.round(x * 10) / 10;
-    const S = { stt: { h: 'HẠNG', t: 'stt', w: 6 }, ma: { h: 'MÃ NV', t: 'ma', w: 9 }, ten: { h: 'HỌ VÀ TÊN', t: 'name', w: 26 } };
-    const nhieuNhom = Object.keys(res.nhom).length > 1;
+    const S = { stt: { h: 'HẠNG TRONG VP', t: 'stt', w: 7 }, ma: { h: 'MÃ NV', t: 'ma', w: 9 }, ten: { h: 'HỌ VÀ TÊN', t: 'name', w: 26 } };
+    const nhieuNhom = true; // luôn có cột văn phòng / nhóm
     const xlTo = (i, v) => XL_FILL[v] ? { fill: XL_FILL[v][0], color: XL_FILL[v][1], bold: true } : null;
     // 1) Bảng đánh giá
-    const cols = [S.stt, S.ma, S.ten, ...(nhieuNhom ? [{ h: 'NHÓM', t: 'text', w: 14 }] : []),
+    const cols = [S.stt, S.ma, S.ten, ...(nhieuNhom ? [{ h: 'VĂN PHÒNG / NHÓM', t: 'text', w: 16 }] : []),
       { h: 'Ngày công', t: 'k1', w: 8 }, { h: 'Lượt kho', t: 'int', w: 9 }, { h: 'Lượt sàn', t: 'int', w: 9 }, { h: 'Lượt quy đổi', t: 'k1', w: 10 }, { h: 'TB / ngày công', t: 'd1', w: 9 },
-      { h: 'So với TB nhóm', t: 'pct', w: 9 }, { h: 'Ngày đạt định mức', t: 'pct', w: 9 }, { h: 'Có công không lượt', t: 'int', w: 8 }, { h: 'Số lỗi CL', t: 'int', w: 7 },
+      { h: 'So với TB VP', t: 'pct', w: 9 }, { h: 'Ngày đạt định mức', t: 'pct', w: 9 }, { h: 'Có công không lượt', t: 'int', w: 8 }, { h: 'Số lỗi CL', t: 'int', w: 7 },
       { h: `Năng suất (${cfg.dNS})`, t: 'd1', w: 9 }, { h: `Ổn định (${cfg.dOD})`, t: 'd1', w: 9 }, { h: `Chất lượng (${cfg.dCL})`, t: 'd1', w: 9 },
       { h: 'TỔNG ĐIỂM', t: 'd1', w: 9, accent: true }, { h: 'XẾP LOẠI', t: 'xl', w: 8, accent: true }, { h: 'GHI CHÚ', t: 'text', w: 32 }];
     const iXL = cols.findIndex(c => c.h === 'XẾP LOẠI');
@@ -1279,7 +1400,7 @@
       sub: `Kho vận CN.HCM  ·  Lượt quy đổi = lượt kho + lượt sàn × ${String(res.heSoSan).replace('.', ',')}  ·  Tổng điểm = Năng suất ${cfg.dNS} + Ổn định ${cfg.dOD} + Chất lượng ${cfg.dCL}  ·  A ≥ ${cfg.A}, B ≥ ${cfg.B}, C ≥ ${cfg.C}, D < ${cfg.C}`,
       groups: [{ span: 1 }, { span: 1 }, { span: 1 }, ...(nhieuNhom ? [{ span: 1 }] : []), { label: 'SẢN LƯỢNG', span: 5 }, { label: 'CHỈ SỐ', span: 4 }, { label: 'ĐIỂM THÀNH PHẦN', span: 3 }, { label: 'KẾT QUẢ', span: 2, accent: true }, { span: 1 }],
       cols,
-      rows: list.map(r => [r.hang || '', r.maNV, r.hoTen, ...(nhieuNhom ? [r.nhom] : []), r1(r.cong), Math.round(r.kho), Math.round(r.san), r1(r.qd), r1(r.tb),
+      rows: list.map(r => [r.hangVP || '', r.maNV, r.hoTen, ...(nhieuNhom ? [r.nhom] : []), r1(r.cong), Math.round(r.kho), Math.round(r.san), r1(r.qd), r1(r.tb),
         r.soVoiNhom, r.tyLeDat, r.ngayKhongLuot, r.soLoi, r.dNS, r.dOD, r.dCL, r.diem, r.xepLoai,
         [r.ghiChu, r.soLoi && r.noiDungLoi ? 'Lỗi: ' + r.noiDungLoi : '', r.xepLoai === '—' ? `Chưa đủ ${cfg.congToiThieu} ngày công` : ''].filter(Boolean).join('. ')]),
       muted: i => list[i].xepLoai === '—',
@@ -1287,12 +1408,22 @@
       total: ['TỔNG / BÌNH QUÂN TỔ', null, null, ...(nhieuNhom ? [null] : []), r1(list.reduce((a, r) => a + r.cong, 0)), Math.round(list.reduce((a, r) => a + r.kho, 0)), Math.round(list.reduce((a, r) => a + r.san, 0)),
         r1(list.reduce((a, r) => a + r.qd, 0)), r1(res.tbTo), null, null, null, list.reduce((a, r) => a + r.soLoi, 0), null, null, null, null, null, ''],
     });
+    // 1a) So sánh văn phòng
+    const vds = vpCua(res), VS = res.vpStats;
+    if (vds.length) bangDep(wb, 'So sánh VP', {
+      title: `SO SÁNH NĂNG SUẤT – CHẤT LƯỢNG CÁC VĂN PHÒNG ${T}`,
+      sub: `Mỗi văn phòng đánh giá riêng (năng suất so với trung bình văn phòng)  ·  Bình quân = tổng lượt ÷ tổng ngày công của nhân viên được đánh giá  ·  Lượt sàn quy đổi × ${String(res.heSoSan).replace('.', ',')}`,
+      groups: [{ span: 1 }, { span: 1 }, { span: 1 }, { label: 'SẢN LƯỢNG THÁNG', span: 3 }, { label: 'BÌNH QUÂN / NGÀY CÔNG', span: 3 }, { label: 'KẾT QUẢ', span: 5, accent: true }, { span: 1 }],
+      cols: [{ h: 'STT', t: 'stt', w: 5 }, { h: 'VĂN PHÒNG', t: 'name', w: 18 }, { h: 'SỐ NV', t: 'int', w: 7 }, { h: 'Ngày công', t: 'k1', w: 9 }, { h: 'Lượt kho', t: 'int', w: 10 }, { h: 'Lượt sàn', t: 'int', w: 10 },
+        { h: 'Kho', t: 'd1', w: 8 }, { h: 'Sàn', t: 'd1', w: 8 }, { h: 'Quy đổi', t: 'd1', w: 9 }, { h: 'Điểm TB', t: 'd1', w: 8, accent: true }, { h: 'A', t: 'int', w: 5, accent: true }, { h: 'B', t: 'int', w: 5, accent: true }, { h: 'C', t: 'int', w: 5, accent: true }, { h: 'D', t: 'int', w: 5, accent: true }, { h: 'Lỗi CL', t: 'int', w: 7 }],
+      rows: vds.map((v, i) => { const x = VS[v]; return [i + 1, v, x.so, r1(x.cong), Math.round(x.kho), Math.round(x.san), r1(x.tbKho), r1(x.tbSan), r1(x.tb), r1(x.diemTB), x.xl.A, x.xl.B, x.xl.C, x.xl.D, x.loi]; }),
+    });
     // 1b) Nhận xét từng người theo tiêu chí
     const nxMap = nhanXetThang(ky), MK_FILL = { dat: ['E7F8EF', '065F46'], chua: ['FEF6DC', '92400E'], thieu: ['FDE8E8', '991B1B'] };
     const TC = ['ns', 'od', 'cc', 'cl'], nxCols = [S.stt, S.ma, { h: 'HỌ VÀ TÊN', t: 'name', w: 22 }, { h: 'XẾP LOẠI', t: 'xl', w: 8, accent: true }, { h: 'ĐIỂM', t: 'd1', w: 7, accent: true },
       { h: 'NĂNG SUẤT', t: 'text', w: 30 }, { h: 'ỔN ĐỊNH', t: 'text', w: 32 }, { h: 'CHUYÊN CẦN', t: 'text', w: 28 }, { h: 'CHẤT LƯỢNG', t: 'text', w: 24 },
       { h: 'CẦN KHẮC PHỤC', t: 'text', w: 50 }, { h: 'GHI CHÚ QUẢN LÝ', t: 'text', w: 22 }];
-    const nxRows = list.map(r => { const nx = nxMap.get(r.maNV); return [r.hang || '', r.maNV, r.hoTen, r.xepLoai, r.diem,
+    const nxRows = list.map(r => { const nx = nxMap.get(r.maNV); return [r.hangVP || '', r.maNV, r.hoTen, r.xepLoai, r.diem,
       ...TC.map(m => { const t = nx.tieuChi.find(x => x.ma === m); return t ? `${mkLabel(t)}: ${t.text}` + (t.chiTiet ? t.chiTiet.map(x => `\n– ${x}`).join('') : '') : ''; }),
       nx.khacPhuc.length ? nx.khacPhuc.map((k, i) => `${i + 1}. ${k}`).join('\n') : 'Không có — tiếp tục duy trì.', r.ghiChu || '']; });
     bangDep(wb, 'Nhận xét', {
@@ -1318,7 +1449,7 @@
       cols: [S.stt, S.ma, { h: 'HỌ VÀ TÊN', t: 'name', w: 24 },
         ...days.map(d => { const w = new Date(y, m - 1, d).getDay(); return { h: `${d}\n${THU[w]}`, t: 'int', w: 5.2, sz: 10, hf: w === 0 ? '6B7F99' : null }; }),
         { h: 'NGÀY CÔNG', t: 'k1', w: 8, accent: true }, { h: 'TỔNG', t: 'int', w: 9, accent: true }, { h: 'TB / NGÀY', t: 'd1', w: 8, accent: true }],
-      rows: list.map(r => [r.hang || '', r.maNV, r.hoTen, ...r.ngay.map(x => Math.round(x.qd)), r1(r.cong), Math.round(r.qd), r1(r.tb)]),
+      rows: list.map(r => [r.hangVP || '', r.maNV, r.hoTen, ...r.ngay.map(x => Math.round(x.qd)), r1(r.cong), Math.round(r.qd), r1(r.tb)]),
       muted: i => list[i].xepLoai === '—',
       to: (i, c) => {
         const d = c - 2; if (d < 1 || d > n) return null;

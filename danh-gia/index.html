@@ -206,6 +206,7 @@
             <div class="tabs" id="dgTabs">
               <a class="b sm" href="#bang-danh-gia" data-tab="bang-danh-gia">Bảng đánh giá</a>
               <a class="b sm" href="#nhan-xet" data-tab="nhan-xet">Nhận xét</a>
+              <a class="b sm" href="#so-sanh-vp" data-tab="so-sanh-vp">So sánh VP</a>
               <a class="b sm" href="#dashboard" data-tab="dashboard">Dashboard</a>
               <a class="b sm" href="#theo-ngay" data-tab="theo-ngay">Theo ngày</a>
               <a class="b sm" href="#dong-cap" data-tab="dong-cap">Đóng cặp</a>
@@ -215,9 +216,12 @@
               <a class="b sm" href="#nap-du-lieu" data-tab="nap-du-lieu">Nạp file tháng</a>
               <a class="b sm" href="#tieu-chi" data-tab="tieu-chi">Tiêu chí</a>
             </div>
+            <div class="tk-row" style="gap:8px">
+            <select id="dgVP" title="Chỉ xem 1 văn phòng" style="min-width:150px"></select>
             <div class="tk-search" id="dgSearchBox">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
               <input id="dgSearch" placeholder="Tìm tên hoặc mã NV...">
+            </div>
             </div>
           </div>
 
@@ -232,6 +236,17 @@
               <span class="legend"><span><span class="mk m-dat">Đạt</span></span><span><span class="mk m-chua">Chưa đạt</span></span><span><span class="mk m-thieu">Không đạt</span></span><span>Nhận xét tự viết từ số liệu tháng — thêm nhận xét riêng ở mục Chất lượng &amp; ghi chú</span></span>
             </div>
             <div class="nx-grid" id="nxGrid"></div>
+          </div>
+
+          <div data-pane="so-sanh-vp" hidden>
+            <div class="tk-card-body" style="padding-bottom:4px">
+              <div class="muted" style="font-size:12px;line-height:1.7">Mỗi văn phòng được đánh giá riêng: nhân viên chỉ so năng suất với trung bình <b>văn phòng của mình</b> (văn phòng lấy theo bảng chấm công — sửa ở mục Danh sách &amp; nhóm). Bảng dưới so sánh các văn phòng với nhau (chỉ tính những người được đánh giá).</div>
+            </div>
+            <div class="tw" style="margin-top:8px"><table class="dt"><thead id="vpHead"></thead><tbody id="vpBody"></tbody></table></div>
+            <div class="viz" style="grid-template-columns:1fr">
+              <div class="viz-box"><h4>Bình quân mỗi ngày công theo văn phòng</h4><div class="sub">Lượt kho và lượt sàn (đã quy đổi × hệ số) trên 1 ngày công của nhân viên được đánh giá</div>
+                <div class="legend" style="margin-bottom:6px"><span><i style="background:var(--kho)"></i>Kho HCM (truyền thống)</span><span><i style="background:var(--san)"></i>Sàn (quy đổi)</span></div><div id="vpChart"></div></div>
+            </div>
           </div>
 
           <div data-pane="dashboard" hidden>
@@ -317,9 +332,9 @@
 
           <div data-pane="danh-sach" hidden>
             <div class="tk-card-body" style="padding-bottom:0">
-              <div class="muted" style="font-size:12px;line-height:1.7">Những người có lượt quét trong tháng (khớp "bảng mã nv"). Bỏ tick để không đánh giá (vd. văn phòng, kế toán chỉ quét phụ). <b>Nhóm</b>: người cùng nhóm được so với trung bình của nhóm đó — nên tách nhóm khi công việc khác nhau (vd. "Đóng gói" và "Soạn hàng"), vì mỗi lượt đóng gói nhanh hơn soạn hàng. Mặc định tick theo sheet THƯỞNG của file kho. Lựa chọn áp dụng cho mọi tháng.</div>
+              <div class="muted" style="font-size:12px;line-height:1.7">Những người có lượt quét trong tháng (khớp "bảng mã nv"). Bỏ tick để không đánh giá (vd. admin, kế toán chỉ quét phụ). <b>Văn phòng</b> tự lấy theo bảng chấm công — mỗi người chỉ so với trung bình văn phòng của mình; sai thì chọn lại. <b>Nhóm trong VP</b>: chỉ đặt khi trong cùng 1 văn phòng có việc khác nhau (vd. "Đóng gói" và "Soạn hàng") — người cùng nhóm so với nhau. Mặc định tick theo sheet THƯỞNG của file kho (nhân viên mới được tick sẵn). Lựa chọn áp dụng cho mọi tháng.</div>
             </div>
-            <div class="tw" style="margin-top:10px"><table class="dt"><thead><tr><th class="c">Đánh giá</th><th>Mã NV</th><th>Họ và tên</th><th>Nhóm</th><th class="r">Ngày công</th><th class="r">Lượt kho</th><th class="r">Lượt sàn</th><th class="r">TB / ngày</th><th>Sheet THƯỞNG</th></tr></thead><tbody id="dsBody"></tbody></table></div>
+            <div class="tw" style="margin-top:10px"><table class="dt"><thead><tr><th class="c">Đánh giá</th><th>Mã NV</th><th>Họ và tên</th><th>Văn phòng</th><th>Nhóm trong VP</th><th class="r">Ngày công</th><th class="r">Lượt kho</th><th class="r">Lượt sàn</th><th class="r">TB / ngày</th><th>Sheet THƯỞNG</th></tr></thead><tbody id="dsBody"></tbody></table></div>
             <datalist id="dsNhom"></datalist>
             <div class="tk-foot" id="dsFoot"></div>
           </div>
@@ -365,9 +380,9 @@
     <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel được đọc trong trình duyệt; kết quả theo tháng lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
   </div>
 </div>
-<script src="../assets/flows.js?v=20261113b"></script>
+<script src="../assets/flows.js?v=20261113c"></script>
 <script src="../assets/layout.js?v=20261010a"></script>
-<script src="dg-engine.js?v=20261113e"></script>
-<script src="app.js?v=20261113e"></script>
+<script src="dg-engine.js?v=20261113g"></script>
+<script src="app.js?v=20261113g"></script>
 </body>
 </html>
