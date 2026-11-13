@@ -9,7 +9,7 @@
   const OWNER = root.dataset.owner, REPO = root.dataset.repo, DIR = root.dataset.dir;
   const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
   const LS_KEY = 'kvh-danhgia-v1', LS_CFG = 'kvh-danhgia-caidat', LS_CAP = 'kvh-danhgia-dongcap', LS_SEL = 'kvh-danhgia-sel', TOKEN_KEY = 'kvh-gh-token';
-  const VER = '20261113c';
+  const VER = '20261113d';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const num = n => Math.round(n || 0).toLocaleString('vi-VN');
@@ -135,6 +135,7 @@
     const q = DG.quyCua(ky), out = [...own];
     [['tk', 'kho'], ['ts', 'san']].forEach(([kind, ap]) => capOf(ky, kind).filter(a => giaoThang(a, ky)).forEach(a => {
       if (own.some(o => apCo(o, ap) && sameCap(o, a))) return;
+      if (a.tu && a.tu.startsWith('dg:') && dongCap.list.some(x => 'dg:' + x.id === a.tu)) return; // dòng Thưởng kho lấy từ chính cặp này
       const key = `${kind}:${q}:${a.id}`;
       out.push({ ...a, key, nguon: kind, ap, dung: !dongCap.boQua.includes(key) });
     }));

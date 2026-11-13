@@ -430,6 +430,106 @@
     msg($('adjMsg'), `Đã nạp ${add.length} điều chỉnh` + (skip ? ` — bỏ qua ${skip} dòng vì không khớp được tên nhân viên trong quý này` : '') + (!add.length && !skip ? ' (đã có đủ từ trước)' : '') + '.', !skip);
     renderAll();
   });
+
+  // ------------------------------------------------------------ lấy cặp đã khai ở trang Đánh Giá CL NS (danh-gia/)
+  // Bên đó khai theo khoảng ngày (thường cả tuần); sang đây chỉ giữ những ngày / buổi CẢ HAI người cùng đi làm theo
+  // chấm công (quy tắc đã chốt 10/11/2026 — "để thưởng về đúng người thực hiện"), gộp các ngày liền nhau thành 1 dòng.
+  // Ngày nào ở đây đã khai sẵn cặp đó (tay / ghi chú) thì giữ nguyên, không thêm. Bấm lại không bị trùng.
+  const DG_AP = IS_KHO ? ['kho', 'ca'] : ['san', 'ca'];
+  const newerOf = (loc, rem) => loc && rem ? ((rem.savedAt || '') > (loc.savedAt || '') ? rem : loc) : (loc || rem);
+  async function repoJSON(path) {
+    if (!token) return null;
+    try { const m = await gh(`/contents/${path}?ref=main&t=${Date.now()}`); return JSON.parse(b64dec(m.content || '') || 'null'); } catch (e) { return null; }
+  }
+  async function dgDongCap() {
+    let loc = null; try { loc = JSON.parse(localStorage.getItem('kvh-danhgia-dongcap') || 'null'); } catch (e) {}
+    return newerOf(loc, await repoJSON('danh-gia/dong-cap.json'));
+  }
+  async function chamCongMa(mk) {
+    let loc = null; try { loc = (JSON.parse(localStorage.getItem('kvh-chamcong-v1') || '{}'))[mk] || null; } catch (e) {}
+    const sh = newerOf(loc, await repoJSON(`cham-cong/${mk}.json`)), map = {};
+    if (sh && Array.isArray(sh.rows)) sh.rows.forEach(r => { if (r && r.t === 'nv' && r.ma) map[String(r.ma).trim()] = r.d || []; });
+    return Object.keys(map).length ? map : null;
+  }
+  // buổi đi làm theo mã chấm công: 'sc' cả ngày, 's' sáng, 'c' chiều, '' nghỉ (giống danh-gia/dg-engine.js buoiLam)
+  function buoiLam(code) {
+    const c = String(code ?? '').normalize('NFC').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    if (!c) return '';
+    if (c === 'x/p.s') return 'c';
+    if (c === 'x/p.c') return 's';
+    let s = false, ch = false;
+    c.split('/').forEach(p => { if (p === 'x') s = ch = true; else if (p === 's') s = true; else if (p === 'c') ch = true; });
+    return (s ? 's' : '') + (ch ? 'c' : '');
+  }
+  const isoOf = t => `${t.getFullYear()}-${E.pad2(t.getMonth() + 1)}-${E.pad2(t.getDate())}`;
+  $('adjFromDG').addEventListener('click', async () => {
+    const q = current(); if (!q || !result) return;
+    const btn = $('adjFromDG'); btn.disabled = true;
+    msg($('dgImpMsg'), 'Đang lấy danh sách đóng cặp và chấm công…', true);
+    try {
+      const dc = await dgDongCap();
+      const months = E.quarterMonths(q), [ly, lm] = months[2].split('-').map(Number);
+      const qf = months[0] + '-01', qt = `${months[2]}-${E.pad2(new Date(ly, lm, 0).getDate())}`;
+      const inQ = ((dc && dc.list) || []).filter(a => DG_AP.includes(a.ap || 'kho') && a.dateTo >= qf && a.dateFrom <= qt);
+      if (!inQ.length) {
+        msg($('dgImpMsg'), `Trang Đánh Giá CL NS chưa có cặp ${IS_KHO ? 'kho' : 'sàn'} nào trong ${E.quarterLabel(q)}` + (dc ? '.' : ' (chưa thấy dữ liệu — mở trang Đánh Giá CL NS trên máy này hoặc kết nối hệ thống).'));
+        return;
+      }
+      const cc = {}; for (const mk of months) cc[mk] = await chamCongMa(mk);
+      const emp = new Set(result.employees.map(e => e.maNV)), ngoai = new Map(((dc && dc.ngoai) || []).map(h => [h.maNV, h.hoTen]));
+      const cur = archive[q].adjustments || [], add = [], newHelpers = [], lech = new Set(), noCC = new Set();
+      let trung = 0, boNgay = 0, daCo = 0;
+      const sameRow = (x, y) => samePair(x, y.maNV1, y.maNV2) && x.dateFrom === y.dateFrom && x.dateTo === y.dateTo && (x.buoi || '') === (y.buoi || '');
+      inQ.forEach(a => {
+        const ok = [a.maNV1, a.maNV2].every(u => {
+          if (emp.has(u) || helpers().some(h => h.maNV === u) || newHelpers.some(h => h.maNV === u)) return true;
+          if (ngoai.has(u)) { newHelpers.push({ maNV: u, hoTen: `${ngoai.get(u)} (ngoài DS thưởng)` }); return true; }
+          lech.add(u); return false;
+        });
+        if (!ok) return;
+        const days = [];
+        const t = new Date((a.dateFrom > qf ? a.dateFrom : qf) + 'T00:00:00');
+        for (; isoOf(t) <= a.dateTo && isoOf(t) <= qt; t.setDate(t.getDate() + 1)) {
+          const iso = isoOf(t), map = cc[iso.slice(0, 7)];
+          // ngày này ở đây đã khai sẵn cặp đó (không phải dòng lấy từ Đánh giá) → giữ nguyên
+          if (cur.some(x => !x.tu && samePair(x, a.maNV1, a.maNV2) && x.dateFrom <= iso && x.dateTo >= iso)) { daCo++; continue; }
+          let want = a.buoi === 'sang' ? 's' : a.buoi === 'chieu' ? 'c' : 'sc';
+          if (want === 'sc' && t.getDay() === 6) want = 's'; // thứ Bảy chỉ làm buổi sáng
+          let both = want;
+          if (map) [a.maNV1, a.maNV2].forEach(u => { if (map[u]) { const w = buoiLam(map[u][t.getDate() - 1]); both = both.split('').filter(h => w.includes(h)).join(''); } });
+          else noCC.add(iso.slice(0, 7));
+          if (!both) { boNgay++; continue; }
+          days.push({ iso, buoi: (both === want && !a.buoi) || both === 'sc' ? '' : both === 's' ? 'sang' : 'chieu' });
+        }
+        // gộp các ngày liền nhau cùng buổi thành 1 dòng
+        let run = null;
+        const flush = () => {
+          if (!run) return;
+          const adj = { maNV1: a.maNV1, maNV2: a.maNV2, dateFrom: run.from, dateTo: run.to, ...(run.buoi ? { buoi: run.buoi } : {}), tu: 'dg:' + a.id };
+          if (cur.concat(add).some(x => sameRow(x, adj))) trung++; else add.push(adj);
+          run = null;
+        };
+        days.forEach(d => {
+          const next = run && (() => { const n = new Date(run.to + 'T00:00:00'); n.setDate(n.getDate() + 1); return isoOf(n); })();
+          if (run && run.buoi === d.buoi && d.iso === next) run.to = d.iso;
+          else { flush(); run = { from: d.iso, to: d.iso, buoi: d.buoi }; }
+        });
+        flush();
+      });
+      if (add.length || newHelpers.length) {
+        const base = Date.now();
+        archive[q].adjustments = [...cur, ...add.map((x, i) => ({ id: base + i, ...x }))];
+        if (newHelpers.length) archive[q].extraHelpers = [...(archive[q].extraHelpers || []), ...newHelpers];
+        touch(q); renderAll();
+      }
+      const ten = u => (result.employees.find(e => e.maNV === u) || {}).hoTen || ngoai.get(u) || u;
+      msg($('dgImpMsg'), `Lấy ${inQ.length} cặp từ Đánh Giá CL NS → thêm <b>${add.length}</b> dòng (chỉ những ngày cả 2 cùng đi làm)`
+        + (boNgay ? ` · bỏ ${boNgay} ngày có người nghỉ` : '') + (daCo ? ` · ${daCo} ngày đã khai sẵn cặp đó ở đây nên giữ nguyên` : '')
+        + (trung ? ` · ${trung} dòng đã lấy từ trước` : '')
+        + (lech.size ? ` · <span style="color:#991b1b">không có trong bảng mã của quý này: ${[...lech].map(u => esc(ten(u))).join(', ')}</span>` : '')
+        + (noCC.size ? ` · chưa có chấm công ${[...noCC].map(E.monthLabel).join(', ')} — các ngày đó lấy nguyên, chưa lọc ngày nghỉ` : '') + '.', !lech.size);
+    } finally { btn.disabled = false; }
+  });
   $('helperAdd').addEventListener('click', () => {
     const q = current(); const name = $('helperName').value.trim(); if (!q || !name) return;
     archive[q].extraHelpers = [...(archive[q].extraHelpers || []), { maNV: `__extra_${Date.now()}__`, hoTen: `${name} (ngoài DS thưởng)` }];
