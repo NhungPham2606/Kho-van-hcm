@@ -172,17 +172,112 @@
     $('tkFoot').hidden = t === 'dong-cap';
     if (result) $('tkFoot').textContent = `${filtered().length} nhân viên`;
   }
+  // ------------------------------------------------------------ ghi chú nghỉ việc / thai sản
+  // Tự lấy từ những chỗ đã ghi: Bảng chấm công (cột Ghi chú), Tổng hợp KPIs (lý do / nghỉ thai sản), Thưởng bốc hàng (cột
+  // Ghi chú) — trên máy này và trên hệ thống; chỉ lấy ghi chú có ngày từ đầu quý trở đi. Ghi tay ở đây thì ưu tiên
+  // (archive[q].nghiViec[maNV]; gõ "-" để ẩn ghi chú tự động).
+  const NGHI_RE = /ngh[iỉ]\s*vi[eệ]c|thai\s*s[aả]n/i;
+  const lsObj = k => { try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch (e) { return {}; } };
+  const nghiRepo = { cc: {}, kpi: {}, boc: {} }, nghiDaTai = new Set();
+  const NGHI_DIR = { cc: 'cham-cong', kpi: 'kpi', boc: 'thuong-boc' };
+  async function taiNghi(q) {
+    if (!token || nghiDaTai.has(q)) return;
+    nghiDaTai.add(q);
+    const tu = E.quarterMonths(q)[0];
+    for (const kind of ['cc', 'kpi', 'boc']) {
+      let items = [];
+      try { items = await gh(`/contents/${NGHI_DIR[kind]}?ref=main&t=${Date.now()}`); } catch (e) { continue; }
+      const names = items.map(i => i.name.replace('.json', '')).filter(n => kind === 'boc' ? /^\d{4}-Q\d$/.test(n) && n >= q : /^\d{4}-\d{2}$/.test(n) && n >= tu);
+      for (const n of names) if (!(n in nghiRepo[kind])) nghiRepo[kind][n] = await repoJSON(`${NGHI_DIR[kind]}/${n}.json`);
+    }
+    renderThuong();
+  }
+  const ngayIso = (txt, y0) => {
+    const m = String(txt).match(/(\d{1,2})\s*[\/.-]\s*(\d{1,2})(?:\s*[\/.-]\s*(\d{2,4}))?/);
+    if (!m) return '';
+    let y = m[3] ? +m[3] : y0; if (y < 100) y += 2000;
+    return `${y}-${E.pad2(+m[2])}-${E.pad2(+m[1])}`;
+  };
+  const vnNgay = iso => iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '';
+  // { maNV: [{ text, nguon }] } — gộp các nguồn, cùng nội dung chỉ giữ 1 dòng (ghi đủ nguồn)
+  function nghiTuDong(q) {
+    taiNghi(q);
+    const tu = E.quarterMonths(q)[0] + '-01', out = {};
+    const them = (ma, raw, nguon, y0, giu) => {
+      ma = String(ma || '').trim(); if (!ma) return;
+      const s = String(raw || '').normalize('NFC').replace(/\s+/g, ' ').trim();
+      if (!NGHI_RE.test(s)) return;
+      const ts = /thai\s*s[aả]n/i.test(s), d = ngayIso(s, y0);
+      if (d && d < tu && !giu) return; // nghỉ từ trước quý (thai sản còn kéo dài thì vẫn giữ)
+      const text = d ? `${ts ? 'Nghỉ thai sản' : 'Nghỉ việc'} ${vnNgay(d)}` : s;
+      const list = out[ma] || (out[ma] = []), co = list.find(x => x.text === text);
+      if (co) { if (!co.nguon.includes(nguon)) co.nguon.push(nguon); } else list.push({ text, nguon: [nguon] });
+    };
+    const gop = (kind, lsKey) => { const loc = lsObj(lsKey), keys = new Set([...Object.keys(loc), ...Object.keys(nghiRepo[kind])]); const o = {}; keys.forEach(k => { o[k] = newerOf(loc[k] || null, nghiRepo[kind][k] || null); }); return o; };
+    const cc = gop('cc', 'kvh-chamcong-v1'), kpi = gop('kpi', 'kvh-kpi-v1'), boc = gop('boc', 'kvh-thuongboc-v1');
+    Object.keys(cc).filter(k => /^\d{4}-\d{2}$/.test(k) && k >= tu.slice(0, 7)).sort().forEach(k => {
+      const sh = cc[k]; if (!sh || !Array.isArray(sh.rows)) return;
+      sh.rows.forEach(r => { if (r && r.t === 'nv') (r.tail || []).forEach(x => { if (x && typeof x.v === 'string') them(r.ma, x.v, `Chấm công T${+k.slice(5)}`, +k.slice(0, 4)); }); });
+    });
+    Object.keys(kpi).filter(k => /^\d{4}-\d{2}$/.test(k) && k >= tu.slice(0, 7)).sort().forEach(k => {
+      const d = kpi[k]; if (!d) return;
+      Object.entries(d.inputs || {}).forEach(([ma, x]) => { if (x && x.lyDo) them(ma, x.lyDo, `KPIs T${+k.slice(5)}`, +k.slice(0, 4)); });
+      (d.roster || []).forEach(r => { if (r && r.ts && r.ts.on && (!r.ts.den || r.ts.den >= tu)) them(r.ma, `Nghỉ thai sản ${vnNgay(r.ts.tu)}`, `KPIs T${+k.slice(5)}`, +k.slice(0, 4), true); });
+    });
+    Object.keys(boc).filter(k => /^\d{4}-Q\d$/.test(k) && k >= q).sort().forEach(k => {
+      const d = boc[k]; if (!d) return;
+      Object.entries(d.ghiChu || {}).forEach(([ma, v]) => them(ma, v, `Thưởng bốc hàng ${k.replace('-Q', ' Q')}`, +k.slice(0, 4)));
+    });
+    return out;
+  }
+  // ghi chú nghỉ việc của 1 người trong quý đang xem: { text, nguon (chuỗi), tay (true = ghi tay), them (các ghi chú khác) }
+  function nghiCua(maNV, auto) {
+    const q = current(), tay = q && archive[q].nghiViec && archive[q].nghiViec[maNV];
+    if (tay !== undefined && tay !== '') return tay === '-' ? { text: '', tay: true, an: true } : { text: tay, tay: true };
+    const l = (auto || {})[maNV]; if (!l || !l.length) return null;
+    return { text: l[0].text, nguon: l[0].nguon.join(', '), them: l.slice(1).map(x => `${x.text} (${x.nguon.join(', ')})`) };
+  }
+  let nghiSua = null;
   function renderThuong() {
     if (!result) return;
     // Xếp theo thưởng quý từ cao xuống thấp (bằng nhau thì theo tên); STT = thứ hạng
     const months = result.months, list = [...filtered()].sort((x, y) => (y.thuong - x.thuong) || x.hoTen.localeCompare(y.hoTen, 'vi'));
-    $('tqHead').innerHTML = `<th class="r" style="width:36px">STT</th><th>Mã NV</th><th style="min-width:150px">Họ và tên</th>${months.map(mk => `<th class="r">${E.monthLabel(mk)}</th>`).join('')}<th class="r">Thưởng quý ↓</th><th style="min-width:200px">Ghi chú (từ file)</th>`;
-    let html = list.map((e, i) => `<tr><td class="r" style="color:#9ca3af">${i + 1}</td><td>${esc(e.maNV)}</td><td class="name">${esc(e.hoTen)}</td>${e.monthlyDetail.map(m => `<td class="r">${money(m.tongTien)}</td>`).join('')}<td class="r money">${money(e.thuong)}</td><td class="note">${esc(e.ghiChu)}</td></tr>`).join('');
+    const auto = nghiTuDong(result.quarterKey);
+    $('tqHead').innerHTML = `<th class="r" style="width:36px">STT</th><th>Mã NV</th><th style="min-width:150px">Họ và tên</th>${months.map(mk => `<th class="r">${E.monthLabel(mk)}</th>`).join('')}<th class="r">Thưởng quý ↓</th><th style="min-width:200px">Ghi chú (từ file)</th><th style="min-width:210px" title="Tự lấy từ Bảng chấm công, Tổng hợp KPIs, Thưởng bốc hàng — bấm ✎ để ghi tay">Nghỉ việc / thai sản</th>`;
+    const oNghi = e => {
+      if (nghiSua === e.maNV) {
+        const n = nghiCua(e.maNV, auto);
+        return `<td class="note"><span class="tk-row" style="flex-wrap:nowrap"><input type="text" data-nghi-in="${esc(e.maNV)}" value="${esc(n && !n.an ? n.text : '')}" placeholder="vd. Nghỉ việc 10/10/2026" style="width:170px"><button type="button" class="b ok sm" data-nghi-luu="${esc(e.maNV)}">Lưu</button><button type="button" class="b sm" data-nghi-huy="1">Hủy</button></span><div class="muted" style="margin-top:3px">Để trống + Lưu = dùng lại ghi chú tự động; gõ "-" để không ghi gì.</div></td>`;
+      }
+      const n = nghiCua(e.maNV, auto), btn = `<button type="button" class="b sm" style="padding:1px 7px;margin-left:4px" data-nghi-sua="${esc(e.maNV)}" title="Ghi tay / sửa">✎</button>`;
+      if (!n || n.an) return `<td class="note">${n && n.an ? '<span class="muted">(đã ẩn)</span>' : ''}${btn}</td>`;
+      const tip = n.tay ? 'Ghi tay ở trang này' : `Tự lấy từ: ${n.nguon}` + (n.them && n.them.length ? `\nNơi khác ghi: ${n.them.join('; ')}` : '');
+      return `<td class="note" title="${esc(tip)}"><b style="color:#991b1b">${esc(n.text)}</b> <span class="muted">${n.tay ? '(ghi tay)' : '· ' + esc(n.nguon)}${n.them && n.them.length ? ' · <span style="color:#b45309">nơi khác ghi khác</span>' : ''}</span>${btn}</td>`;
+    };
+    let html = list.map((e, i) => `<tr><td class="r" style="color:#9ca3af">${i + 1}</td><td>${esc(e.maNV)}</td><td class="name">${esc(e.hoTen)}</td>${e.monthlyDetail.map(m => `<td class="r">${money(m.tongTien)}</td>`).join('')}<td class="r money">${money(e.thuong)}</td><td class="note">${esc(e.ghiChu)}</td>${oNghi(e)}</tr>`).join('');
     if (!search) {
-      html += `<tr class="total"><td colspan="3">TỔNG CỘNG</td>${months.map(mk => `<td class="r">${money(result.perEmployee.reduce((s, e) => s + ((e.monthlyDetail.find(m => m.monthKey === mk) || {}).tongTien || 0), 0))}</td>`).join('')}<td class="r">${money(result.perEmployee.reduce((s, e) => s + e.thuong, 0))}</td><td></td></tr>`;
+      html += `<tr class="total"><td colspan="3">TỔNG CỘNG</td>${months.map(mk => `<td class="r">${money(result.perEmployee.reduce((s, e) => s + ((e.monthlyDetail.find(m => m.monthKey === mk) || {}).tongTien || 0), 0))}</td>`).join('')}<td class="r">${money(result.perEmployee.reduce((s, e) => s + e.thuong, 0))}</td><td></td><td></td></tr>`;
     }
     $('tqBody').innerHTML = html;
+    const inp = document.querySelector('[data-nghi-in]'); if (inp) { inp.focus(); inp.select(); }
   }
+  function luuNghi(ma) {
+    const q = current(), inp = document.querySelector(`[data-nghi-in="${ma}"]`); if (!q || !inp) return;
+    const v = inp.value.trim(), nv = Object.assign({}, archive[q].nghiViec || {});
+    if (v) nv[ma] = v; else delete nv[ma];
+    archive[q].nghiViec = nv; nghiSua = null; touch(q); renderThuong();
+  }
+  $('tqBody').addEventListener('click', e => {
+    const s = e.target.closest('[data-nghi-sua]'), l = e.target.closest('[data-nghi-luu]'), h = e.target.closest('[data-nghi-huy]');
+    if (s) { nghiSua = s.dataset.nghiSua; renderThuong(); }
+    else if (l) luuNghi(l.dataset.nghiLuu);
+    else if (h) { nghiSua = null; renderThuong(); }
+  });
+  $('tqBody').addEventListener('keydown', e => {
+    const i = e.target.closest('[data-nghi-in]'); if (!i) return;
+    if (e.key === 'Enter') { e.preventDefault(); luuNghi(i.dataset.nghiIn); }
+    else if (e.key === 'Escape') { nghiSua = null; renderThuong(); }
+  });
   // Ngày đóng cặp trong tháng mk: Map `${maNV}|${ngày}` → [{ o: mã người cùng cặp, b: buổi }]
   function pairMap(mk) {
     const [y, m] = mk.split('-').map(Number), paired = new Map();
@@ -1055,17 +1150,19 @@
     const quyTac = `Số lượt ${NGUON_TEN} mỗi ngày  ·  Thưởng mỗi ngày = (số lượt − ${R.nguong}) × ${vnd(R.donGia)}đ khi trên ${R.nguong} lượt  ·  Thưởng quý = trung bình ${M.length} tháng`;
     const S = { stt: { h: 'STT', t: 'stt', w: 5 }, ma: { h: 'MÃ NV', t: 'ma', w: 9 }, ten: { h: 'HỌ VÀ TÊN', t: 'name', w: 26 } };
     const luotThang = e => e.monthlyDetail.reduce((a, m) => a + m.soKien, 0);
+    const nghiAuto = nghiTuDong(result.quarterKey);
 
     // 1) Thưởng quý — bảng gửi quản lý
     bangDep(wb, 'Thưởng quý', {
       title: `BẢNG TỔNG HỢP ${TEN} ${Q}`, sub: `Kho vận CN.HCM  ·  ${quyTac}`,
-      groups: [{ span: 1 }, { span: 1 }, { span: 1 }, { label: 'THƯỞNG THEO THÁNG (đ)', span: M.length }, { label: 'CẢ QUÝ', span: 3, accent: true }, { span: 1 }],
+      groups: [{ span: 1 }, { span: 1 }, { span: 1 }, { label: 'THƯỞNG THEO THÁNG (đ)', span: M.length }, { label: 'CẢ QUÝ', span: 3, accent: true }, { span: 1 }, { span: 1 }],
       cols: [S.stt, S.ma, S.ten, ...M.map(mk => ({ h: E.monthLabel(mk), t: 'money', w: 12 })),
-        { h: 'Tổng lượt', t: 'k1', w: 10, accent: true }, { h: `Tổng ${M.length} tháng (đ)`, t: 'money', w: 13, accent: true }, { h: `Thưởng quý (đ)`, t: 'money', w: 14, accent: true }, { h: 'GHI CHÚ', t: 'text', w: 28 }],
-      rows: list.map((e, i) => [i + 1, e.maNV, e.hoTen, ...e.monthlyDetail.map(m => m0(m.tongTien)), luotThang(e), m0(e.monthlyDetail.reduce((a, m) => a + m.tongTien, 0)), m0(e.thuong), e.ghiChu || '']),
+        { h: 'Tổng lượt', t: 'k1', w: 10, accent: true }, { h: `Tổng ${M.length} tháng (đ)`, t: 'money', w: 13, accent: true }, { h: `Thưởng quý (đ)`, t: 'money', w: 14, accent: true }, { h: 'GHI CHÚ', t: 'text', w: 28 }, { h: 'NGHỈ VIỆC / THAI SẢN', t: 'text', w: 24 }],
+      rows: list.map((e, i) => [i + 1, e.maNV, e.hoTen, ...e.monthlyDetail.map(m => m0(m.tongTien)), luotThang(e), m0(e.monthlyDetail.reduce((a, m) => a + m.tongTien, 0)), m0(e.thuong), e.ghiChu || '', ((n => n && !n.an ? n.text : '')(nghiCua(e.maNV, nghiAuto)))]),
+      to: (i, c) => c === 7 + M.length ? { color: '991B1B', bold: true } : null,
       muted: i => !list[i].thuong,
       total: ['TỔNG CỘNG', null, null, ...M.map((mk, mi) => m0(list.reduce((a, e) => a + e.monthlyDetail[mi].tongTien, 0))), list.reduce((a, e) => a + luotThang(e), 0),
-        m0(list.reduce((a, e) => a + e.monthlyDetail.reduce((s, m) => s + m.tongTien, 0), 0)), m0(list.reduce((a, e) => a + e.thuong, 0)), ''],
+        m0(list.reduce((a, e) => a + e.monthlyDetail.reduce((s, m) => s + m.tongTien, 0), 0)), m0(list.reduce((a, e) => a + e.thuong, 0)), '', ''],
     });
 
     // 2) Mỗi tháng 1 sheet: số lượt từng ngày (ô xanh = trên ngưỡng, ô tím = ngày đóng cặp)
