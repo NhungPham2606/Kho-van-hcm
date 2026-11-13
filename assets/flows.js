@@ -14,6 +14,7 @@ window.KVH_ICONS = {
   calendar: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M8 13h2M14 13h2M8 17h2"/>',
   doc: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/>',
   bag: '<path d="M5 8h14l-1.2 12.1a1 1 0 0 1-1 .9H7.2a1 1 0 0 1-1-.9z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
+  award: '<circle cx="12" cy="9" r="6"/><path d="M8.6 13.9L7 22l5-3 5 3-1.6-8.1"/><path d="M12 6.5l.8 1.6 1.7.2-1.2 1.2.3 1.7-1.6-.8-1.6.8.3-1.7-1.2-1.2 1.7-.2z"/>',
 };
 
 window.KVH_MENU = [
@@ -65,6 +66,20 @@ window.KVH_MENU = [
       { ten: 'Đóng cặp', href: 'thuong-san/#dong-cap' },
       { ten: 'Nạp file quý', href: 'thuong-san/#nap-du-lieu' },
       { ten: 'Ghi chú & quy tắc', href: 'thuong-san/#huong-dan' },
+    ],
+  },
+  {
+    ten: 'Đánh Giá CL NS', icon: 'award', trangThai: 'Hằng tháng',
+    moTa: 'Đánh giá chất lượng – năng suất nhân viên kho vận mỗi tháng: thả file kho (như Thưởng kho) + file sàn (như Thưởng sàn) → lượt quy đổi / ngày công, điểm Năng suất – Ổn định – Chất lượng, xếp loại A/B/C/D, xu hướng các tháng, xuất Excel.',
+    muc: [
+      { ten: 'Bảng đánh giá', href: 'danh-gia/#bang-danh-gia' },
+      { ten: 'Dashboard', href: 'danh-gia/#dashboard' },
+      { ten: 'Theo ngày', href: 'danh-gia/#theo-ngay' },
+      { ten: 'Xu hướng các tháng', href: 'danh-gia/#xu-huong' },
+      { ten: 'Chất lượng & ghi chú', href: 'danh-gia/#chat-luong' },
+      { ten: 'Danh sách & nhóm', href: 'danh-gia/#danh-sach' },
+      { ten: 'Nạp file tháng', href: 'danh-gia/#nap-du-lieu' },
+      { ten: 'Tiêu chí đánh giá', href: 'danh-gia/#tieu-chi' },
     ],
   },
   {

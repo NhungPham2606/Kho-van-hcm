@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="vi" data-base="../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Đánh Giá CL NS</title>
+<link rel="icon" href="../assets/logo.png?v=2" type="image/png">
+<link rel="stylesheet" href="../assets/theme.css?v=20261003a">
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<style>
+  /* Trang Đánh giá chất lượng – năng suất nhân viên kho vận — cùng giao diện với Thưởng kho / Thưởng sàn */
+  .content.tk-wide { max-width: none; padding: 16px 20px; }
+  .tk { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; color: #333;
+    --kho: #2a78d6; --san: #eb6834; --ok: #065f46; --okbg: #d1fae5; --low: #92400e; --lowbg: #fef3c7; --bad: #991b1b; --badbg: #fee2e2; --cap: #6d28d9; --capbg: #ede9fe; }
+  .tk .tk-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
+  .tk .tk-card-body { padding: 16px; }
+  .tk .tk-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 14px 16px; border-bottom: 1px solid #f3f4f6; }
+  .tk .tk-card-head h3 { margin: 0; font-size: 14px; font-weight: 600; color: #1f2937; }
+  .tk .tk-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-bottom: 10px; }
+  .tk .tk-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .tk .tk-lbl { font-size: 11px; color: #6b7280; margin-right: 4px; }
+  .tk .b { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 13px; font-weight: 500; padding: 7px 14px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff; color: #374151; cursor: pointer; text-decoration: none; white-space: nowrap; transition: all .15s; line-height: 1.3; }
+  .tk .b svg { width: 15px; height: 15px; }
+  .tk .b:hover { background: #f9fafb; }
+  .tk .b.pri { background: #1a56db; border-color: #1a56db; color: #fff; } .tk .b.pri:hover { background: #1343b0; }
+  .tk .b.ok { background: #0e9f6e; border-color: #0e9f6e; color: #fff; } .tk .b.ok:hover { background: #0b7a56; }
+  .tk .b.del { background: #e02424; border-color: #e02424; color: #fff; } .tk .b.del:hover { background: #b91c1c; }
+  .tk .b.sm { padding: 5px 10px; font-size: 12px; }
+  .tk .b.xs { padding: 2px 8px; font-size: 11px; }
+  .tk .b.on { background: #1a56db; border-color: #1a56db; color: #fff; }
+  .tk .tk-banner { display: inline-block; font-size: 12px; color: #065f46; background: #ecfdf5; padding: 6px 12px; border-radius: 8px; line-height: 1.7; }
+  .tk .tk-sync { font-size: 11px; color: #9ca3af; margin-top: 8px; }
+  .tk .tk-err { margin-top: 12px; padding: 10px 14px; background: #fee2e2; color: #991b1b; border-radius: 8px; font-size: 12px; }
+  .tk .tk-warnmsg { margin-top: 12px; padding: 10px 14px; background: #fffbeb; color: #92400e; border: 1px solid #fde68a; border-radius: 8px; font-size: 12px; line-height: 1.8; }
+  .tk .tk-okmsg { margin-top: 12px; padding: 10px 14px; background: #ecfdf5; color: #065f46; border-radius: 8px; font-size: 12px; }
+  .tk .tk-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .tk .tk-stat { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px 16px; }
+  .tk .tk-stat .l { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #9ca3af; font-weight: 500; }
+  .tk .tk-stat .v { font-size: 24px; font-weight: 700; margin-top: 4px; color: #1f2937; }
+  .tk .tk-stat .s { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .tk .tk-stat.blue .v { color: #1a56db; }
+  .tk .tk-stat .xl { display: flex; gap: 4px; margin-top: 8px; white-space: nowrap; align-items: center; font-size: 13px; }
+  .tk .tk-search { position: relative; min-width: 180px; max-width: 220px; flex: 1; }
+  .tk .tk-search input { width: 100%; box-sizing: border-box; font: inherit; font-size: 12px; padding: 7px 10px 7px 30px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; outline: none; }
+  .tk .tk-search input:focus { border-color: #1a56db; box-shadow: 0 0 0 2px #1a56db22; }
+  .tk .tk-search svg { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: #9ca3af; }
+  .tk .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .tk .tw { overflow: auto; max-height: calc(100vh - 330px); }
+  .tk table.dt { border-collapse: collapse; width: 100%; font-size: 12px; }
+  .tk table.dt th { position: sticky; top: 0; background: #f9fafb; color: #4b5563; text-align: left; font-weight: 600; padding: 8px 9px; border-bottom: 2px solid #e5e7eb; white-space: nowrap; z-index: 1; }
+  .tk table.dt th.r, .tk table.dt td.r { text-align: right; }
+  .tk table.dt th.c, .tk table.dt td.c { text-align: center; }
+  .tk table.dt th small { display: block; font-weight: 400; color: #9ca3af; font-size: 10px; }
+  .tk table.dt td { padding: 7px 9px; border-bottom: 1px solid #f3f4f6; white-space: nowrap; color: #374151; }
+  .tk table.dt tbody tr:hover td { background: #eff6ff; }
+  .tk table.dt td.name { font-weight: 600; }
+  .tk table.dt td.bold { font-weight: 700; }
+  .tk table.dt td.muted, .tk table.dt tr.muted td { color: #9ca3af; }
+  .tk table.dt tr.total td { background: #f0f9ff; font-weight: 700; }
+  .tk table.dt td.note { font-size: 11px; color: #6b7280; white-space: normal; min-width: 160px; max-width: 320px; }
+  .tk table.dt td input[type=text], .tk table.dt td input[type=number] { font: inherit; font-size: 12px; padding: 5px 7px; border: 1px solid #d1d5db; border-radius: 5px; background: #fff; color: #374151; outline: none; box-sizing: border-box; }
+  .tk table.dt td input:focus { border-color: #1a56db; }
+  .tk table.dt td input[type=number] { width: 64px; text-align: right; }
+  .tk .xl-b { display: inline-block; min-width: 22px; text-align: center; font-weight: 700; font-size: 12px; padding: 2px 7px; border-radius: 5px; }
+  .tk .xl-A { background: #d1fae5; color: #065f46; } .tk .xl-B { background: #dbeafe; color: #1e40af; }
+  .tk .xl-C { background: #fef3c7; color: #92400e; } .tk .xl-D { background: #fee2e2; color: #991b1b; } .tk .xl-— { background: #f3f4f6; color: #6b7280; }
+  .tk .up { color: #065f46; font-weight: 600; } .tk .down { color: #991b1b; font-weight: 600; }
+  .tk .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; background: #f3f4f6; color: #4b5563; border-radius: 20px; padding: 1px 7px; margin-left: 4px; vertical-align: 1px; }
+  .tk .chip.cap { background: var(--capbg); color: var(--cap); }
+  .tk .chip.warn { background: var(--lowbg); color: var(--low); }
+  .tk .tk-foot { padding: 10px 16px; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; line-height: 1.7; }
+  /* bảng theo ngày */
+  .tk table.grid td.dd { text-align: center; padding: 5px 3px; min-width: 30px; font-variant-numeric: tabular-nums; }
+  .tk table.grid th.dd { text-align: center; padding: 5px 3px; font-size: 11px; line-height: 1.2; }
+  .tk table.grid th.cn { color: #9ca3af; }
+  .tk td.g-ok { background: var(--okbg); color: var(--ok); font-weight: 600; }
+  .tk td.g-low { background: var(--lowbg); color: var(--low); }
+  .tk td.g-zero { background: var(--badbg); color: var(--bad); font-weight: 600; }
+  .tk td.g-off { color: #d1d5db; }
+  .tk td.g-cap { box-shadow: inset 0 0 0 2px #a78bfa; }
+  .tk .legend { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 11px; color: #6b7280; }
+  .tk .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .tk .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+  /* tải file */
+  .tk .tk-zone { border: 2px dashed #d1d5db; border-radius: 10px; padding: 30px 24px; text-align: center; cursor: pointer; background: #f9fafb; transition: all .2s; }
+  .tk .tk-zone:hover, .tk .tk-zone.drag { border-color: #1a56db; background: #eff6ff; }
+  .tk .tk-zone svg { width: 36px; height: 36px; margin-bottom: 10px; }
+  .tk .tk-zone h4 { margin: 0 0 6px; font-size: 14px; font-weight: 600; color: #374151; }
+  .tk .tk-zone p { margin: 0 auto; font-size: 12px; color: #6b7280; max-width: 760px; line-height: 1.6; }
+  .tk .pend { border: 1px solid #dbeafe; background: #f8fbff; border-radius: 8px; padding: 12px 14px; margin-top: 12px; }
+  .tk .pend h4 { margin: 0 0 6px; font-size: 13px; }
+  .tk .pend .muted { margin-bottom: 8px; }
+  .tk .muted { font-size: 11px; color: #9ca3af; }
+  .tk .tk-notes { font-size: 12px; color: #4b5563; line-height: 1.8; }
+  .tk .tk-notes b { color: #1f2937; }
+  .tk .cfg { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px 18px; margin-bottom: 14px; }
+  .tk .cfg label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #374151; font-weight: 600; }
+  .tk .cfg label span { font-weight: 400; color: #6b7280; font-size: 11px; }
+  .tk .cfg input[type=number] { font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 6px; width: 120px; }
+  .tk .cfg label.ck { flex-direction: row; align-items: center; gap: 8px; }
+  .tk h5 { font-size: 12px; margin: 16px 0 8px; color: #1f2937; text-transform: uppercase; letter-spacing: .04em; }
+  /* biểu đồ */
+  .tk .viz { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr); gap: 16px; padding: 16px; }
+  .tk .viz-box { border: 1px solid #f3f4f6; border-radius: 8px; padding: 12px 14px; position: relative; }
+  .tk .viz-box h4 { margin: 0 0 2px; font-size: 13px; color: #1f2937; }
+  .tk .viz-box .sub { font-size: 11px; color: #6b7280; margin-bottom: 8px; }
+  .tk .viz-box svg text { font-family: 'Segoe UI', Tahoma, sans-serif; }
+  .tk .vtip { position: fixed; z-index: 1000; pointer-events: none; background: #fff; border: 1px solid #e5e7eb; border-radius: 6px; box-shadow: 0 6px 18px rgba(15,23,42,.14); padding: 8px 10px; font-size: 12px; color: #1f2937; line-height: 1.6; max-width: 280px; }
+  .tk .vtip b { display: block; margin-bottom: 2px; }
+  .tk .vtip i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+  .tk .top5 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 16px 16px; }
+  .tk .top5 ol { margin: 6px 0 0; padding-left: 20px; font-size: 12px; line-height: 1.9; }
+  @media (max-width: 900px) { .tk .tw { max-height: none; } .tk .viz, .tk .top5 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar" aria-label="Menu"></aside>
+  <div class="sb-overlay"></div>
+  <div class="main">
+    <div class="main-bar">
+      <button class="menu-btn" type="button" aria-label="Mở menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <nav class="crumbs" aria-label="Đường dẫn"><a href="../">Trang chủ</a><span>›</span><span aria-current="page">Đánh giá chất lượng – năng suất NV kho vận</span></nav>
+    </div>
+    <main class="content tk-wide">
+      <div class="tk" id="dg" data-owner="NhungPham2606" data-repo="BAO-CAO-GIAO-HANG" data-dir="danh-gia">
+
+        <!-- Thanh công cụ + tháng đang xem -->
+        <div class="tk-card" id="dgTop" hidden>
+          <div class="tk-card-body">
+            <div class="tk-bar">
+              <div class="tk-row"><span class="tk-lbl">Tháng đã lưu:</span><span class="tk-row" id="dgChips"></span></div>
+              <div class="tk-row">
+                <a class="b" href="#nap-du-lieu">Nạp file tháng</a>
+                <button class="b ok" type="button" id="dgExport"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Xuất Excel</button>
+              </div>
+            </div>
+            <div class="tk-banner" id="dgBanner"></div>
+            <div class="tk-sync" id="dgSync"></div>
+            <div id="dgMsg"></div>
+          </div>
+        </div>
+
+        <div class="tk-stats" id="dgStats" hidden></div>
+
+        <div class="tk-card" id="dgMain">
+          <div class="tk-card-head">
+            <div class="tabs" id="dgTabs">
+              <a class="b sm" href="#bang-danh-gia" data-tab="bang-danh-gia">Bảng đánh giá</a>
+              <a class="b sm" href="#dashboard" data-tab="dashboard">Dashboard</a>
+              <a class="b sm" href="#theo-ngay" data-tab="theo-ngay">Theo ngày</a>
+              <a class="b sm" href="#xu-huong" data-tab="xu-huong">Xu hướng các tháng</a>
+              <a class="b sm" href="#chat-luong" data-tab="chat-luong">Chất lượng &amp; ghi chú</a>
+              <a class="b sm" href="#danh-sach" data-tab="danh-sach">Danh sách &amp; nhóm</a>
+              <a class="b sm" href="#nap-du-lieu" data-tab="nap-du-lieu">Nạp file tháng</a>
+              <a class="b sm" href="#tieu-chi" data-tab="tieu-chi">Tiêu chí</a>
+            </div>
+            <div class="tk-search" id="dgSearchBox">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              <input id="dgSearch" placeholder="Tìm tên hoặc mã NV...">
+            </div>
+          </div>
+
+          <div data-pane="bang-danh-gia">
+            <div class="tw"><table class="dt"><thead id="bgHead"></thead><tbody id="bgBody"></tbody></table></div>
+            <div class="tk-foot" id="bgFoot"></div>
+          </div>
+
+          <div data-pane="dashboard" hidden>
+            <div class="viz">
+              <div class="viz-box"><h4>Năng suất bình quân mỗi ngày công</h4><div class="sub" id="vz1Sub">Lượt quy đổi ÷ ngày công · vạch đứt = trung bình nhóm</div><div id="vz1"></div></div>
+              <div class="viz-box"><h4>Sản lượng cả tổ theo ngày</h4><div class="sub">Lượt kho và lượt sàn (đã quy đổi) của những người được đánh giá</div>
+                <div class="legend" style="margin-bottom:6px"><span><i style="background:var(--kho)"></i>Kho</span><span><i style="background:var(--san)"></i>Sàn (quy đổi)</span></div><div id="vz2"></div></div>
+            </div>
+            <div class="top5">
+              <div class="viz-box"><h4>Dẫn đầu tháng</h4><ol id="vzTop"></ol></div>
+              <div class="viz-box"><h4>Cần quan tâm</h4><div class="sub">Điểm thấp nhất, kèm lý do chính</div><ol id="vzBot"></ol></div>
+            </div>
+          </div>
+
+          <div data-pane="theo-ngay" hidden>
+            <div class="tk-row" style="padding:10px 16px 0;gap:14px">
+              <span class="tk-row" id="tnMode"></span>
+              <span class="legend">
+                <span><i style="background:var(--okbg);border:1px solid #6ee7b7"></i>Đạt định mức</span>
+                <span><i style="background:var(--lowbg);border:1px solid #fcd34d"></i>Dưới định mức</span>
+                <span><i style="background:var(--badbg);border:1px solid #fca5a5"></i>Có công nhưng 0 lượt</span>
+                <span><i style="background:#fff;box-shadow:inset 0 0 0 2px #a78bfa"></i>Ngày đóng cặp (đã chia đôi)</span>
+                <span>Rê chuột vào ô để xem chi tiết</span>
+              </span>
+            </div>
+            <div class="tw" style="margin-top:10px"><table class="dt grid"><thead id="tnHead"></thead><tbody id="tnBody"></tbody></table></div>
+          </div>
+
+          <div data-pane="xu-huong" hidden>
+            <div class="tw"><table class="dt"><thead id="xhHead"></thead><tbody id="xhBody"></tbody></table></div>
+            <div class="tk-foot">Mỗi ô: tổng điểm (xếp loại) · lượt quy đổi bình quân / ngày công. Mỗi tháng tính theo tiêu chí hiện tại, nên đổi tiêu chí thì cả bảng tính lại.</div>
+          </div>
+
+          <div data-pane="chat-luong" hidden>
+            <div class="tk-card-body" style="padding-bottom:0">
+              <div class="muted" style="font-size:12px">Ghi nhận lỗi chất lượng trong tháng (đóng sai / thiếu hàng, nhầm lô – hạn dùng, khách phản ánh, vi phạm quy trình…). Mỗi lỗi trừ <b data-cfg="truLoi"></b> điểm từ <b data-cfg="dCL"></b> điểm Chất lượng. Ghi chú đánh giá được in ra file Excel. Tự lưu khi gõ.</div>
+            </div>
+            <div class="tw" style="margin-top:10px"><table class="dt"><thead><tr><th>Mã NV</th><th>Họ và tên</th><th class="r">Số lỗi</th><th>Nội dung lỗi</th><th>Ghi chú đánh giá</th><th class="r">Điểm CL</th><th class="c">Xếp loại</th></tr></thead><tbody id="clBody"></tbody></table></div>
+          </div>
+
+          <div data-pane="danh-sach" hidden>
+            <div class="tk-card-body" style="padding-bottom:0">
+              <div class="muted" style="font-size:12px;line-height:1.7">Những người có lượt quét trong tháng (khớp "bảng mã nv"). Bỏ tick để không đánh giá (vd. văn phòng, kế toán chỉ quét phụ). <b>Nhóm</b>: người cùng nhóm được so với trung bình của nhóm đó — nên tách nhóm khi công việc khác nhau (vd. "Đóng gói" và "Soạn hàng"), vì mỗi lượt đóng gói nhanh hơn soạn hàng. Mặc định tick theo sheet THƯỞNG của file kho. Lựa chọn áp dụng cho mọi tháng.</div>
+            </div>
+            <div class="tw" style="margin-top:10px"><table class="dt"><thead><tr><th class="c">Đánh giá</th><th>Mã NV</th><th>Họ và tên</th><th>Nhóm</th><th class="r">Ngày công</th><th class="r">Lượt kho</th><th class="r">Lượt sàn</th><th class="r">TB / ngày</th><th>Sheet THƯỞNG</th></tr></thead><tbody id="dsBody"></tbody></table></div>
+            <datalist id="dsNhom"></datalist>
+            <div class="tk-foot" id="dsFoot"></div>
+          </div>
+
+          <div data-pane="nap-du-lieu" hidden>
+            <div class="tk-card-body">
+              <div class="tk-zone" id="dgZone" tabindex="0" role="button" aria-label="Chọn file Excel kho / sàn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+                <h4 id="dgZoneTitle">Thả file kho và file sàn của tháng vào đây (1 hoặc 2 file cùng lúc)</h4>
+                <p id="dgZoneSub"><b>File kho</b>: giống file Thưởng kho HCM (sheet <b>Bảng check kiện hàng</b> + <b>bảng mã nv</b>, có thể kèm THƯỞNG). <b>File sàn</b>: giống file Thưởng sàn HCM (sheet có cột <b>Bốc hàng, TG Bốc hàng, Đóng hàng, TG Đóng hàng</b>; 1 hay nhiều sheet đều được). Trang tự nhận file nào là kho, file nào là sàn và tự nhận tháng. File sàn không có bảng mã nv thì dùng bảng mã của file kho. Nạp lại cùng tháng = thay file cũ của tháng đó (lỗi chất lượng / ghi chú đã nhập vẫn giữ).</p>
+              </div>
+              <input type="file" id="dgFile" accept=".xlsx,.xls" multiple hidden>
+              <div id="dgUpMsg"></div>
+              <div id="dgPending"></div>
+              <h5>Dữ liệu đã nạp</h5>
+              <table class="dt"><thead><tr><th>Tháng</th><th>File kho</th><th>File sàn</th><th>Chấm công</th><th>Đóng cặp (Thưởng kho / sàn)</th><th></th></tr></thead><tbody id="dgSaved"></tbody></table>
+            </div>
+          </div>
+
+          <div data-pane="tieu-chi" hidden>
+            <div class="tk-card-body">
+              <div class="tk-notes" style="margin-bottom:14px">
+                <div><b>Tổng điểm 100</b> = Năng suất (<span data-cfg="dNS"></span>) + Ổn định (<span data-cfg="dOD"></span>) + Chất lượng (<span data-cfg="dCL"></span>). Xếp loại: <b>A</b> ≥ <span data-cfg="A"></span> · <b>B</b> ≥ <span data-cfg="B"></span> · <b>C</b> ≥ <span data-cfg="C"></span> · <b>D</b> dưới <span data-cfg="C"></span>. Dưới <span data-cfg="congToiThieu"></span> ngày công: không xếp loại (—).</div>
+                <div>• <b>Lượt</b> đếm giống trang thưởng: kho = Tạo kiện + Bốc hàng + Đóng hàng (mỗi dòng 1 lượt); sàn = Bốc hàng + Đóng hàng. <b>Lượt quy đổi</b> = lượt kho + lượt sàn × <span data-cfg="heSoSan"></span> (đơn sàn nhỏ, nhanh hơn: định mức thưởng kho 20 lượt/ngày, sàn 80).</div>
+                <div>• <b>Ngày công</b> lấy từ bảng chấm công cùng tháng (trang Chấm Công: X = 1, S / C và các mã nửa ngày = 0,5; P, L, Ro, CT… = 0). Chưa có chấm công thì lấy những ngày có lượt quét (thứ Bảy = 0,5). Có quét vào ngày nghỉ / CN thì ngày đó cũng tính công.</div>
+                <div>• <b>Năng suất</b> = bình quân lượt quy đổi / ngày công so với trung bình nhóm; đạt <span data-cfg="nsDinh"></span>% trung bình nhóm trở lên = đủ điểm, thấp hơn tính theo tỷ lệ (bằng trung bình nhóm ≈ <span id="nsTb"></span> điểm).</div>
+                <div>• <b>Ổn định</b> = tỷ lệ ngày có công đạt định mức <span data-cfg="dmNgay"></span> lượt quy đổi (nửa ngày: một nửa) × <span data-cfg="dOD"></span>.</div>
+                <div>• <b>Chất lượng</b> = <span data-cfg="dCL"></span> − số lỗi ghi nhận × <span data-cfg="truLoi"></span> (không âm) — nhập ở mục Chất lượng &amp; ghi chú.</div>
+                <div>• <b>Đóng cặp</b> khai ở trang Thưởng kho / Thưởng sàn được chia đôi y như khi tính thưởng — không thì 1 người được ghi hết lượt của cả 2.</div>
+              </div>
+              <div class="cfg" id="cfgForm"></div>
+              <div class="tk-row">
+                <label class="tk-row" style="font-size:12px"><input type="checkbox" id="cfgCC"> Lấy ngày công từ bảng chấm công</label>
+                <label class="tk-row" style="font-size:12px;margin-left:14px"><input type="checkbox" id="cfgCap"> Chia đôi lượt các ngày đóng cặp (từ Thưởng kho / Thưởng sàn)</label>
+              </div>
+              <div class="tk-row" style="margin-top:14px"><button class="b sm" type="button" id="cfgReset">Khôi phục tiêu chí mặc định</button><span class="muted" id="cfgMsg"></span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+    <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel được đọc trong trình duyệt; kết quả theo tháng lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
+  </div>
+</div>
+<script src="../assets/flows.js?v=20261113a"></script>
+<script src="../assets/layout.js?v=20261010a"></script>
+<script src="dg-engine.js?v=20261113a"></script>
+<script src="app.js?v=20261113a"></script>
+</body>
+</html>
