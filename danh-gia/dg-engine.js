@@ -212,13 +212,40 @@
   const r1 = x => Math.round(x * 10) / 10;
 
   // Chia đôi lượt các ngày đóng cặp (giống thuong-kho/engine.js computeResult) trên bản sao dữ liệu 1 nguồn.
-  // adj: { maNV1, maNV2, dateFrom, dateTo, buoi?: 'sang'|'chieu' }; trả về Set "maNV|ngày" đã chia.
-  function chiaCap(nv, ky, adjs, daChia) {
+  // adj: { key, maNV1, maNV2, dateFrom, dateTo, buoi?: 'sang'|'chieu' }; ghi "maNV|ngày" đã chia vào daChia.
+  // Có chấm công (cc): chỉ chia những buổi CẢ HAI người cùng đi làm (quy tắc đã chốt 10/11/2026 — "để thưởng về
+  // đúng người thực hiện"); 1 người nghỉ cả ngày thì ngày đó không chia, nghỉ nửa ngày thì chỉ chia buổi còn lại.
+  // info[key] = { chia: [ngày], bo: [[ngày, lý do]], nua: [[ngày, 's'|'c']] }.
+  function buoiLam(code) {
+    const c = fold(code);
+    if (!c) return '';
+    if (c === 'x/p.s') return 'c';
+    if (c === 'x/p.c') return 's';
+    let s = false, ch = false;
+    c.split('/').forEach(p => { if (p === 'x') s = ch = true; else if (p === 's') s = true; else if (p === 'c') ch = true; });
+    return (s ? 's' : '') + (ch ? 'c' : '');
+  }
+  function chiaCap(nv, ky, adjs, daChia, cc, info, tenOf) {
     const [y, m] = ky.split('-').map(Number), soNgay = new Date(y, m, 0).getDate();
     (adjs || []).forEach(adj => {
+      const inf = adj.key ? (info[adj.key] = info[adj.key] || { chia: [], bo: [], nua: [] }) : null;
       for (let d = 1; d <= soNgay; d++) {
         const k = `${ky}-${pad2(d)}`;
         if (k < adj.dateFrom || k > adj.dateTo) continue;
+        let want = adj.buoi === 'sang' ? 's' : adj.buoi === 'chieu' ? 'c' : 'sc';
+        if (want === 'sc' && new Date(y, m - 1, d).getDay() === 6) want = 's'; // thứ Bảy chỉ làm buổi sáng
+        let both = want, lyDo = '';
+        if (cc) {
+          [adj.maNV1, adj.maNV2].forEach(u => {
+            if (!cc[u]) return; // người ngoài danh sách / không có trong chấm công: coi như có đi làm
+            const w = buoiLam(cc[u][d - 1]);
+            both = both.split('').filter(h => w.includes(h)).join('');
+            if (!w.includes('s') || !w.includes('c')) { if (want.split('').some(h => !w.includes(h))) lyDo += (lyDo ? ', ' : '') + `${tenOf(u)}: ${norm(cc[u][d - 1]) || 'nghỉ'}`; }
+          });
+        }
+        if (!both) { if (inf && !inf.chia.includes(d)) inf.bo.push([d, lyDo || 'nghỉ']); continue; }
+        const buoi = both === 'sc' ? '' : both === 's' ? 'sang' : 'chieu';
+        if (inf && both !== want && new Date(y, m - 1, d).getDay() !== 6 && !inf.nua.some(x => x[0] === d)) inf.nua.push([d, both, lyDo]);
         const A = [adj.maNV1, adj.maNV2].map(u => {
           nv[u] = nv[u] || {};
           return nv[u][d] = nv[u][d] || [0, 0, 0, 0, 0, 0, null, null];
@@ -226,10 +253,11 @@
         const [a, b] = A;
         for (let t = 0; t < 3; t++) {
           const ta = a[t], tb = b[t], sa = a[3 + t], sb = b[3 + t];
-          if (adj.buoi === 'sang') { const h = (sa + sb) / 2; a[t] = ta - sa + h; b[t] = tb - sb + h; a[3 + t] = b[3 + t] = h; }
-          else if (adj.buoi === 'chieu') { const h = ((ta - sa) + (tb - sb)) / 2; a[t] = sa + h; b[t] = sb + h; }
+          if (buoi === 'sang') { const h = (sa + sb) / 2; a[t] = ta - sa + h; b[t] = tb - sb + h; a[3 + t] = b[3 + t] = h; }
+          else if (buoi === 'chieu') { const h = ((ta - sa) + (tb - sb)) / 2; a[t] = sa + h; b[t] = sb + h; }
           else { a[t] = b[t] = (ta + tb) / 2; a[3 + t] = b[3 + t] = (sa + sb) / 2; }
         }
+        if (inf && !inf.chia.includes(d)) inf.chia.push(d);
         daChia.add(`${adj.maNV1}|${d}`); daChia.add(`${adj.maNV2}|${d}`);
       }
     });
@@ -248,11 +276,12 @@
     const kho = saoChep(src.kho && src.kho.nv), san = saoChep(src.san && src.san.nv);
     const trongThang = list => (list || []).filter(a => a.dateFrom <= `${ky}-31` && a.dateTo >= `${ky}-01`);
     const capK = trongThang(o.cap && o.cap.kho), capS = trongThang(o.cap && o.cap.san);
-    const capKho = new Set(), capSan = new Set();
-    chiaCap(kho, ky, capK, capKho);
-    chiaCap(san, ky, capS, capSan);
+    const capKho = new Set(), capSan = new Set(), capInfo = {};
     const cc = o.cc || null, loi = o.loi || {}, nhomOf = u => (o.nhom && o.nhom[u]) || NHOM_MD;
     const ten = new Map((o.nv || []).map(e => [e.maNV, e.hoTen]));
+    const tenNgan = u => { const t = ten.get(u) || (o.tenKhac && o.tenKhac[u]) || u; return String(t).trim().split(/\s+/).slice(-2).join(' '); };
+    chiaCap(kho, ky, capK, capKho, cc, capInfo, tenNgan);
+    chiaCap(san, ky, capS, capSan, cc, capInfo, tenNgan);
     const coLuot = u => [kho[u], san[u]].some(x => x && Object.values(x).some(a => a[0] + a[1] + a[2] > 0));
     const ids = [...new Set([...Object.keys(kho), ...Object.keys(san)])].filter(u => ten.has(u) && coLuot(u));
     const thu = d => new Date(y, m - 1, d).getDay();
@@ -291,6 +320,27 @@
       };
     });
     const chon = o.chon ? rows.filter(r => o.chon.has(r.maNV)) : rows;
+    // Ngày ít đơn của cả tổ (kiểm kê, ít hàng…): bình quân lượt / công của những người có công hôm đó < 50% ngày
+    // bình thường (trung vị các ngày) → không tính ngày đó vào Ổn định / Chuyên cần của ai (không phải lỗi cá nhân).
+    const binhQuan = [];
+    for (let i = 0; i < soNgay; i++) {
+      let q = 0, w = 0, n = 0;
+      chon.forEach(r => { const x = r.ngay[i]; if (x.w > 0) { q += x.qd; w += x.w; n++; } });
+      binhQuan.push(n >= 3 && w ? q / w : null);
+    }
+    const bqs = binhQuan.filter(v => v !== null).sort((a, b) => a - b);
+    const trungVi = bqs.length ? bqs[Math.floor((bqs.length - 1) / 2)] : 0;
+    const ngayIt = [];
+    binhQuan.forEach((v, i) => { if (v !== null && trungVi > 0 && v < trungVi * 0.5) ngayIt.push(i + 1); });
+    rows.forEach(r => {
+      r.ngayTinh = r.ngayDat = r.ngayKhongLuot = 0;
+      r.ngay.forEach(x => {
+        x.it = ngayIt.includes(x.d);
+        if (x.w > 0 && !x.it) { r.ngayTinh++; if (x.dat) r.ngayDat++; if (x.qd === 0) r.ngayKhongLuot++; }
+      });
+      r.tyLeDat = r.ngayTinh ? r.ngayDat / r.ngayTinh : 0;
+      r.ngayIt = ngayIt;
+    });
     // trung bình nhóm = tổng lượt quy đổi ÷ tổng ngày công của những người trong nhóm đủ ngày công tối thiểu
     const nhom = {};
     chon.forEach(r => {
@@ -319,13 +369,92 @@
       chon.forEach(r => { const x = r.ngay[i]; k += x.k; s += x.s; if (x.qd > 0) nguoi++; });
       return { d, thu: thu(d), k, s, qd: k + s * heSoSan, nguoi };
     });
-    return { ky, cfg, heSoSan, rows: chon, tatCa: rows, nhom, tbTo, soXep: xep.length, theoNgay,
+    return { ky, cfg, heSoSan, rows: chon, tatCa: rows, nhom, tbTo, soXep: xep.length, theoNgay, capInfo, ngayIt,
       coKho: !!src.kho, coSan: !!src.san, coCC: !!cc, capKho: capK.length, capSan: capS.length };
+  }
+
+  // ------------------------------------------------------------ nhận xét tự động từng tiêu chí
+  // Trả về { tieuChi: [{ ma, ten, muc: 'dat'|'chua'|'thieu'|'tt', text, khacPhuc? }], dat: [...], khacPhuc: [...], tomTat }
+  // muc: dat = đạt, chua = chưa đạt (nhẹ), thieu = không đạt / thiếu nhiều, tt = chỉ để tham khảo.
+  // ctx: { cfg, ky, gio: { nhóm: { dau, cuoi } } (giờ quét đầu / cuối trung vị của nhóm), prev: dòng tháng trước | null }
+  const vn1 = x => (Math.round((x || 0) * 10) / 10).toLocaleString('vi-VN', { maximumFractionDigits: 1 });
+  const hhmm = m => m === null || m === undefined ? '–' : `${Math.floor(m / 60)}:${String(Math.round(m % 60)).padStart(2, '0')}`;
+  const pc = x => Math.round((x || 0) * 100) + '%';
+  function dsNgay(list, mo) {
+    const a = [...list].sort((x, y) => x - y), out = [];
+    for (let i = 0; i < a.length; i++) { let j = i; while (j + 1 < a.length && a[j + 1] === a[j] + 1) j++; out.push(j > i ? `${a[i]}–${a[j]}` : `${a[i]}`); i = j; }
+    return out.join(', ') + '/' + mo;
+  }
+  function nhanXet(r, ctx) {
+    const cfg = merge(ctx && ctx.cfg), mo = ctx && ctx.ky ? Number(ctx.ky.slice(5)) : '';
+    const tc = [];
+    // 1) Năng suất — so với trung bình nhóm
+    const s = r.soVoiNhom, can = r.tbNhom * 0.9;
+    if (!r.tbNhom) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'tt', text: 'Chưa đủ dữ liệu nhóm để so sánh.' });
+    else if (s >= 1.1) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'dat', text: `Cao: ${vn1(r.tb)} lượt/ngày công, hơn TB nhóm ${Math.round((s - 1) * 100)}% (nhóm ${vn1(r.tbNhom)}).` });
+    else if (s >= 0.9) tc.push({ ma: 'ns', ten: 'Năng suất', muc: 'dat', text: `Đạt: ${vn1(r.tb)} lượt/ngày công, ngang TB nhóm (${vn1(r.tbNhom)}, ${pc(s)}).` });
+    else {
+      const thieu = Math.ceil(can - r.tb);
+      tc.push({ ma: 'ns', ten: 'Năng suất', muc: s >= 0.7 ? 'chua' : 'thieu',
+        text: `${s >= 0.7 ? 'Chưa đạt' : 'Thấp'}: ${vn1(r.tb)} lượt/ngày công, chỉ bằng ${pc(s)} TB nhóm (${vn1(r.tbNhom)}).`,
+        khacPhuc: `Tăng sản lượng thêm khoảng ${thieu} lượt/ngày công để đạt tối thiểu 90% TB nhóm (${vn1(can)} lượt).` });
+    }
+    // 2) Ổn định — ngày có công đạt định mức
+    const duoi = r.ngay.filter(x => x.w > 0 && x.qd > 0 && !x.dat && !x.it).map(x => x.d);
+    const it = (r.ngayIt || []).length ? ` (không tính ngày ít đơn của cả tổ: ${dsNgay(r.ngayIt, mo)})` : '';
+    if (!r.ngayTinh) tc.push({ ma: 'od', ten: 'Ổn định', muc: 'tt', text: 'Không có ngày công.' });
+    else if (r.tyLeDat >= 0.9) tc.push({ ma: 'od', ten: 'Ổn định', muc: 'dat', text: `Đều: ${r.ngayDat}/${r.ngayTinh} ngày đạt định mức ${cfg.dmNgay} lượt${duoi.length ? ` (dưới định mức: ${dsNgay(duoi, mo)})` : ''}${it}.` });
+    else tc.push({ ma: 'od', ten: 'Ổn định', muc: r.tyLeDat >= 0.7 ? 'chua' : 'thieu',
+      text: `${r.tyLeDat >= 0.7 ? 'Chưa đều' : 'Không đều'}: chỉ ${r.ngayDat}/${r.ngayTinh} ngày (${pc(r.tyLeDat)}) đạt ${cfg.dmNgay} lượt${duoi.length ? `; ngày có quét nhưng dưới định mức: ${dsNgay(duoi, mo)}` : ''}${it}.`,
+      khacPhuc: `Giữ sản lượng đều mỗi ngày, tối thiểu ${cfg.dmNgay} lượt quy đổi / ngày công (nửa ngày ${cfg.dmNgay / 2}).` });
+    // 3) Chuyên cần — có công mà không có lượt quét
+    const khong = r.ngay.filter(x => x.w > 0 && x.qd === 0 && !x.it).map(x => x.d);
+    if (!khong.length) tc.push({ ma: 'cc', ten: 'Chuyên cần', muc: 'dat', text: `Ngày nào có công cũng có lượt quét${r.ngayThem ? `; làm thêm ${r.ngayThem} ngày nghỉ / CN` : ''}.` });
+    else tc.push({ ma: 'cc', ten: 'Chuyên cần', muc: khong.length >= 3 ? 'thieu' : 'chua',
+      text: `${khong.length} ngày có công nhưng 0 lượt quét (${dsNgay(khong, mo)}).`,
+      khacPhuc: `Giải trình ${khong.length} ngày có công không có lượt quét (${dsNgay(khong, mo)}) — nếu làm việc khác (kiểm kê, nhập hàng…) thì ghi vào Ghi chú đánh giá.` });
+    // 4) Chất lượng — lỗi ghi nhận tay
+    if (!r.soLoi) tc.push({ ma: 'cl', ten: 'Chất lượng', muc: 'dat', text: 'Không ghi nhận lỗi trong tháng.' });
+    else tc.push({ ma: 'cl', ten: 'Chất lượng', muc: r.soLoi >= 2 ? 'thieu' : 'chua',
+      text: `${r.soLoi} lỗi${r.noiDungLoi ? ': ' + r.noiDungLoi : ''} (trừ ${r.soLoi * cfg.truLoi} điểm).`,
+      khacPhuc: `Khắc phục lỗi${r.noiDungLoi ? ' “' + r.noiDungLoi + '”' : ''}: kiểm tra kỹ mã hàng, số lượng, lô / hạn dùng trước khi đóng kiện.` });
+    // 5) Giờ làm (tham khảo) — giờ quét đầu / cuối so với trung vị của nhóm
+    const g = ctx && ctx.gio && ctx.gio[r.nhom];
+    if (r.gioDau === null || !g) tc.push({ ma: 'gio', ten: 'Giờ làm', muc: 'tt', text: 'Không có giờ quét.' });
+    else {
+      const muon = r.gioDau - g.dau >= 60, som = g.cuoi - r.gioCuoi >= 60;
+      const t = `Quét TB từ ${hhmm(r.gioDau)} đến ${hhmm(r.gioCuoi)} (nhóm ${hhmm(g.dau)}–${hhmm(g.cuoi)})`;
+      if (!muon && !som) tc.push({ ma: 'gio', ten: 'Giờ làm', muc: 'dat', text: t + '.' });
+      else tc.push({ ma: 'gio', ten: 'Giờ làm', muc: 'chua', text: t + (muon ? ' — bắt đầu muộn' : '') + (som ? (muon ? ', ' : ' — ') + 'kết thúc sớm' : '') + '.',
+        khacPhuc: `Xem lại ${muon ? 'việc buổi sáng (lượt quét đầu tiên muộn hơn nhóm khoảng ' + vn1((r.gioDau - g.dau) / 60) + ' giờ)' : ''}${muon && som ? ' và ' : ''}${som ? 'việc cuối ngày (ngừng quét sớm hơn nhóm)' : ''} — nếu làm việc khác thì ghi chú lại.` });
+    }
+    // 6) So với tháng trước (tham khảo)
+    const p = ctx && ctx.prev;
+    if (p && p.tb && r.cong >= cfg.congToiThieu && p.cong >= cfg.congToiThieu) {
+      const dt = (r.tb - p.tb) / p.tb, dd = r.diem - p.diem;
+      const t = `Sản lượng/ngày ${dt >= 0 ? 'tăng' : 'giảm'} ${Math.abs(Math.round(dt * 100))}% (${vn1(p.tb)} → ${vn1(r.tb)}), điểm ${dd >= 0 ? '+' : '−'}${vn1(Math.abs(dd))} (${p.xepLoai} → ${r.xepLoai}).`;
+      tc.push({ ma: 'xh', ten: 'So tháng trước', muc: dd <= -5 || dt <= -0.15 ? 'chua' : 'dat', text: t,
+        ...(dd <= -5 || dt <= -0.15 ? { khacPhuc: `Tìm nguyên nhân sản lượng / điểm giảm so với tháng trước.` } : {}) });
+    } else tc.push({ ma: 'xh', ten: 'So tháng trước', muc: 'tt', text: p ? 'Tháng trước chưa đủ ngày công để so.' : 'Chưa có tháng trước để so.' });
+    const TEN = { ns: 'năng suất', od: 'ổn định', cc: 'chuyên cần', cl: 'chất lượng', gio: 'giờ làm', xh: 'tiến bộ' };
+    const dat = tc.filter(x => x.muc === 'dat' && x.ma !== 'xh' && x.ma !== 'gio').map(x => TEN[x.ma]);
+    const kp = tc.filter(x => x.khacPhuc).map(x => x.khacPhuc);
+    const xl = r.xepLoai === '—' ? `Chưa xếp loại (dưới ${cfg.congToiThieu} ngày công)` : `Xếp loại ${r.xepLoai} (${vn1(r.diem)} điểm, hạng ${r.hang || '–'})`;
+    const tomTat = `${xl}. ${dat.length ? 'Đạt: ' + dat.join(', ') + '.' : 'Chưa đạt tiêu chí nào.'}${kp.length ? ` Cần khắc phục ${kp.length} điểm.` : ' Không có điểm cần khắc phục.'}`
+      + (r.soNgayCap ? ` Có ${r.soNgayCap} ngày đóng cặp (lượt đã chia đôi).` : '');
+    return { tieuChi: tc, dat, khacPhuc: kp, tomTat };
+  }
+  // giờ quét đầu / cuối trung vị của từng nhóm (để so "bắt đầu muộn / kết thúc sớm")
+  function gioNhom(rows) {
+    const med = a => { const b = a.filter(x => x !== null && x !== undefined).sort((x, y) => x - y); return b.length ? (b.length % 2 ? b[(b.length - 1) / 2] : (b[b.length / 2 - 1] + b[b.length / 2]) / 2) : null; };
+    const out = {};
+    [...new Set(rows.map(r => r.nhom))].forEach(n => { const rs = rows.filter(r => r.nhom === n); out[n] = { dau: med(rs.map(r => r.gioDau)), cuoi: med(rs.map(r => r.gioCuoi)) }; });
+    return out;
   }
 
   const kyLabel = ky => { const [y, m] = ky.split('-'); return `Tháng ${Number(m)}/${y}`; };
   const quyCua = ky => { const [y, m] = ky.split('-').map(Number); return `${y}-Q${Math.ceil(m / 3)}`; };
-  const DG = { CFG, NHOM_MD, docFile, ganMa, bangMa, thangChinh, tinhThang, congNgay, chamCongMap, kyLabel, quyCua, pad2, fold, key };
+  const DG = { CFG, NHOM_MD, buoiLam, nhanXet, gioNhom, docFile, ganMa, bangMa, thangChinh, tinhThang, congNgay, chamCongMap, kyLabel, quyCua, pad2, fold, key };
   if (typeof module !== 'undefined' && module.exports) module.exports = DG;
   root.DG = DG;
 })(typeof self !== 'undefined' ? self : (typeof window !== 'undefined' ? window : globalThis));

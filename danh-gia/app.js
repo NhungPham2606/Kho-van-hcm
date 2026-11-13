@@ -8,8 +8,8 @@
   if (!root) return;
   const OWNER = root.dataset.owner, REPO = root.dataset.repo, DIR = root.dataset.dir;
   const API = `https://api.github.com/repos/${OWNER}/${REPO}`;
-  const LS_KEY = 'kvh-danhgia-v1', LS_CFG = 'kvh-danhgia-caidat', LS_SEL = 'kvh-danhgia-sel', TOKEN_KEY = 'kvh-gh-token';
-  const VER = '20261113a';
+  const LS_KEY = 'kvh-danhgia-v1', LS_CFG = 'kvh-danhgia-caidat', LS_CAP = 'kvh-danhgia-dongcap', LS_SEL = 'kvh-danhgia-sel', TOKEN_KEY = 'kvh-gh-token';
+  const VER = '20261113c';
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const num = n => Math.round(n || 0).toLocaleString('vi-VN');
@@ -27,6 +27,9 @@
   let archive = lsJSON(LS_KEY, {});
   const CAI_DAT_MD = () => ({ cfg: {}, chon: {}, nhom: {}, mnvRows: null, mnvKy: '', dungCC: true, dungCap: true, savedAt: '' });
   let caiDat = Object.assign(CAI_DAT_MD(), lsJSON(LS_CFG, {}));
+  // Đóng cặp: 1 danh sách chung cho mọi tháng (cặp áp theo ngày), người ngoài danh sách, cặp lấy từ Thưởng kho/sàn mà bỏ qua
+  const DONG_CAP_MD = () => ({ list: [], ngoai: [], boQua: [], savedAt: '' });
+  let dongCap = Object.assign(DONG_CAP_MD(), lsJSON(LS_CAP, {}));
   let sel = ''; try { sel = localStorage.getItem(LS_SEL) || ''; } catch (e) {}
   let token = ''; try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) {}
   const repoSha = {};
@@ -36,6 +39,7 @@
   function persistLocal() {
     try { localStorage.setItem(LS_KEY, JSON.stringify(archive)); } catch (e) { syncMsg = 'Bộ nhớ trình duyệt đầy — chưa lưu được trên máy này.'; }
     try { localStorage.setItem(LS_CFG, JSON.stringify(caiDat)); } catch (e) {}
+    try { localStorage.setItem(LS_CAP, JSON.stringify(dongCap)); } catch (e) {}
     try { localStorage.setItem(LS_SEL, sel); } catch (e) {}
   }
   async function gh(path, opts = {}) {
@@ -52,16 +56,18 @@
     try {
       let items = [];
       try { items = await gh(`/contents/${DIR}?ref=main&t=${Date.now()}`); } catch (e) { if (e.status !== 404) throw e; }
-      for (const it of items.filter(i => /^(\d{4}-\d{2}|cai-dat)\.json$/.test(i.name))) {
+      for (const it of items.filter(i => /^(\d{4}-\d{2}|cai-dat|dong-cap)\.json$/.test(i.name))) {
         const name = it.name.replace('.json', '');
         repoSha[name] = it.sha;
         const meta = await gh(`/contents/${DIR}/${it.name}?ref=main`);
         const remote = JSON.parse(b64dec(meta.content || '') || '{}');
         if (name === 'cai-dat') { if ((remote.savedAt || '') >= (caiDat.savedAt || '')) caiDat = Object.assign(CAI_DAT_MD(), remote); }
+        else if (name === 'dong-cap') { if ((remote.savedAt || '') >= (dongCap.savedAt || '')) dongCap = Object.assign(DONG_CAP_MD(), remote); }
         else if (!archive[name] || (remote.savedAt || '') >= (archive[name].savedAt || '')) archive[name] = remote;
       }
       Object.keys(archive).forEach(k => { if (!repoSha[k]) scheduleSave(k, 0); });
       if (!repoSha['cai-dat'] && caiDat.savedAt) scheduleSave('cai-dat', 0);
+      if (!repoSha['dong-cap'] && dongCap.savedAt) scheduleSave('dong-cap', 0);
       syncMsg = 'Đã đồng bộ với hệ thống — mở trên máy khác cũng thấy.';
       persistLocal(); renderAll();
     } catch (e) {
@@ -74,14 +80,14 @@
     if (!token) return;
     clearTimeout(saveTimers[name]);
     saveTimers[name] = setTimeout(async () => {
-      const data = name === 'cai-dat' ? caiDat : archive[name];
+      const data = name === 'cai-dat' ? caiDat : name === 'dong-cap' ? dongCap : archive[name];
       if (!data) return;
       try {
         const body = { message: `${DIR} ${name} (tu web)`, content: b64enc(JSON.stringify(data)), branch: 'main' };
         if (repoSha[name]) body.sha = repoSha[name];
         const r = await gh(`/contents/${DIR}/${name}.json`, { method: 'PUT', body: JSON.stringify(body) });
         repoSha[name] = r.content.sha;
-        syncMsg = `Đã lưu ${name === 'cai-dat' ? 'tiêu chí / danh sách' : DG.kyLabel(name)} lên hệ thống lúc ${new Date().toLocaleTimeString('vi-VN')}.`;
+        syncMsg = `Đã lưu ${name === 'cai-dat' ? 'tiêu chí / danh sách' : name === 'dong-cap' ? 'danh sách đóng cặp' : DG.kyLabel(name)} lên hệ thống lúc ${new Date().toLocaleTimeString('vi-VN')}.`;
       } catch (e) {
         syncMsg = `Chưa lưu được lên hệ thống (${e.message}) — vẫn còn trên máy này.`;
         if (e.status === 409 || e.status === 422) delete repoSha[name];
@@ -95,6 +101,7 @@
   }
   function touch(ky) { archive[ky].savedAt = new Date().toISOString(); persistLocal(); scheduleSave(ky); }
   function touchCfg() { caiDat.savedAt = new Date().toISOString(); persistLocal(); scheduleSave('cai-dat'); }
+  function touchCap() { dongCap.savedAt = new Date().toISOString(); persistLocal(); scheduleSave('dong-cap'); }
 
   // ------------------------------------------------------------ dữ liệu của các trang khác (chỉ đọc)
   // Đóng cặp: trang Thưởng kho / Thưởng sàn (theo quý); ngày công: trang Chấm Công (theo tháng);
@@ -115,6 +122,24 @@
     return loc && rem ? ((rem.savedAt || '') > (loc.savedAt || '') ? rem : loc) : (loc || rem);
   }
   const capOf = (ky, kind) => { const q = other(kind, DG.quyCua(ky)); return (q && q.adjustments) || []; };
+  const thangCuoi = ky => { const [y, m] = ky.split('-').map(Number); return `${ky}-${DG.pad2(new Date(y, m, 0).getDate())}`; };
+  const giaoThang = (a, ky) => a.dateFrom <= thangCuoi(ky) && a.dateTo >= `${ky}-01`;
+  const samePair = (a, x, y) => (a.maNV1 === x && a.maNV2 === y) || (a.maNV1 === y && a.maNV2 === x);
+  const sameCap = (a, b) => samePair(a, b.maNV1, b.maNV2) && a.dateFrom === b.dateFrom && a.dateTo === b.dateTo && (a.buoi || '') === (b.buoi || '');
+  const AP = { kho: 'Kho', san: 'Sàn', ca: 'Kho + sàn' };
+  const apCo = (a, kind) => (a.ap || 'kho') === 'ca' || (a.ap || 'kho') === kind;
+  // Các cặp áp cho 1 tháng: cặp khai ở trang này + cặp đã khai ở Thưởng kho (áp lượt kho) / Thưởng sàn (áp lượt sàn)
+  // của quý chứa tháng đó; trùng với cặp của trang này thì không lấy lại. dung = false: đã bấm "Không dùng".
+  function capList(ky) {
+    const own = dongCap.list.filter(a => giaoThang(a, ky)).map(a => ({ ...a, key: 'own:' + a.id, nguon: 'own', ap: a.ap || 'kho', dung: true }));
+    const q = DG.quyCua(ky), out = [...own];
+    [['tk', 'kho'], ['ts', 'san']].forEach(([kind, ap]) => capOf(ky, kind).filter(a => giaoThang(a, ky)).forEach(a => {
+      if (own.some(o => apCo(o, ap) && sameCap(o, a))) return;
+      const key = `${kind}:${q}:${a.id}`;
+      out.push({ ...a, key, nguon: kind, ap, dung: !dongCap.boQua.includes(key) });
+    }));
+    return out;
+  }
   const ccOf = ky => other('cc', ky);
 
   // bảng mã nv dùng để khớp tên của 1 tháng: file kho tháng đó → tháng gần nhất có file kho → bản đã lưu → Thưởng kho
@@ -159,8 +184,10 @@
     const employees = DG.bangMa(mnv.rows).list, roster = rosterFor(ky);
     const chon = new Set(employees.map(x => x.maNV).filter(u => caiDat.chon[u] !== undefined ? caiDat.chon[u] : (roster ? roster.has(u) : true)));
     const sh = caiDat.dungCC !== false ? ccOf(ky) : null;
-    const cap = caiDat.dungCap !== false ? { kho: capOf(ky, 'tk'), san: capOf(ky, 'ts') } : {};
-    const res = DG.tinhThang(ky, { kho: K, san: S }, { nv: employees, chon, nhom: caiDat.nhom, cap, cc: sh ? DG.chamCongMap(sh) : null, loi: e.loi || {}, cfg: caiDat.cfg });
+    const cl = caiDat.dungCap !== false ? capList(ky).filter(a => a.dung) : [];
+    const cap = { kho: cl.filter(a => apCo(a, 'kho')), san: cl.filter(a => apCo(a, 'san')) };
+    const tenKhac = {}; dongCap.ngoai.forEach(h => { tenKhac[h.maNV] = h.hoTen; });
+    const res = DG.tinhThang(ky, { kho: K, san: S }, { nv: employees, chon, nhom: caiDat.nhom, cap, tenKhac, cc: sh ? DG.chamCongMap(sh) : null, loi: e.loi || {}, cfg: caiDat.cfg });
     Object.assign(res, { mnvNguon: mnv.nguon, khongKhopKho: K ? K.khongKhop : [], roster, ccTen: sh && res.coCC ? sh.ten : '' });
     memo.set(ky, res);
     return res;
@@ -171,8 +198,8 @@
   const cfgNow = () => Object.assign({}, DG.CFG, caiDat.cfg || {});
 
   // ------------------------------------------------------------ giao diện
-  const TABS = ['bang-danh-gia', 'dashboard', 'theo-ngay', 'xu-huong', 'chat-luong', 'danh-sach', 'nap-du-lieu', 'tieu-chi'];
-  const tab = () => { const h = location.hash.slice(1); if (!kys().length && h !== 'tieu-chi') return 'nap-du-lieu'; return TABS.includes(h) ? h : 'bang-danh-gia'; };
+  const TABS = ['bang-danh-gia', 'nhan-xet', 'dashboard', 'theo-ngay', 'dong-cap', 'xu-huong', 'chat-luong', 'danh-sach', 'nap-du-lieu', 'tieu-chi'];
+  const tab = () => { const h = location.hash.slice(1); if (!kys().length && !['tieu-chi', 'dong-cap'].includes(h)) return 'nap-du-lieu'; return TABS.includes(h) ? h : 'bang-danh-gia'; };
   let search = '', tnMode = 'qd', pending = [], busy = false;
   const match = r => !search || fold(r.hoTen).includes(search) || String(r.maNV).includes(search);
   const sortHang = list => [...list].sort((a, b) => (a.hang || 1e9) - (b.hang || 1e9) || b.tb - a.tb || a.hoTen.localeCompare(b.hoTen, 'vi'));
@@ -187,7 +214,7 @@
     const parts = [`<b>${DG.kyLabel(ky)}</b>`, src(e.kho, 'Kho'), src(e.san, 'Sàn')];
     if (res && !res.loi) {
       parts.push(res.coCC ? `Ngày công: chấm công "${esc(res.ccTen)}"` : (caiDat.dungCC === false ? 'Ngày công: theo ngày có lượt quét (đã tắt chấm công)' : '<span style="color:#b45309">Chưa có chấm công tháng này</span> → ngày công = ngày có lượt quét'));
-      parts.push(caiDat.dungCap === false ? 'Đóng cặp: đã tắt' : `Đóng cặp: ${res.capKho} kho · ${res.capSan} sàn`);
+      parts.push(caiDat.dungCap === false ? 'Đóng cặp: đã tắt' : `<a href="#dong-cap">Đóng cặp: ${capList(ky).filter(a => a.dung).length} cặp</a>`);
     }
     $('dgBanner').innerHTML = parts.join(' &nbsp;·&nbsp; ');
     $('dgSync').textContent = syncMsg;
@@ -211,7 +238,7 @@
     const t = tab();
     root.querySelectorAll('#dgTabs [data-tab]').forEach(a => a.classList.toggle('on', a.dataset.tab === t));
     root.querySelectorAll('[data-pane]').forEach(p => { p.hidden = p.dataset.pane !== t; });
-    $('dgSearchBox').hidden = ['nap-du-lieu', 'tieu-chi', 'dashboard'].includes(t);
+    $('dgSearchBox').hidden = ['nap-du-lieu', 'tieu-chi', 'dashboard', 'dong-cap'].includes(t);
     $('dgStats').hidden = $('dgStats').hidden || ['nap-du-lieu', 'tieu-chi'].includes(t);
   }
 
@@ -252,6 +279,53 @@
       + `<span class="muted">*</span> = không có trong chấm công, ngày công theo ngày có lượt quét. Rê chuột lên số để xem chi tiết. Xem cách tính / sửa ở mục <a href="#tieu-chi">Tiêu chí</a>.`
       + (pk ? '' : ' Chưa có tháng trước để so sánh.');
   }
+
+  // ---- Nhận xét từng người theo từng tiêu chí (tự viết từ số liệu tháng, DG.nhanXet)
+  const MK = { dat: 'Đạt', chua: 'Chưa đạt', thieu: 'Không đạt', tt: '–' };
+  const MK_RIENG = { gio: { dat: 'Bình thường', chua: 'Lưu ý' }, xh: { dat: 'Ổn', chua: 'Giảm' } };
+  const mkLabel = t => (MK_RIENG[t.ma] && MK_RIENG[t.ma][t.muc]) || MK[t.muc];
+  let nxLoc = 'all';
+  function nhanXetThang(ky) {
+    const res = tinh(ky); if (!res || res.loi) return null;
+    const pk = prevKy(ky), prev = pk ? tinh(pk) : null, pm = new Map(prev && !prev.loi ? prev.rows.map(r => [r.maNV, r]) : []);
+    const gio = DG.gioNhom(res.rows), cfg = cfgNow();
+    return new Map(res.rows.map(r => [r.maNV, DG.nhanXet(r, { cfg, ky, gio, prev: pm.get(r.maNV) || null })]));
+  }
+  function nxText(r, nx, ky) {
+    return [`NHẬN XÉT ${DG.kyLabel(ky).toUpperCase()} — ${r.hoTen} (${r.maNV})`, nx.tomTat,
+      ...nx.tieuChi.map(t => `• ${t.ten}: ${mkLabel(t)} — ${t.text}`),
+      ...(nx.khacPhuc.length ? ['Cần khắc phục:', ...nx.khacPhuc.map((k, i) => `${i + 1}. ${k}`)] : ['Không có điểm cần khắc phục — tiếp tục duy trì.']),
+      ...(r.ghiChu ? ['Ghi chú quản lý: ' + r.ghiChu] : [])].join('\n');
+  }
+  function renderNX() {
+    const ky = current(), res = tinh(ky);
+    $('nxLoc').innerHTML = [['all', 'Tất cả'], ['kp', 'Người cần khắc phục'], ['cd', 'Xếp loại C, D']].map(([v, l]) => `<button class="b xs${nxLoc === v ? ' pri' : ''}" type="button" data-nxloc="${v}">${l}</button>`).join('');
+    if (!res || res.loi) { $('nxGrid').innerHTML = `<div class="muted" style="padding:20px">${noData(res)}</div>`; return; }
+    const map = nhanXetThang(ky);
+    let list = sortHang(res.rows).filter(match);
+    if (nxLoc === 'kp') list = list.filter(r => map.get(r.maNV).khacPhuc.length);
+    if (nxLoc === 'cd') list = list.filter(r => r.xepLoai === 'C' || r.xepLoai === 'D');
+    $('nxGrid').innerHTML = list.map(r => {
+      const nx = map.get(r.maNV);
+      return `<div class="nx-card">
+        <div class="nx-head"><div class="nm">${r.hang ? r.hang + '. ' : ''}${esc(r.hoTen)}<small>${esc(r.maNV)} · ${esc(r.nhom)}</small></div>
+          <div class="tk-row">${xlBadge(r.xepLoai)} <b style="color:#1a56db">${n1(r.diem)}</b> <button class="b xs" type="button" data-nxcopy="${esc(r.maNV)}" title="Chép nhận xét dạng chữ để gửi Zalo / mail">Sao chép</button></div></div>
+        <div class="nx-sum">${esc(nx.tomTat)}</div>
+        <div class="nx-tc">${nx.tieuChi.map(t => `<div class="t">${esc(t.ten)}</div><div><span class="mk m-${t.muc}">${esc(mkLabel(t))}</span>${esc(t.text)}</div>`).join('')}</div>
+        ${nx.khacPhuc.length ? `<div class="nx-kp"><b>Cần khắc phục</b><ol>${nx.khacPhuc.map(k => `<li>${esc(k)}</li>`).join('')}</ol></div>` : '<div class="nx-ok">Không có điểm cần khắc phục — tiếp tục duy trì.</div>'}
+        ${r.ghiChu ? `<div class="nx-gc"><b>Ghi chú quản lý:</b> ${esc(r.ghiChu)}</div>` : ''}
+      </div>`;
+    }).join('') || `<div class="muted" style="padding:20px">Không có ai trong bộ lọc này.</div>`;
+  }
+  $('nxLoc').addEventListener('click', e => { const b = e.target.closest('[data-nxloc]'); if (!b) return; nxLoc = b.dataset.nxloc; renderNX(); });
+  $('nxGrid').addEventListener('click', async e => {
+    const b = e.target.closest('[data-nxcopy]'); if (!b) return;
+    const ky = current(), res = tinh(ky), r = res.rows.find(x => x.maNV === b.dataset.nxcopy); if (!r) return;
+    const text = nxText(r, nhanXetThang(ky).get(r.maNV), ky);
+    try { await navigator.clipboard.writeText(text); }
+    catch (err) { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e2) {} t.remove(); }
+    b.textContent = 'Đã chép ✓'; setTimeout(() => { b.textContent = 'Sao chép'; }, 1500);
+  });
 
   // ---- Dashboard (biểu đồ SVG, rê chuột xem số)
   let tipEl = null;
@@ -358,11 +432,13 @@
         else if (x.qd > 0) { cls = tnMode !== 'qd' ? (v ? '' : 'g-off') : (x.dat ? 'g-ok' : 'g-low'); txt = v ? (tnMode === 'qd' ? num(v) : nSmart(v)) : ''; }
         else txt = x.ma && x.ma !== 'X' ? esc(x.ma) : '';
         if (x.cap) cls += ' g-cap';
+        if (x.it) cls += ' g-it';
         const t = `Ngày ${x.d}/${m} (${THU[new Date(y, m - 1, x.d).getDay()]}) · công ${nSmart(x.w)}${x.ma ? ' (mã ' + x.ma + ')' : r.coCC ? '' : ' (theo ngày có lượt)'}${x.them ? ' — quét vào ngày nghỉ, tính thêm công' : ''}`
           + (x.kd ? `\nKho ${nSmart(x.k)}: tạo kiện ${nSmart(x.kd[0])} · bốc ${nSmart(x.kd[1])} · đóng ${nSmart(x.kd[2])}` : '')
           + (x.sd ? `\nSàn ${nSmart(x.s)}: bốc ${nSmart(x.sd[0])} · đóng ${nSmart(x.sd[1])} (= ${nSmart(x.s * res.heSoSan)} quy đổi)` : '')
           + (x.qd ? `\nQuy đổi ${nSmart(x.qd)} / định mức ${nSmart(cfg.dmNgay * x.w)} · quét ${hm(x.dau)}–${hm(x.cuoi)}` : '')
-          + (x.cap ? '\nNgày đóng cặp: lượt đã chia đôi' : '');
+          + (x.cap ? '\nNgày đóng cặp: lượt đã chia đôi' : '')
+          + (x.it ? '\nNgày ít đơn của cả tổ — không tính vào Ổn định / Chuyên cần' : '');
         return `<td class="dd ${cls}" title="${esc(t)}">${txt}</td>`;
       }).join('');
       const tong = tnMode === 'qd' ? r.qd : tnMode === 'k' ? r.kho : r.san;
@@ -439,6 +515,485 @@
     touchCfg(); renderAll();
   });
 
+  // ---- Đóng cặp (giống trang Thưởng kho: nhập nhanh từ ghi chú chữ / ảnh, thêm từng cặp, sửa / xóa).
+  // Danh sách cặp dùng chung cho mọi tháng (dongCap.list); cặp của Thưởng kho / sàn chỉ đọc, bấm "Không dùng" để bỏ.
+  const BUOI = { '': 'Cả ngày', sang: 'Sáng', chieu: 'Chiều' };
+  const vnDate = s => s ? `<span class="muted">${THU[new Date(s + 'T00:00:00').getDay()]}</span> ${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : '';
+  const ddmm = s => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '';
+  const kyNay = () => current() || (() => { const d = new Date(); return `${d.getFullYear()}-${DG.pad2(d.getMonth() + 1)}`; })();
+  function nguoiList() {
+    const mnv = mnvFor(kyNay());
+    const emps = mnv ? DG.bangMa(mnv.rows).list : [];
+    return [...emps.map(e => ({ maNV: e.maNV, hoTen: e.hoTen, ngoai: false })), ...dongCap.ngoai.map(h => ({ maNV: h.maNV, hoTen: h.hoTen, ngoai: true }))];
+  }
+  const labelOf = e => !e ? '' : e.ngoai ? `${e.hoTen} (ngoài DS)` : `${e.maNV} - ${e.hoTen}`;
+  const tenCap = u => labelOf(nguoiList().find(e => e.maNV === u)) || u;
+  const optList = () => nguoiList().map(e => ({ value: e.maNV, label: labelOf(e) }));
+
+  // ô chọn nhân viên có gõ tìm (không dấu cũng được) — y như trang Thưởng kho
+  const foldKeep = s => String(s ?? '').normalize('NFC').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
+  const lowerNFC = s => String(s ?? '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
+  const comboList = document.createElement('div');
+  comboList.className = 'tkc-list'; comboList.hidden = true; comboList.setAttribute('role', 'listbox');
+  document.body.appendChild(comboList);
+  let comboOwner = null;
+  comboList.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const d = e.target.closest('[data-i]');
+    if (d && comboOwner) comboOwner.pickIdx(Number(d.dataset.i));
+  });
+  window.addEventListener('scroll', () => { if (comboOwner) comboOwner.place(); }, true);
+  window.addEventListener('resize', () => { if (comboOwner) comboOwner.place(); });
+  function makeCombo(input, getOpts) {
+    let value = '', items = [], act = -1;
+    input.autocomplete = 'off'; input.spellcheck = false;
+    const lab = v => { const o = getOpts().find(x => x.value === v); return o ? o.label : ''; };
+    const api = {
+      onChange: null,
+      get value() { return value; },
+      set(v) { value = v && getOpts().some(o => o.value === v) ? v : ''; input.value = lab(value); input.classList.remove('bad'); },
+      setText(t) { value = ''; input.value = t || ''; input.classList.toggle('bad', !!t); },
+      refresh() { if (value && !getOpts().some(o => o.value === value)) value = ''; if (value) input.value = lab(value); },
+      pickIdx(i) { pick(items[i]); },
+      place() {
+        const r = input.getBoundingClientRect();
+        if (!r.width) { close(); return; }
+        const below = innerHeight - r.bottom;
+        comboList.style.left = r.left + 'px'; comboList.style.minWidth = r.width + 'px';
+        if (below < 220 && r.top > below) { comboList.style.top = ''; comboList.style.bottom = (innerHeight - r.top + 2) + 'px'; comboList.style.maxHeight = Math.max(120, Math.min(260, r.top - 10)) + 'px'; }
+        else { comboList.style.bottom = ''; comboList.style.top = (r.bottom + 2) + 'px'; comboList.style.maxHeight = Math.max(120, Math.min(260, below - 10)) + 'px'; }
+      },
+    };
+    function draw() {
+      comboList.innerHTML = items.length
+        ? items.map((o, i) => `<div data-i="${i}" role="option" class="${i === act ? 'act' : ''}${o.value === value ? ' cur' : ''}">${esc(o.label)}</div>`).join('')
+        : '<div class="none">Không thấy tên nào khớp</div>';
+      const a = comboList.children[act];
+      if (a) { const t = a.offsetTop, b = t + a.offsetHeight; if (t < comboList.scrollTop) comboList.scrollTop = t; else if (b > comboList.scrollTop + comboList.clientHeight) comboList.scrollTop = b - comboList.clientHeight; }
+    }
+    function open() {
+      const all = getOpts(), q = fold(input.value);
+      const showAll = !q || (value && input.value === lab(value));
+      const words = q.split(' ');
+      items = showAll ? all : all.filter(o => { const k = fold(o.label); return words.every(w => k.includes(w)); });
+      act = items.findIndex(o => o.value === value);
+      if (act < 0 && !showAll && items.length) act = 0;
+      comboOwner = api; comboList.hidden = false; comboList.scrollTop = 0; draw(); api.place();
+    }
+    function close() { if (comboOwner === api) { comboList.hidden = true; comboOwner = null; } }
+    function pick(o) {
+      if (!o) return;
+      value = o.value; input.value = o.label; input.classList.remove('bad'); close();
+      if (api.onChange) api.onChange(value);
+    }
+    input.addEventListener('focus', () => { setTimeout(() => input.select(), 0); open(); });
+    input.addEventListener('click', () => { if (comboOwner !== api) open(); });
+    input.addEventListener('input', () => { const had = value; value = ''; input.classList.remove('bad'); open(); if (had && api.onChange) api.onChange(''); });
+    input.addEventListener('keydown', e => {
+      const isOpen = comboOwner === api;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!isOpen) { open(); return; }
+        if (!items.length) return;
+        const dn = e.key === 'ArrowDown';
+        act = act < 0 ? (dn ? 0 : items.length - 1) : (act + (dn ? 1 : -1) + items.length) % items.length;
+        draw();
+      } else if (e.key === 'Enter') { if (isOpen && items[act]) { e.preventDefault(); pick(items[act]); } }
+      else if (e.key === 'Escape') { if (isOpen) { e.preventDefault(); close(); } }
+    });
+    input.addEventListener('blur', () => {
+      if (!value && input.value.trim() && comboOwner === api && items.length === 1) pick(items[0]);
+      close();
+      input.classList.toggle('bad', !value && !!input.value.trim());
+    });
+    return api;
+  }
+  const cAdj1 = makeCombo($('adj1'), optList), cAdj2 = makeCombo($('adj2'), optList);
+
+  // nhận cặp + khoảng ngày + buổi từ ghi chú (cùng cách đọc với trang Thưởng kho)
+  const DATE_RE = /(?<![\d\/.])(\d{1,2})\s*[\/.]\s*(\d{1,2})(?:\s*[\/.]\s*(\d{4}|\d{2}))?(?!\d)/g;
+  const JOIN_RE = /\s*[+&＋†]\s*|\s+(?:và|với|cùng|va|voi)\s+/iu;
+  const STOPW = new Set(['từ', 'ngày', 'đến', 'tới', 'đóng', 'bốc', 'hàng', 'cặp', 'gồm', 'là', 'tuần', 'tháng', 'đợt', 'buổi', 'ca', 'sáng', 'chiều']);
+  const buoiOf = line => {
+    const s = line.normalize('NFC').toLowerCase();
+    const sa = /(^|[^\p{L}])sáng(?!\p{L})/u.test(s), ch = /(^|[^\p{L}])chiều(?!\p{L})/u.test(s);
+    return sa && ch ? '' : sa ? 'sang' : ch ? 'chieu' : null;
+  };
+  const HONOR = /^(?:chị|chi|c|anh|a|em|e|cô|co|chú|chu|bạn|ban|bà|ông|bé|mr|ms|mrs)\s+(?=\S)/iu;
+  const isoD = (y, m, d) => `${y}-${DG.pad2(m)}-${DG.pad2(d)}`;
+  const okDate = (y, m, d) => { const t = new Date(y, m - 1, d); return t.getFullYear() === y && t.getMonth() === m - 1 && t.getDate() === d; };
+  function takeRange(line, year, qNum) {
+    const ms = [...line.matchAll(DATE_RE)];
+    if (!ms.length) return null;
+    const part = m => ({ d: +m[1], mo: +m[2], y: m[3] ? (m[3].length === 2 ? 2000 + +m[3] : +m[3]) : 0 });
+    let a, b, start, end;
+    if (ms.length >= 2) { a = part(ms[0]); b = part(ms[1]); start = ms[0].index; end = ms[1].index + ms[1][0].length; }
+    else {
+      b = part(ms[0]); start = ms[0].index; end = start + ms[0][0].length;
+      const pre = line.slice(0, start), pm = pre.match(/(\d{1,2})\s*(?:-|–|—|~|→|->|đến|tới|den|toi)\s*$/iu);
+      if (pm && !/[\d\/.]$/.test(pre.slice(0, pm.index))) { const d1 = +pm[1]; a = { d: d1, mo: d1 <= b.d ? b.mo : (b.mo === 1 ? 12 : b.mo - 1), y: 0 }; start = pm.index; }
+      else a = { ...b };
+    }
+    if (!a.y && !b.y) { a.y = b.y = year; if (a.mo > b.mo) { if (qNum >= 3) b.y = year + 1; else a.y = year - 1; } }
+    else if (!b.y) b.y = a.mo > b.mo ? a.y + 1 : a.y;
+    else if (!a.y) a.y = a.mo > b.mo ? b.y - 1 : b.y;
+    if (!okDate(a.y, a.mo, a.d) || !okDate(b.y, b.mo, b.d)) return null;
+    return { from: isoD(a.y, a.mo, a.d), to: isoD(b.y, b.mo, b.d), rest: line.slice(0, start) + ' ' + line.slice(end) };
+  }
+  function cleanName(p) {
+    const w = p.normalize('NFC').replace(/[^\p{L}\s]/gu, ' ').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+    while (w.length && STOPW.has(w[0].toLowerCase())) w.shift();
+    while (w.length && STOPW.has(w[w.length - 1].toLowerCase())) w.pop();
+    return w.join(' ');
+  }
+  function pairsInLine(line) {
+    const pairs = [], bad = [];
+    const f = foldKeep(line), cuts = [0];
+    for (const m of f.matchAll(/cap\s*\d/g)) if (m.index > 0) cuts.push(m.index);
+    const pieces = cuts.map((c, i) => line.slice(c, cuts[i + 1])).flatMap(p => p.split(';'));
+    pieces.forEach(piece => {
+      let s = piece.replace(/[()[\]{}"“”‘’:|]/g, ' ').replace(/^[\s\-–—•*·>]+/, '');
+      const pre = foldKeep(s).match(/^\s*cap(?![a-z])\s*(?:so\s*)?\d*\s*[.)\-]?\s*/);
+      if (pre) s = s.slice(pre[0].length);
+      s = s.replace(/^\s*\d{1,2}\s*[.)\-]\s+/, '');
+      if (!JOIN_RE.test(s)) return;
+      s.split(',').filter(x => JOIN_RE.test(x)).forEach(sub => {
+        const parts = sub.split(JOIN_RE).map(cleanName).filter(Boolean);
+        if (parts.length === 2) pairs.push(parts);
+        else if (parts.length > 2) bad.push(sub.trim());
+      });
+    });
+    return { pairs, bad };
+  }
+  function parseNote(text, year, qNum) {
+    const rows = [], bad = [];
+    let range = null, lastRange = null, curBuoi = '';
+    String(text || '').normalize('NFC').split(/\r?\n/).forEach(raw => {
+      let line = raw.trim(); if (!line) return;
+      const r = takeRange(line, year, qNum), b = buoiOf(line);
+      if (r) { line = r.rest; lastRange = r; }
+      const found = pairsInLine(line), rg = r || range;
+      found.pairs.forEach(([n1, n2]) => rows.push({ n1, n2, from: rg ? rg.from : '', to: rg ? rg.to : '', buoi: b !== null ? b : curBuoi, src: raw.trim() }));
+      bad.push(...found.bad);
+      if (!found.pairs.length) {
+        if (r) { range = r; curBuoi = b || ''; }
+        else if (b !== null) curBuoi = b;
+      }
+    });
+    if (lastRange) rows.forEach(x => { if (!x.from) { x.from = lastRange.from; x.to = lastRange.to; } });
+    return { rows, bad };
+  }
+  function lev(a, b) {
+    const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[a.length][b.length];
+  }
+  // Tên ngắn trong ghi chú ("Thu Hằng") khớp phần cuối họ tên đầy đủ ("Trần Xuân Thu Hằng").
+  function nameHits(q, opts, mode) {
+    const nm = mode === 'exact' ? lowerNFC : fold;
+    const qw = nm(q).split(' ').filter(Boolean);
+    if (!qw.length) return [];
+    if (mode === 'fuzzy' && qw.length < 2) return [];
+    const near = (x, y) => x === y || (mode === 'fuzzy' && Math.min(x.length, y.length) >= 3 && lev(x, y) <= 1);
+    const fits = (w, s) => qw.every((x, i) => near(x, w[s + i])) && (mode !== 'fuzzy' || qw.some((x, i) => x === w[s + i]));
+    const L = opts.map(o => ({ o, w: nm(o.name).split(' ') }));
+    const tail = L.filter(({ w }) => w.length >= qw.length && fits(w, w.length - qw.length));
+    if (tail.length) return tail.map(t => t.o);
+    return L.filter(({ w }) => { for (let s = 0; s + qw.length <= w.length; s++) if (fits(w, s)) return true; return false; }).map(t => t.o);
+  }
+  function matchName(text, opts) {
+    const t = text.trim();
+    const code = opts.filter(o => lowerNFC(o.value) === lowerNFC(t));
+    if (code.length === 1) return { hits: code, mode: 'exact', query: t };
+    const variants = [t], st = t.replace(HONOR, '').trim();
+    if (st && st !== t) variants.push(st);
+    for (const mode of ['exact', 'fold', 'fuzzy']) for (const v of variants) { const hits = nameHits(v, opts, mode); if (hits.length) return { hits, mode, query: v }; }
+    return { hits: [], mode: '', query: variants[variants.length - 1] };
+  }
+  // nhiều người cùng tên ngắn ("Huyền") → ưu tiên người có lượt quét trong tháng đang xem
+  function autoPick(m, active) {
+    if (m.hits.length === 1) return m.hits[0].value;
+    const a = m.hits.filter(h => active.has(h.value));
+    return a.length === 1 ? a[0].value : '';
+  }
+  const thangGiua = (from, to) => { const out = []; let [y, m] = from.split('-').map(Number); const [y2, m2] = to.split('-').map(Number); while (y < y2 || (y === y2 && m <= m2)) { out.push(`${y}-${DG.pad2(m)}`); m++; if (m > 12) { m = 1; y++; } if (out.length > 24) break; } return out; };
+  const toAdj = r => ({ maNV1: r.v1, maNV2: r.v2, dateFrom: r.from, dateTo: r.to, buoi: r.buoi || '' });
+
+  let qRows = [], qTimer = null;
+  function qCheck(r) {
+    if (!r.v1 || !r.v2) return { level: 'no', text: 'Chưa chọn đủ 2 người' };
+    if (r.v1 === r.v2) return { level: 'no', text: 'Hai người trùng nhau' };
+    if (!r.from || !r.to) return { level: 'no', text: 'Thiếu ngày' };
+    if (r.from > r.to) return { level: 'no', text: '"Từ ngày" sau "Đến ngày"' };
+    const ad = toAdj(r);
+    if (dongCap.list.some(a => sameCap(a, ad) && (a.ap || 'kho') === r.ap)) return { level: 'no', text: 'Đã có trong danh sách bên dưới' };
+    const kind = r.ap === 'san' ? 'ts' : 'tk';
+    if (r.ap !== 'ca' && capOf(r.from.slice(0, 7), kind).some(a => sameCap(a, ad))) return { level: 'no', text: `Đã khai ở trang ${kind === 'tk' ? 'Thưởng kho' : 'Thưởng sàn'} (đã được tính)` };
+    const notes = [];
+    if ([1, 2].some(k => r['m' + k].mode === 'fuzzy' && r['m' + k].hits.some(h => h.value === r['v' + k]))) notes.push('kiểm tra lại tên đoán gần đúng');
+    const thieu = thangGiua(r.from.slice(0, 7), r.to.slice(0, 7)).filter(k => !archive[k]);
+    if (thieu.length) notes.push(`chưa nạp file ${thieu.map(k => DG.kyLabel(k).replace('Tháng ', 'T')).join(', ')} — vẫn lưu, nạp file sau tự áp dụng`);
+    return { level: notes.length ? 'warn' : 'ok', text: '✓ Sẵn sàng' + (notes.length ? ' · ' + notes.join(' · ') : '') };
+  }
+  function qHint(r, k) {
+    const m = r['m' + k], v = r['v' + k];
+    if (v) return m.mode === 'fuzzy' && m.hits.length === 1 && m.hits[0].value === v ? `Đoán gần đúng từ “${esc(m.query)}” — kiểm tra lại` : m.hits.length > 1 ? `Chọn người có lượt trong tháng (${m.hits.length} người tên “${esc(m.query)}”) — kiểm tra lại` : '';
+    if (m.hits.length > 1) return `${m.hits.length} người khớp “${esc(m.query)}” — bấm vào ô để chọn đúng người`;
+    if (m.query) return `Không thấy “${esc(m.query)}” trong danh sách<button type="button" data-qhelper="${r.key}|${k}">+ Thêm làm người ngoài DS</button>`;
+    return '';
+  }
+  function qStatus(i) {
+    const r = qRows[i], tr = $('qBody').children[i];
+    if (!r || !tr) return;
+    const st = qCheck(r);
+    if (r.lastLevel !== undefined && (r.lastLevel === 'no') !== (st.level === 'no')) r.include = st.level !== 'no';
+    if (r.lastLevel === undefined) r.include = st.level !== 'no';
+    r.lastLevel = st.level;
+    tr.querySelector('[data-qk=inc]').checked = r.include;
+    const s = tr.querySelector('[data-qs]'); s.className = 'qst ' + st.level; s.textContent = st.text;
+    [1, 2].forEach(k => { tr.querySelector(`[data-qh="${k}"]`).innerHTML = qHint(r, k); });
+  }
+  const sel3 = (obj, cur, k) => `<select data-qk="${k}">${Object.entries(obj).map(([v, l]) => `<option value="${v}"${v === (cur || '') ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+  function renderQuick() {
+    $('qPrev').hidden = !qRows.length;
+    $('qBody').innerHTML = qRows.map((r, i) => `<tr data-qi="${i}">
+      <td><input type="checkbox" data-qk="inc" aria-label="Thêm dòng này"></td>
+      <td><span class="tk-combo"><input type="text" data-qk="n1" placeholder="Gõ tên để tìm…"></span><div class="qhint" data-qh="1"></div></td>
+      <td><span class="tk-combo"><input type="text" data-qk="n2" placeholder="Gõ tên để tìm…"></span><div class="qhint" data-qh="2"></div></td>
+      <td><input type="date" data-qk="from" value="${r.from}"></td>
+      <td><input type="date" data-qk="to" value="${r.to}"></td>
+      <td>${sel3(BUOI, r.buoi, 'buoi')}</td><td>${sel3(AP, r.ap, 'ap')}</td>
+      <td><div class="qst" data-qs></div><div class="qsrc">${esc(r.src)}</div></td></tr>`).join('');
+    qRows.forEach((r, i) => {
+      const tr = $('qBody').children[i];
+      [1, 2].forEach(k => {
+        const c = makeCombo(tr.querySelector(`[data-qk=n${k}]`), optList);
+        if (r['v' + k]) c.set(r['v' + k]); else c.setText(r['m' + k].query);
+        c.onChange = v => { r['v' + k] = v; qStatus(qRows.indexOf(r)); };
+      });
+      qStatus(i);
+    });
+  }
+  const qInfo = text => { $('qMsg').innerHTML = `<div class="tk-okmsg" style="background:#eff6ff;color:#1e40af">${esc(text)}</div>`; };
+  function qParse() {
+    const [y, m] = kyNay().split('-').map(Number);
+    const { rows, bad } = parseNote($('qText').value, y, Math.ceil(m / 3));
+    const opts = nguoiList().map(e => ({ value: e.maNV, name: e.hoTen }));
+    const res = tinh(current()), active = new Set(res && !res.loi ? res.tatCa.map(x => x.maNV) : []);
+    qRows = rows.map((r, i) => {
+      const m1 = matchName(r.n1, opts), m2 = matchName(r.n2, opts);
+      return { ...r, key: i, m1, m2, v1: autoPick(m1, active), v2: autoPick(m2, active), ap: 'kho', include: true };
+    });
+    renderQuick();
+    const txt = $('qText').value.trim();
+    const badNote = bad.length ? ` Dòng có hơn 2 người chưa tách được: ${bad.map(b => `“${esc(b)}”`).join(', ')}.` : '';
+    if (txt && !qRows.length) msg($('qMsg'), 'Chưa nhận ra cặp nào — mỗi cặp ghi dạng “Tên + Tên”, khoảng ngày ghi kiểu “từ 6/10 đến 11/10”.' + badNote);
+    else if (txt && !qRows.some(r => r.from)) msg($('qMsg'), `Nhận ra ${qRows.length} cặp nhưng chưa thấy khoảng ngày (ví dụ “từ 6/10 đến 11/10”) — điền ngày trong bảng dưới.` + badNote);
+    else msg($('qMsg'), badNote.trim());
+  }
+  function resetThumb() {
+    const im = $('qThumb');
+    if (im.src) URL.revokeObjectURL(im.src);
+    im.removeAttribute('src'); im.hidden = true; $('qDropTxt').hidden = false;
+  }
+  // Đọc chữ trong ảnh ngay trên trình duyệt (Tesseract.js, tiếng Việt) — ảnh không gửi đi đâu.
+  const TESS_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+  let tessLoad = null, ocrWorker = null, ocrBusy = false;
+  const loadScript = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => bad(new Error('không tải được bộ đọc chữ — kiểm tra kết nối mạng')); document.head.appendChild(s); });
+  async function getOcr() {
+    if (!window.Tesseract) { tessLoad = tessLoad || loadScript(TESS_URL).catch(e => { tessLoad = null; throw e; }); await tessLoad; }
+    if (!ocrWorker) {
+      ocrWorker = Tesseract.createWorker('vie', 1, { logger: m => { if (m.status === 'recognizing text' && ocrBusy) qInfo(`Đang đọc chữ trong ảnh… ${Math.round((m.progress || 0) * 100)}%`); } })
+        .catch(e => { ocrWorker = null; throw e; });
+    }
+    return ocrWorker;
+  }
+  const loadImg = url => new Promise((ok, bad) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => bad(new Error('file không phải ảnh')); im.src = url; });
+  async function prepImage(url) {
+    const im = await loadImg(url);
+    const sc = Math.max(1, Math.min(4, 1600 / im.naturalWidth));
+    const c = document.createElement('canvas');
+    c.width = Math.round(im.naturalWidth * sc); c.height = Math.round(im.naturalHeight * sc);
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+    g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, c.width, c.height);
+    const d = g.getImageData(0, 0, c.width, c.height), p = d.data;
+    let sum = 0;
+    for (let i = 0; i < p.length; i += 4) { const v = 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2]; p[i] = v; sum += v; }
+    const dark = sum / (p.length / 4) < 110;
+    for (let i = 0; i < p.length; i += 4) { let v = dark ? 255 - p[i] : p[i]; if (v > 200) v = 255; p[i] = p[i + 1] = p[i + 2] = v; }
+    g.putImageData(d, 0, 0);
+    return c;
+  }
+  async function readImage(file) {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { msg($('qMsg'), 'Chỉ nhận file ảnh (PNG, JPG…).'); return; }
+    if (ocrBusy) return;
+    ocrBusy = true;
+    resetThumb();
+    const url = URL.createObjectURL(file);
+    $('qThumb').src = url; $('qThumb').hidden = false; $('qDropTxt').hidden = true;
+    qInfo(window.Tesseract ? 'Đang đọc chữ trong ảnh…' : 'Đang tải bộ đọc chữ tiếng Việt (chỉ lần đầu, khoảng 5–15 giây)…');
+    try {
+      const [w, img] = await Promise.all([getOcr(), prepImage(url)]);
+      qInfo('Đang đọc chữ trong ảnh…');
+      const { data } = await w.recognize(img);
+      const text = String(data.text || '').normalize('NFC').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
+      if (!text) throw new Error('không thấy chữ nào trong ảnh');
+      $('qText').value = text;
+      ocrBusy = false;
+      qParse();
+      if (qRows.length) msg($('qMsg'), `Đã đọc ảnh: nhận ra <b>${qRows.length}</b> cặp. Chữ đọc được nằm ở ô bên phải — nếu đọc sai thì sửa ở đó, bảng dưới tự cập nhật. Kiểm tra lại rồi bấm “Thêm các cặp đã đánh dấu”.`, true);
+    } catch (e) {
+      msg($('qMsg'), 'Không đọc được ảnh: ' + esc(e.message || String(e)) + '. Bạn có thể gõ/dán chữ vào ô bên phải.');
+    } finally { ocrBusy = false; }
+  }
+  const qBox = root.querySelector('.tk-quick'), qDrop = $('qDrop');
+  qDrop.addEventListener('click', () => $('qFile').click());
+  qDrop.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('qFile').click(); } });
+  $('qFile').addEventListener('change', () => { readImage($('qFile').files[0]); $('qFile').value = ''; });
+  ['dragenter', 'dragover'].forEach(ev => qBox.addEventListener(ev, e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); qDrop.classList.add('drag'); } }));
+  qBox.addEventListener('dragleave', e => { if (!qBox.contains(e.relatedTarget)) qDrop.classList.remove('drag'); });
+  qBox.addEventListener('drop', e => {
+    const f = [...e.dataTransfer.files].find(x => /^image\//.test(x.type));
+    qDrop.classList.remove('drag');
+    if (e.dataTransfer.files.length) { e.preventDefault(); if (f) readImage(f); else msg($('qMsg'), 'Chỉ nhận file ảnh (PNG, JPG…).'); }
+  });
+  document.addEventListener('paste', e => {
+    if (tab() !== 'dong-cap' || !e.clipboardData) return;
+    const cd = e.clipboardData, txt = cd.getData('text/plain') || '';
+    const inField = e.target && e.target.closest && e.target.closest('input, textarea, [contenteditable]');
+    if (inField && txt) return;
+    const f = [...(cd.files || [])].find(x => /^image\//.test(x.type));
+    if (f) { e.preventDefault(); readImage(f); return; }
+    if (!inField && txt.trim()) { e.preventDefault(); $('qText').value = txt; qParse(); }
+  });
+  $('qText').addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(qParse, 300); });
+  $('qBody').addEventListener('change', e => {
+    const tr = e.target.closest('[data-qi]'); if (!tr) return;
+    const i = Number(tr.dataset.qi), r = qRows[i], k = e.target.dataset.qk; if (!r) return;
+    if (k === 'inc') r.include = e.target.checked;
+    else if (k === 'from' || k === 'to' || k === 'buoi' || k === 'ap') { r[k] = e.target.value; qStatus(i); }
+  });
+  function themNgoai(name) {
+    const h = { maNV: `__extra_${Date.now()}__`, hoTen: name };
+    dongCap.ngoai = [...dongCap.ngoai, h]; touchCap();
+    return h;
+  }
+  $('qBody').addEventListener('click', e => {
+    const b = e.target.closest('[data-qhelper]'); if (!b) return;
+    const [key, k] = b.dataset.qhelper.split('|').map(Number), r = qRows.find(x => x.key === key); if (!r) return;
+    const name = r['m' + k].query.replace(HONOR, '').trim().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    const h = themNgoai(name);
+    r['v' + k] = h.maNV; r['m' + k] = { hits: [{ value: h.maNV, name }], mode: 'exact', query: name };
+    renderAll(); renderQuick();
+  });
+  $('qAdd').addEventListener('click', () => {
+    const ok = qRows.filter(r => r.include && qCheck(r).level !== 'no');
+    if (!ok.length) { msg($('qMsg'), 'Chưa có dòng nào hợp lệ được đánh dấu.'); return; }
+    const base = Date.now();
+    dongCap.list = [...dongCap.list, ...ok.map((r, i) => ({ id: base + i, maNV1: r.v1, maNV2: r.v2, dateFrom: r.from, dateTo: r.to, ...(r.buoi ? { buoi: r.buoi } : {}), ap: r.ap || 'kho' }))];
+    touchCap();
+    qRows = qRows.filter(r => !ok.includes(r));
+    if (!qRows.length) { $('qText').value = ''; resetThumb(); }
+    renderQuick(); renderAll();
+    msg($('qMsg'), `Đã thêm <b>${ok.length}</b> cặp (xem bảng bên dưới) — bảng đánh giá đã tính lại.` + (qRows.length ? ` Còn ${qRows.length} dòng chưa thêm — sửa rồi bấm Thêm lần nữa.` : ''), true);
+  });
+  $('qClear').addEventListener('click', () => { qRows = []; $('qText').value = ''; resetThumb(); msg($('qMsg'), ''); renderQuick(); });
+
+  $('adjAdd').addEventListener('click', () => {
+    const a1 = cAdj1.value, a2 = cAdj2.value, f = $('adjFrom').value, t = $('adjTo').value || f, b = $('adjBuoi').value, ap = $('adjAp').value;
+    if (!a1 || !a2 || !f) { msg($('adjMsg'), 'Chọn đủ 2 người (gõ tên rồi bấm chọn trong danh sách) và ngày.'); return; }
+    if (a1 === a2) { msg($('adjMsg'), 'Hai người phải khác nhau.'); return; }
+    if (f > t) { msg($('adjMsg'), '"Từ ngày" phải trước "Đến ngày".'); return; }
+    const ad = { maNV1: a1, maNV2: a2, dateFrom: f, dateTo: t, buoi: b };
+    if (dongCap.list.some(a => sameCap(a, ad) && (a.ap || 'kho') === ap)) { msg($('adjMsg'), 'Cặp này đã có trong danh sách.'); return; }
+    dongCap.list = [...dongCap.list, { id: Date.now(), maNV1: a1, maNV2: a2, dateFrom: f, dateTo: t, ...(b ? { buoi: b } : {}), ap }];
+    touchCap(); msg($('adjMsg'), ''); cAdj1.set(''); cAdj2.set(''); ['adjFrom', 'adjTo', 'adjBuoi'].forEach(id => { $(id).value = ''; }); $('adjAp').value = 'kho';
+    renderAll();
+  });
+  $('helperAdd').addEventListener('click', () => { const name = $('helperName').value.trim(); if (!name) return; themNgoai(name); $('helperName').value = ''; renderAll(); });
+  $('capAll').addEventListener('change', () => renderCap());
+
+  // gộp ngày liên tiếp: [6,7,8,10] → "6–8, 10"
+  const gopNgay = ds => { const a = [...ds].sort((x, y) => x - y), out = []; for (let i = 0; i < a.length; i++) { let j = i; while (j + 1 < a.length && a[j + 1] === a[j] + 1) j++; out.push(j > i ? `${a[i]}–${a[j]}` : `${a[i]}`); i = j; } return out.join(', '); };
+  let editId = null, eC1 = null, eC2 = null;
+  function renderCap() {
+    const ky = current(), all = $('capAll').checked;
+    cAdj1.refresh(); cAdj2.refresh();
+    qRows.forEach((r, i) => qStatus(i));
+    const res = ky ? tinh(ky) : null, info = res && !res.loi ? (res.capInfo || {}) : {}, mo = ky ? Number(ky.slice(5)) : 0;
+    const ownAll = dongCap.list.map(a => ({ ...a, key: 'own:' + a.id, nguon: 'own', ap: a.ap || 'kho', dung: true }));
+    const cl = ky ? capList(ky) : [];
+    const rows = (all ? [...ownAll, ...cl.filter(a => a.nguon !== 'own')] : (ky ? cl : ownAll))
+      .sort((x, y) => x.dateFrom.localeCompare(y.dateFrom) || x.dateTo.localeCompare(y.dateTo) || tenCap(x.maNV1).localeCompare(tenCap(y.maNV1), 'vi') || (x.buoi || '').localeCompare(y.buoi || ''));
+    if (editId !== null && !rows.some(a => a.key === editId)) editId = null;
+    $('capTitle').textContent = all || !ky ? `Tất cả các cặp (${rows.length})` : `Các cặp có ngày trong ${DG.kyLabel(ky)} (${rows.length})`;
+    const kq = a => {
+      if (!a.dung) return '<span class="muted">Không dùng</span>';
+      if (!ky || !giaoThang(a, ky)) return '<span class="muted">Ngoài tháng đang xem</span>';
+      if (caiDat.dungCap === false) return '<span class="muted">Đang tắt chia đôi (mục Tiêu chí)</span>';
+      if (!res || res.loi) return '<span class="muted">Chưa có dữ liệu tháng này</span>';
+      const i = info[a.key]; if (!i) return '–';
+      let t = i.chia.length ? `Chia đôi ${i.chia.length} ngày (${gopNgay(i.chia)}/${mo})` : '<span style="color:#b45309">Không chia ngày nào</span>';
+      if (i.bo.length) t += ` · <span style="color:#b45309">không chia ${i.bo.map(([d, l]) => `${d}/${mo} (${esc(l)})`).join(', ')}</span>`;
+      if (i.nua.length) t += ` · chỉ chia ${i.nua.map(([d, h, l]) => `buổi ${h === 's' ? 'sáng' : 'chiều'} ${d}/${mo}${l ? ` (${esc(l)})` : ''}`).join(', ')}`;
+      return t;
+    };
+    const monthOf = s => s.slice(0, 7);
+    const weekOf = s => { const t = new Date(s + 'T00:00:00'); t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); return t.toDateString(); };
+    const perMonth = {}; rows.forEach(a => { perMonth[monthOf(a.dateFrom)] = (perMonth[monthOf(a.dateFrom)] || 0) + 1; });
+    let prevMonth = '', prevWeek = '';
+    $('adjList').innerHTML = rows.length ? rows.map(a => {
+      let head = '', wk = '';
+      const mk = monthOf(a.dateFrom);
+      if (mk !== prevMonth) { head = `<tr class="grp"><td colspan="8">${DG.kyLabel(mk)} <span>· ${perMonth[mk]} cặp bắt đầu trong tháng</span></td></tr>`; prevMonth = mk; prevWeek = weekOf(a.dateFrom); }
+      else if (weekOf(a.dateFrom) !== prevWeek) { wk = 'wk'; prevWeek = weekOf(a.dateFrom); }
+      if (a.key === editId) {
+        const opt = (obj, cur) => Object.entries(obj).map(([v, l]) => `<option value="${v}"${v === (cur || '') ? ' selected' : ''}>${l}</option>`).join('');
+        return head + `<tr class="${wk}"><td><span class="tk-combo"><input type="text" id="eAdj1" placeholder="Gõ tên để tìm…"></span></td><td><span class="tk-combo"><input type="text" id="eAdj2" placeholder="Gõ tên để tìm…"></span></td>`
+          + `<td><input type="date" id="eFrom" value="${a.dateFrom}"></td><td><input type="date" id="eTo" value="${a.dateTo}"></td><td><select id="eBuoi">${opt(BUOI, a.buoi)}</select></td><td><select id="eAp">${opt(AP, a.ap)}</select></td><td></td>`
+          + `<td style="white-space:nowrap"><button type="button" class="b ok xs" data-csave="${esc(a.key)}">Lưu</button> <button type="button" class="b xs" data-ccancel="1">Hủy</button></td></tr>`;
+      }
+      const src = a.nguon === 'own' ? '' : `<span class="chip src" title="Khai ở trang ${a.nguon === 'tk' ? 'Thưởng kho' : 'Thưởng sàn'} — sửa ở trang đó">${a.nguon === 'tk' ? 'Thưởng kho' : 'Thưởng sàn'}</span>`;
+      const btn = a.nguon === 'own'
+        ? `<button type="button" class="b xs" data-cedit="${esc(a.key)}">Sửa</button> <button type="button" class="b del xs" data-crm="${esc(a.key)}">Xóa</button>`
+        : `<button type="button" class="b xs" data-cbo="${esc(a.key)}">${a.dung ? 'Không dùng' : 'Dùng lại'}</button>`;
+      return head + `<tr class="${[wk, a.dung ? '' : 'off'].join(' ').trim()}"><td>${esc(tenCap(a.maNV1))}${src}</td><td>${esc(tenCap(a.maNV2))}</td><td>${vnDate(a.dateFrom)}</td><td>${vnDate(a.dateTo)}</td>`
+        + `<td>${BUOI[a.buoi || '']}</td><td>${AP[a.ap]}</td><td class="kq">${kq(a)}</td><td style="white-space:nowrap">${btn}</td></tr>`;
+    }).join('') : emptyRow(8, ky ? `Chưa có cặp nào trong ${DG.kyLabel(ky)}.` : 'Chưa có cặp nào.');
+    if (editId !== null) {
+      const a = rows.find(x => x.key === editId);
+      eC1 = makeCombo($('eAdj1'), optList); eC1.set(a.maNV1);
+      eC2 = makeCombo($('eAdj2'), optList); eC2.set(a.maNV2);
+    }
+    $('helperList').innerHTML = dongCap.ngoai.map(h => `<span class="chip">${esc(h.hoTen)} <button type="button" data-rmh="${esc(h.maNV)}" aria-label="Bỏ">×</button></span>`).join('') || '<span class="muted">Chưa có</span>';
+  }
+  $('adjList').addEventListener('click', e => {
+    const t = e.target.closest('[data-cedit],[data-ccancel],[data-csave],[data-crm],[data-cbo]'); if (!t) return;
+    const d = t.dataset;
+    if (d.cedit) { editId = d.cedit; msg($('adjMsg'), ''); renderCap(); return; }
+    if (d.ccancel) { editId = null; renderCap(); return; }
+    if (d.cbo) { dongCap.boQua = dongCap.boQua.includes(d.cbo) ? dongCap.boQua.filter(k => k !== d.cbo) : [...dongCap.boQua, d.cbo]; touchCap(); renderAll(); return; }
+    const id = (d.csave || d.crm).replace('own:', ''), a = dongCap.list.find(x => String(x.id) === id); if (!a) return;
+    if (d.crm) { if (editId === d.crm) editId = null; dongCap.list = dongCap.list.filter(x => x !== a); touchCap(); renderAll(); return; }
+    const m1 = eC1 && eC1.value, m2 = eC2 && eC2.value, f = $('eFrom').value, to = $('eTo').value || f, b = $('eBuoi').value, ap = $('eAp').value;
+    if (!m1 || !m2 || !f) { msg($('adjMsg'), 'Chọn đủ 2 người (gõ tên rồi bấm chọn trong danh sách) và ngày.'); return; }
+    if (m1 === m2) { msg($('adjMsg'), 'Hai người phải khác nhau.'); return; }
+    if (f > to) { msg($('adjMsg'), '"Từ ngày" phải trước "Đến ngày".'); return; }
+    Object.assign(a, { maNV1: m1, maNV2: m2, dateFrom: f, dateTo: to, ap });
+    if (b) a.buoi = b; else delete a.buoi;
+    editId = null; touchCap(); renderAll();
+    msg($('adjMsg'), 'Đã lưu thay đổi — bảng đánh giá đã tính lại.', true);
+    setTimeout(() => msg($('adjMsg'), ''), 5000);
+  });
+  $('helperList').addEventListener('click', e => {
+    const b = e.target.closest('[data-rmh]'); if (!b) return;
+    if (dongCap.list.some(a => a.maNV1 === b.dataset.rmh || a.maNV2 === b.dataset.rmh)) { msg($('adjMsg'), 'Người này đang có trong cặp — xóa các cặp đó trước.'); return; }
+    dongCap.ngoai = dongCap.ngoai.filter(h => h.maNV !== b.dataset.rmh); touchCap(); renderAll();
+  });
+
   // ---- Nạp file tháng
   function renderNap() {
     $('dgPending').innerHTML = pending.map((p, pi) => {
@@ -455,10 +1010,10 @@
     }).join('') + (pending.length ? `<div class="tk-row" style="margin-top:12px"><button class="b pri" type="button" id="pSave">Lưu các tháng đã tick</button><button class="b" type="button" id="pCancel">Huỷ</button></div>` : '');
     const ks = kys().reverse();
     $('dgSaved').innerHTML = ks.map(k => {
-      const e = archive[k], sh = ccOf(k), ck = capOf(k, 'tk').filter(a => a.dateFrom <= k + '-31' && a.dateTo >= k + '-01').length, cs = capOf(k, 'ts').filter(a => a.dateFrom <= k + '-31' && a.dateTo >= k + '-01').length;
+      const e = archive[k], sh = ccOf(k), cl = capList(k).filter(a => a.dung), ck = cl.filter(a => a.nguon === 'own').length, cs = cl.length - ck;
       const src = x => x ? `${esc(x.fileName)}<br><span class="muted">${num(x.raw.luot)} lượt · nạp ${x.napLuc ? new Date(x.napLuc).toLocaleDateString('vi-VN') : ''}</span>` : '<span style="color:#b45309">chưa nạp</span>';
       return `<tr><td class="name"><a href="#bang-danh-gia" data-ky="${k}">${DG.kyLabel(k)}</a></td><td>${src(e.kho)}</td><td>${src(e.san)}</td>
-        <td>${sh ? esc(sh.ten || 'Có') : '<span class="muted">chưa có</span>'}</td><td>${ck} cặp kho · ${cs} cặp sàn</td>
+        <td>${sh ? esc(sh.ten || 'Có') : '<span class="muted">chưa có</span>'}</td><td>${ck} cặp khai ở đây${cs ? ` · ${cs} từ Thưởng kho / sàn` : ''}</td>
         <td><div class="tk-row">${e.kho ? `<button class="b xs" type="button" data-del="${k}|kho">Xóa file kho</button>` : ''}${e.san ? `<button class="b xs" type="button" data-del="${k}|san">Xóa file sàn</button>` : ''}<button class="b xs del" type="button" data-del="${k}|all">Xóa tháng</button></div></td></tr>`;
     }).join('') || emptyRow(6, 'Chưa nạp tháng nào.');
   }
@@ -584,12 +1139,12 @@
   function renderAll(skipCL) {
     memo.clear();
     renderTop(); renderStats(); renderTabs();
-    renderBang(); renderDash(); renderNgay(); renderXu();
+    renderBang(); renderNX(); renderDash(); renderNgay(); renderCap(); renderXu();
     if (!skipCL) renderCL();
     renderDS(); renderNap(); renderCfg();
   }
   $('dgChips').addEventListener('click', e => { const b = e.target.closest('[data-ky]'); if (!b) return; sel = b.dataset.ky; persistLocal(); renderAll(); });
-  $('dgSearch').addEventListener('input', e => { search = fold(e.target.value); renderBang(); renderNgay(); renderXu(); renderCL(); renderDS(); });
+  $('dgSearch').addEventListener('input', e => { search = fold(e.target.value); renderBang(); renderNX(); renderNgay(); renderXu(); renderCL(); renderDS(); });
   $('tnMode').addEventListener('click', e => { const b = e.target.closest('[data-tn]'); if (!b) return; tnMode = b.dataset.tn; renderNgay(); });
   window.addEventListener('hashchange', () => { renderTabs(); renderStats(); renderTabs(); });
 
@@ -607,7 +1162,7 @@
   const XFMT = { int: '#,##0;-#,##0;"–"', k1: '#,##0.0;-#,##0.0;"–"', d1: '#,##0.0;-#,##0.0;"–"', pct: '0%;-0%;"–"' };
   const soLe = (t, v) => (t === 'k1' && typeof v === 'number' && Number.isInteger(v)) ? 'int' : t;
   const XL_FILL = { A: ['D1FAE5', '065F46'], B: ['DBEAFE', '1E40AF'], C: ['FEF3C7', '92400E'], D: ['FEE2E2', '991B1B'] };
-  function bangDep(wb, name, { title, sub, cols, groups, rows, total, muted, to, kyTen = true }) {
+  function bangDep(wb, name, { title, sub, cols, groups, rows, total, muted, to, kyTen = true, rowH }) {
     const n = cols.length, aoa = [], merges = [], rowsH = [];
     aoa.push([title]); merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: n - 1 } }); rowsH.push({ hpt: 28 });
     aoa.push([sub]); merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: n - 1 } }); rowsH.push({ hpt: 34 });
@@ -623,7 +1178,7 @@
       aoa.push(top, bot); rowsH.push({ hpt: 22 }, { hpt: 32 });
     } else { aoa.push(cols.map(x => x.h)); cols.forEach((x, c) => { headFill[c] = fillOf(x, x.accent); }); rowsH.push({ hpt: 40 }); }
     const headRows = groups ? 2 : 1, first = aoa.length;
-    rows.forEach(row => { aoa.push(row); rowsH.push({ hpt: 21 }); });
+    rows.forEach((row, i) => { aoa.push(row); rowsH.push({ hpt: rowH ? rowH(i) : 21 }); });
     const totalRow = total ? aoa.length : -1;
     if (total) { aoa.push(total); rowsH.push({ hpt: 24 }); }
     const half = Math.ceil(n / 2);
@@ -730,6 +1285,29 @@
       to: (i, c) => c === iXL ? xlTo(i, list[i].xepLoai) : null,
       total: ['TỔNG / BÌNH QUÂN TỔ', null, null, ...(nhieuNhom ? [null] : []), r1(list.reduce((a, r) => a + r.cong, 0)), Math.round(list.reduce((a, r) => a + r.kho, 0)), Math.round(list.reduce((a, r) => a + r.san, 0)),
         r1(list.reduce((a, r) => a + r.qd, 0)), r1(res.tbTo), null, null, null, list.reduce((a, r) => a + r.soLoi, 0), null, null, null, null, null, ''],
+    });
+    // 1b) Nhận xét từng người theo tiêu chí
+    const nxMap = nhanXetThang(ky), MK_FILL = { dat: ['E7F8EF', '065F46'], chua: ['FEF6DC', '92400E'], thieu: ['FDE8E8', '991B1B'] };
+    const TC = ['ns', 'od', 'cc', 'cl'], nxCols = [S.stt, S.ma, { h: 'HỌ VÀ TÊN', t: 'name', w: 22 }, { h: 'XẾP LOẠI', t: 'xl', w: 8, accent: true }, { h: 'ĐIỂM', t: 'd1', w: 7, accent: true },
+      { h: 'NĂNG SUẤT', t: 'text', w: 30 }, { h: 'ỔN ĐỊNH', t: 'text', w: 32 }, { h: 'CHUYÊN CẦN', t: 'text', w: 28 }, { h: 'CHẤT LƯỢNG', t: 'text', w: 24 },
+      { h: 'CẦN KHẮC PHỤC', t: 'text', w: 50 }, { h: 'GHI CHÚ QUẢN LÝ', t: 'text', w: 22 }];
+    const nxRows = list.map(r => { const nx = nxMap.get(r.maNV); return [r.hang || '', r.maNV, r.hoTen, r.xepLoai, r.diem,
+      ...TC.map(m => { const t = nx.tieuChi.find(x => x.ma === m); return t ? `${mkLabel(t)}: ${t.text}` : ''; }),
+      nx.khacPhuc.length ? nx.khacPhuc.map((k, i) => `${i + 1}. ${k}`).join('\n') : 'Không có — tiếp tục duy trì.', r.ghiChu || '']; });
+    bangDep(wb, 'Nhận xét', {
+      title: `NHẬN XÉT ĐÁNH GIÁ NHÂN VIÊN KHO VẬN ${T}`,
+      sub: `Năng suất: so với TB nhóm (đạt ≥ 90%)  ·  Ổn định: ngày có công đạt ${cfg.dmNgay} lượt quy đổi (đạt ≥ 90% số ngày)  ·  Chuyên cần: ngày có công phải có lượt quét  ·  Chất lượng: lỗi ghi nhận trong tháng`,
+      groups: [{ span: 1 }, { span: 1 }, { span: 1 }, { label: 'KẾT QUẢ', span: 2, accent: true }, { label: 'NHẬN XÉT THEO TIÊU CHÍ', span: 4 }, { span: 1 }, { span: 1 }],
+      cols: nxCols, rows: nxRows,
+      muted: i => list[i].xepLoai === '—',
+      to: (i, c) => {
+        if (c === 3) return xlTo(i, list[i].xepLoai);
+        if (c >= 5 && c <= 8) { const t = nxMap.get(list[i].maNV).tieuChi.find(x => x.ma === TC[c - 5]); const f = t && MK_FILL[t.muc]; return f ? { fill: f[0], color: f[1] } : null; }
+        if (c === 9 && nxMap.get(list[i].maNV).khacPhuc.length) return { color: '92400E' };
+        return null;
+      },
+      // chiều cao dòng theo ô chữ dài nhất (ước lượng số dòng xuống hàng theo độ rộng cột)
+      rowH: i => { let n = 1; nxCols.forEach((col, c) => { if (col.t !== 'text') return; const lines = String(nxRows[i][c] || '').split('\n').reduce((a, l) => a + Math.max(1, Math.ceil(l.length / (col.w * 1.1))), 0); n = Math.max(n, lines); }); return Math.max(21, n * 14.5 + 6); },
     });
     // 2) Theo ngày: lượt quy đổi
     const n = new Date(y, m, 0).getDate(), days = Array.from({ length: n }, (_, i) => i + 1);

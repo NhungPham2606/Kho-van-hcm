@@ -73,8 +73,10 @@ window.KVH_MENU = [
     moTa: 'Đánh giá chất lượng – năng suất nhân viên kho vận mỗi tháng: thả file kho (như Thưởng kho) + file sàn (như Thưởng sàn) → lượt quy đổi / ngày công, điểm Năng suất – Ổn định – Chất lượng, xếp loại A/B/C/D, xu hướng các tháng, xuất Excel.',
     muc: [
       { ten: 'Bảng đánh giá', href: 'danh-gia/#bang-danh-gia' },
+      { ten: 'Nhận xét từng người', href: 'danh-gia/#nhan-xet' },
       { ten: 'Dashboard', href: 'danh-gia/#dashboard' },
       { ten: 'Theo ngày', href: 'danh-gia/#theo-ngay' },
+      { ten: 'Đóng cặp', href: 'danh-gia/#dong-cap' },
       { ten: 'Xu hướng các tháng', href: 'danh-gia/#xu-huong' },
       { ten: 'Chất lượng & ghi chú', href: 'danh-gia/#chat-luong' },
       { ten: 'Danh sách & nhóm', href: 'danh-gia/#danh-sach' },

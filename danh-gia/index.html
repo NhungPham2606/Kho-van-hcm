@@ -78,6 +78,7 @@
   .tk td.g-zero { background: var(--badbg); color: var(--bad); font-weight: 600; }
   .tk td.g-off { color: #d1d5db; }
   .tk td.g-cap { box-shadow: inset 0 0 0 2px #a78bfa; }
+  .tk td.g-it { background-image: repeating-linear-gradient(135deg, transparent 0 5px, rgba(15, 23, 42, .07) 5px 7px); }
   .tk .legend { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 11px; color: #6b7280; }
   .tk .legend span { display: inline-flex; align-items: center; gap: 5px; }
   .tk .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
@@ -110,7 +111,63 @@
   .tk .vtip i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
   .tk .top5 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 16px 16px; }
   .tk .top5 ol { margin: 6px 0 0; padding-left: 20px; font-size: 12px; line-height: 1.9; }
+  /* Đóng cặp — giống trang Thưởng kho */
+  .tk .tk-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px; padding: 12px; background: #f9fafb; border-radius: 8px; }
+  .tk .tk-form .f { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #6b7280; }
+  .tk select, .tk input[type=date], .tk .tk-form input[type=text], .tk #helperName { font: inherit; font-size: 12px; padding: 7px 8px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #374151; outline: none; }
+  .tk select:focus, .tk input[type=date]:focus { border-color: #1a56db; }
+  .tk .tk-combo { position: relative; display: block; }
+  .tk .tk-combo input[type=text] { width: 100%; min-width: 230px; box-sizing: border-box; padding-right: 24px; }
+  .tk .tk-combo::after { content: '\25BE'; position: absolute; right: 9px; top: 50%; transform: translateY(-50%); color: #6b7280; font-size: 11px; pointer-events: none; }
+  .tk .tk-combo input.bad { border-color: #e02424; background: #fff5f5; }
+  .tkc-list { position: fixed; z-index: 1000; max-height: 260px; overflow-y: auto; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; box-shadow: 0 8px 24px rgba(15, 23, 42, .14); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; }
+  .tkc-list div { padding: 6px 10px; color: #374151; cursor: pointer; white-space: nowrap; }
+  .tkc-list div:not(.none):hover { background: #f3f4f6; }
+  .tkc-list div.act { background: #eff6ff; color: #1a56db; }
+  .tkc-list div.cur { font-weight: 600; }
+  .tkc-list div.none { color: #9ca3af; cursor: default; }
+  .tk .tk-quick { border: 1px solid #dbeafe; background: #f8fbff; border-radius: 8px; padding: 12px; margin-bottom: 14px; }
+  .tk .tk-quick-title { font-size: 12px; font-weight: 600; color: #1f2937; margin-bottom: 8px; }
+  .tk .tk-quick-title span { font-weight: 400; color: #6b7280; }
+  .tk .tk-quick-grid { display: grid; grid-template-columns: minmax(220px, 320px) 1fr; gap: 10px; }
+  .tk .tk-qdrop { border: 2px dashed #c7d2fe; border-radius: 8px; background: #fff; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; min-height: 120px; cursor: pointer; font-size: 12px; color: #6b7280; line-height: 1.6; outline: none; }
+  .tk .tk-qdrop:hover, .tk .tk-qdrop.drag, .tk .tk-qdrop:focus { border-color: #1a56db; background: #eff6ff; }
+  .tk .tk-qdrop img { max-width: 100%; max-height: 180px; border-radius: 4px; display: block; }
+  .tk .tk-quick textarea { font: inherit; font-size: 12px; line-height: 1.6; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; resize: vertical; min-height: 120px; color: #374151; outline: none; box-sizing: border-box; width: 100%; }
+  .tk .tk-quick textarea:focus { border-color: #1a56db; }
+  .tk .tk-quick table.dt td { white-space: normal; vertical-align: top; }
+  .tk .tk-quick table.dt tbody tr:hover td { background: transparent; }
+  .tk .qhint { font-size: 11px; color: #b45309; margin-top: 3px; }
+  .tk .qhint button { font: inherit; font-size: 11px; border: 1px solid #d1d5db; background: #fff; color: #1a56db; border-radius: 4px; padding: 1px 6px; cursor: pointer; margin-left: 4px; }
+  .tk .qst { font-size: 11px; line-height: 1.5; min-width: 130px; }
+  .tk .qst.ok { color: #065f46; } .tk .qst.warn { color: #b45309; } .tk .qst.no { color: #991b1b; }
+  .tk .qsrc { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+  .tk table.dt tr.grp td { background: #eff6ff; color: #1e40af; font-weight: 700; font-size: 12px; padding: 7px 10px; border-top: 8px solid #fff; }
+  .tk table.dt tr.grp td span { font-weight: 400; color: #6b7280; }
+  .tk table.dt tbody tr.grp:hover td { background: #eff6ff; }
+  .tk table.dt tr.wk td { border-top: 2px solid #d1d5db; }
+  .tk table.dt tr.off td { color: #9ca3af; }
+  .tk table.dt td.kq { white-space: normal; font-size: 11px; color: #4b5563; min-width: 180px; max-width: 360px; line-height: 1.5; }
+  .tk .chip.src { background: #fef3c7; color: #92400e; }
+  .tk .chip button { border: 0; background: none; color: #991b1b; font-weight: 700; cursor: pointer; padding: 0; }
   @media (max-width: 900px) { .tk .tw { max-height: none; } .tk .viz, .tk .top5 { grid-template-columns: 1fr; } }
+  /* Nhận xét từng người */
+  .tk .nx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(480px, 1fr)); gap: 12px; padding: 12px 16px 16px; }
+  .tk .nx-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; background: #fff; }
+  .tk .nx-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .tk .nx-head .nm { font-size: 14px; font-weight: 700; color: #1f2937; }
+  .tk .nx-head .nm small { font-weight: 400; color: #6b7280; font-size: 11px; margin-left: 4px; }
+  .tk .nx-sum { font-size: 12px; color: #4b5563; margin-bottom: 8px; line-height: 1.6; }
+  .tk .nx-tc { display: grid; grid-template-columns: 112px 1fr; gap: 5px 10px; font-size: 12px; line-height: 1.55; color: #374151; }
+  .tk .nx-tc .t { font-weight: 600; color: #1f2937; white-space: nowrap; }
+  .tk .mk { display: inline-block; font-size: 10px; font-weight: 700; border-radius: 4px; padding: 1px 6px; margin-right: 6px; vertical-align: 1px; white-space: nowrap; }
+  .tk .m-dat { background: #d1fae5; color: #065f46; } .tk .m-chua { background: #fef3c7; color: #92400e; } .tk .m-thieu { background: #fee2e2; color: #991b1b; } .tk .m-tt { background: #f3f4f6; color: #6b7280; }
+  .tk .nx-kp { margin-top: 10px; padding: 8px 10px; background: #fff7ed; border-left: 3px solid #f59e0b; border-radius: 4px; font-size: 12px; color: #374151; }
+  .tk .nx-kp b { color: #92400e; }
+  .tk .nx-kp ol { margin: 4px 0 0; padding-left: 18px; line-height: 1.6; }
+  .tk .nx-ok { margin-top: 10px; padding: 6px 10px; background: #ecfdf5; border-left: 3px solid #10b981; border-radius: 4px; font-size: 12px; color: #065f46; }
+  .tk .nx-gc { margin-top: 8px; font-size: 12px; color: #1e40af; }
+  @media (max-width: 700px) { .tk .tk-quick-grid { grid-template-columns: 1fr; } .tk .nx-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -147,8 +204,10 @@
           <div class="tk-card-head">
             <div class="tabs" id="dgTabs">
               <a class="b sm" href="#bang-danh-gia" data-tab="bang-danh-gia">Bảng đánh giá</a>
+              <a class="b sm" href="#nhan-xet" data-tab="nhan-xet">Nhận xét</a>
               <a class="b sm" href="#dashboard" data-tab="dashboard">Dashboard</a>
               <a class="b sm" href="#theo-ngay" data-tab="theo-ngay">Theo ngày</a>
+              <a class="b sm" href="#dong-cap" data-tab="dong-cap">Đóng cặp</a>
               <a class="b sm" href="#xu-huong" data-tab="xu-huong">Xu hướng các tháng</a>
               <a class="b sm" href="#chat-luong" data-tab="chat-luong">Chất lượng &amp; ghi chú</a>
               <a class="b sm" href="#danh-sach" data-tab="danh-sach">Danh sách &amp; nhóm</a>
@@ -164,6 +223,14 @@
           <div data-pane="bang-danh-gia">
             <div class="tw"><table class="dt"><thead id="bgHead"></thead><tbody id="bgBody"></tbody></table></div>
             <div class="tk-foot" id="bgFoot"></div>
+          </div>
+
+          <div data-pane="nhan-xet" hidden>
+            <div class="tk-row" style="padding:12px 16px 0;gap:10px;justify-content:space-between">
+              <span class="tk-row" id="nxLoc"></span>
+              <span class="legend"><span><span class="mk m-dat">Đạt</span></span><span><span class="mk m-chua">Chưa đạt</span></span><span><span class="mk m-thieu">Không đạt</span></span><span>Nhận xét tự viết từ số liệu tháng — thêm nhận xét riêng ở mục Chất lượng &amp; ghi chú</span></span>
+            </div>
+            <div class="nx-grid" id="nxGrid"></div>
           </div>
 
           <div data-pane="dashboard" hidden>
@@ -186,10 +253,53 @@
                 <span><i style="background:var(--lowbg);border:1px solid #fcd34d"></i>Dưới định mức</span>
                 <span><i style="background:var(--badbg);border:1px solid #fca5a5"></i>Có công nhưng 0 lượt</span>
                 <span><i style="background:#fff;box-shadow:inset 0 0 0 2px #a78bfa"></i>Ngày đóng cặp (đã chia đôi)</span>
+                <span><i style="background:repeating-linear-gradient(135deg,#fff 0 3px,#d1d5db 3px 5px)"></i>Ngày ít đơn cả tổ (không tính)</span>
                 <span>Rê chuột vào ô để xem chi tiết</span>
               </span>
             </div>
             <div class="tw" style="margin-top:10px"><table class="dt grid"><thead id="tnHead"></thead><tbody id="tnBody"></tbody></table></div>
+          </div>
+
+          <div data-pane="dong-cap" hidden>
+            <div class="tk-card-body">
+              <div class="muted" style="font-size:12px;line-height:1.7;margin-bottom:12px">Khi 2 người đóng hàng chung, hệ thống chỉ ghi lượt cho 1 người — khai báo cặp ở đây để chia đôi lượt của 2 người trong những ngày đó (giống trang Thưởng kho). <b>Chỉ chia những buổi cả 2 người cùng đi làm</b> theo chấm công: 1 người nghỉ cả ngày thì ngày đó không chia, nghỉ nửa ngày thì chỉ chia buổi còn lại. Cặp khai 1 lần áp cho mọi tháng có ngày đó (không cần khai lại khi sang tháng). Các cặp đã khai ở trang Thưởng kho / Thưởng sàn cũng được lấy vào.</div>
+              <div class="tk-quick">
+                <div class="tk-quick-title">Nhập nhanh từ ghi chú <span>— thả / dán (Ctrl+V) ảnh chụp ghi chú, hoặc dán chữ vào ô bên phải; trang tự nhận các cặp và khoảng ngày, bạn kiểm tra lại rồi bấm Thêm.</span></div>
+                <div class="tk-quick-grid">
+                  <div class="tk-qdrop" id="qDrop" tabindex="0" role="button" aria-label="Chọn hoặc thả ảnh ghi chú">
+                    <div id="qDropTxt"><b>Thả ảnh vào đây</b><br>hoặc bấm để chọn ảnh<br>hoặc chụp màn hình rồi bấm <b>Ctrl+V</b></div>
+                    <img id="qThumb" alt="Ảnh ghi chú đã thả" hidden>
+                  </div>
+                  <textarea id="qText" rows="6" spellcheck="false" placeholder="Hoặc gõ / dán chữ, ví dụ:&#10;Đóng hàng từ ngày 6/10 đến 11/10&#10;Cặp 1: Hoàng Anh + Kiều Mi&#10;Cặp 2: Diễm Duy + Thùy Trang&#10;Sáng 13/10: Trang Thảo + Bích Vân"></textarea>
+                </div>
+                <input type="file" id="qFile" accept="image/*" hidden>
+                <div id="qMsg"></div>
+                <div id="qPrev" hidden style="margin-top:12px">
+                  <table class="dt"><thead><tr><th style="width:26px"></th><th>Nhân viên 1</th><th>Nhân viên 2</th><th>Từ ngày</th><th>Đến ngày</th><th>Buổi</th><th>Áp dụng</th><th>Tình trạng</th></tr></thead><tbody id="qBody"></tbody></table>
+                  <div class="tk-row" style="margin-top:10px"><button class="b pri sm" type="button" id="qAdd">+ Thêm các cặp đã đánh dấu</button><button class="b sm" type="button" id="qClear">Xóa ô nhập nhanh</button></div>
+                </div>
+              </div>
+              <div class="muted" style="margin-bottom:6px">Hoặc thêm từng cặp — gõ vài chữ của tên (không dấu cũng được) hoặc mã NV để tìm; chỉ 1 ngày thì để trống "Đến ngày". Sai thì bấm <b>Sửa</b> ở dòng đó.</div>
+              <div class="tk-form">
+                <label class="f">Nhân viên 1<span class="tk-combo"><input type="text" id="adj1" placeholder="Gõ tên hoặc mã để tìm…"></span></label>
+                <label class="f">Nhân viên 2 (hoặc người ngoài DS)<span class="tk-combo"><input type="text" id="adj2" placeholder="Gõ tên hoặc mã để tìm…"></span></label>
+                <label class="f">Từ ngày<input type="date" id="adjFrom"></label>
+                <label class="f" title="Bỏ trống = chỉ 1 ngày (bằng Từ ngày)">Đến ngày<input type="date" id="adjTo"></label>
+                <label class="f">Buổi<select id="adjBuoi"><option value="">Cả ngày</option><option value="sang">Sáng (trước 12h)</option><option value="chieu">Chiều (từ 12h)</option></select></label>
+                <label class="f" title="Chia lượt của file kho, file sàn hay cả hai">Áp dụng<select id="adjAp"><option value="kho">Kho</option><option value="san">Sàn</option><option value="ca">Kho + sàn</option></select></label>
+                <button class="b pri sm" type="button" id="adjAdd">+ Thêm cặp</button>
+              </div>
+              <div id="adjMsg"></div>
+              <div class="tk-row" style="margin:6px 0 8px;justify-content:space-between">
+                <span class="tk-row" style="font-size:12px;font-weight:600" id="capTitle"></span>
+                <label class="tk-row" style="font-size:12px"><input type="checkbox" id="capAll"> Hiện cả các tháng khác</label>
+              </div>
+              <table class="dt" style="margin-bottom:20px"><thead><tr><th>Nhân viên 1</th><th>Nhân viên 2</th><th>Từ ngày</th><th>Đến ngày</th><th>Buổi</th><th>Áp dụng</th><th>Kết quả trong tháng đang xem</th><th style="width:130px"></th></tr></thead><tbody id="adjList"></tbody></table>
+              <div style="font-size:12px;font-weight:600;margin-bottom:8px">Người ngoài danh sách</div>
+              <div class="muted" style="margin-bottom:10px">Người không có trong "bảng mã nv" (vd. người phụ giúp) — chỉ để chọn ở ô "Nhân viên 2" khi họ đóng cùng 1 nhân viên; phần lượt chia cho họ không tính cho ai.</div>
+              <div class="tk-row" style="margin-bottom:10px"><input type="text" id="helperName" placeholder="Tên người ngoài danh sách..." style="width:220px"><button class="b sm" type="button" id="helperAdd">+ Thêm người</button></div>
+              <div class="tk-row" id="helperList"></div>
+            </div>
           </div>
 
           <div data-pane="xu-huong" hidden>
@@ -235,14 +345,14 @@
                 <div>• <b>Lượt</b> đếm giống trang thưởng: kho = Tạo kiện + Bốc hàng + Đóng hàng (mỗi dòng 1 lượt); sàn = Bốc hàng + Đóng hàng. <b>Lượt quy đổi</b> = lượt kho + lượt sàn × <span data-cfg="heSoSan"></span> (đơn sàn nhỏ, nhanh hơn: định mức thưởng kho 20 lượt/ngày, sàn 80).</div>
                 <div>• <b>Ngày công</b> lấy từ bảng chấm công cùng tháng (trang Chấm Công: X = 1, S / C và các mã nửa ngày = 0,5; P, L, Ro, CT… = 0). Chưa có chấm công thì lấy những ngày có lượt quét (thứ Bảy = 0,5). Có quét vào ngày nghỉ / CN thì ngày đó cũng tính công.</div>
                 <div>• <b>Năng suất</b> = bình quân lượt quy đổi / ngày công so với trung bình nhóm; đạt <span data-cfg="nsDinh"></span>% trung bình nhóm trở lên = đủ điểm, thấp hơn tính theo tỷ lệ (bằng trung bình nhóm ≈ <span id="nsTb"></span> điểm).</div>
-                <div>• <b>Ổn định</b> = tỷ lệ ngày có công đạt định mức <span data-cfg="dmNgay"></span> lượt quy đổi (nửa ngày: một nửa) × <span data-cfg="dOD"></span>.</div>
+                <div>• <b>Ổn định</b> = tỷ lệ ngày có công đạt định mức <span data-cfg="dmNgay"></span> lượt quy đổi (nửa ngày: một nửa) × <span data-cfg="dOD"></span>. <b>Ngày ít đơn của cả tổ</b> (bình quân cả tổ hôm đó dưới một nửa ngày bình thường, vd. kiểm kê, ít hàng) không tính vào Ổn định / Chuyên cần của ai.</div>
                 <div>• <b>Chất lượng</b> = <span data-cfg="dCL"></span> − số lỗi ghi nhận × <span data-cfg="truLoi"></span> (không âm) — nhập ở mục Chất lượng &amp; ghi chú.</div>
-                <div>• <b>Đóng cặp</b> khai ở trang Thưởng kho / Thưởng sàn được chia đôi y như khi tính thưởng — không thì 1 người được ghi hết lượt của cả 2.</div>
+                <div>• <b>Đóng cặp</b> (mục Đóng cặp của trang này, cộng các cặp đã khai ở Thưởng kho / Thưởng sàn): lượt của 2 người trong ngày đó được chia đôi như khi tính thưởng — không thì 1 người được ghi hết lượt của cả 2. Chỉ chia những buổi cả 2 cùng đi làm theo chấm công.</div>
               </div>
               <div class="cfg" id="cfgForm"></div>
               <div class="tk-row">
                 <label class="tk-row" style="font-size:12px"><input type="checkbox" id="cfgCC"> Lấy ngày công từ bảng chấm công</label>
-                <label class="tk-row" style="font-size:12px;margin-left:14px"><input type="checkbox" id="cfgCap"> Chia đôi lượt các ngày đóng cặp (từ Thưởng kho / Thưởng sàn)</label>
+                <label class="tk-row" style="font-size:12px;margin-left:14px"><input type="checkbox" id="cfgCap"> Chia đôi lượt các ngày đóng cặp (mục Đóng cặp + Thưởng kho / Thưởng sàn)</label>
               </div>
               <div class="tk-row" style="margin-top:14px"><button class="b sm" type="button" id="cfgReset">Khôi phục tiêu chí mặc định</button><span class="muted" id="cfgMsg"></span></div>
             </div>
@@ -254,9 +364,9 @@
     <footer class="site-foot">Kho vận HCM · Trang nội bộ. File Excel được đọc trong trình duyệt; kết quả theo tháng lưu trong kho riêng tư của Kho vận HCM trên GitHub (khi đã kết nối).</footer>
   </div>
 </div>
-<script src="../assets/flows.js?v=20261113a"></script>
+<script src="../assets/flows.js?v=20261113b"></script>
 <script src="../assets/layout.js?v=20261010a"></script>
-<script src="dg-engine.js?v=20261113a"></script>
-<script src="app.js?v=20261113a"></script>
+<script src="dg-engine.js?v=20261113c"></script>
+<script src="app.js?v=20261113c"></script>
 </body>
 </html>
