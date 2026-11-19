@@ -122,7 +122,17 @@
   .tk .pv-wrap { position: sticky; top: 12px; }
   .tk .pv-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; color: #6b7280; }
   .tk .pv-paper { background: #fff; box-shadow: 0 2px 12px #0000001f; border: 1px solid #e5e7eb; overflow: hidden; }
-  .tk table.dt td.wrap { white-space: normal; min-width: 220px; max-width: 420px; }
+  .tk table.dt td.wrap { white-space: normal; min-width: 220px; max-width: 420px; display: table-cell; margin: 0; padding: 7px 10px; gap: 0; } /* theme.css có .wrap (khung trang) dạng flex — không cho ăn vào ô bảng */
+  .tk .seg { display: inline-flex; border: 1px solid #d1d5db; border-radius: 7px; overflow: hidden; background: #fff; }
+  .tk .seg button { font: inherit; font-size: 12px; border: 0; background: none; padding: 6px 12px; cursor: pointer; color: #374151; }
+  .tk .seg button + button { border-left: 1px solid #e5e7eb; }
+  .tk .seg button.on { background: #1a56db; color: #fff; font-weight: 600; }
+  .tk .chua-chi { color: #b45309; font-weight: 600; }
+  .tk table.dt th.chi, .tk table.dt td.chi { text-align: center; width: 54px; }
+  .tk table.dt td.chi input { width: 17px; height: 17px; cursor: pointer; accent-color: #059669; margin: 0; vertical-align: middle; }
+  .tk table.dt td.chi a { display: block; font-size: 11px; color: #059669; cursor: pointer; margin-top: 2px; }
+  .tk table.dt tr.da-chi td { background: #f0fdf4; color: #6b7280; }
+  .tk table.dt tr.da-chi td.money { color: #059669; }
   .tk table.dt td.act { white-space: nowrap; text-align: right; }
   .tk .edit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; padding: 12px; background: #f9fafb; border-radius: 8px; margin-bottom: 14px; }
   .tk .edit-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: #6b7280; }
@@ -415,8 +425,10 @@
 
           <!-- ====================== ĐÃ LẬP ====================== -->
           <div data-pane="da-lap" class="tk-card-body" hidden>
-            <div class="tk-row" style="margin-bottom:10px"><div class="tk-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input id="pSearch" placeholder="Tìm lý do, đơn vị, số HĐ…"></div><span class="muted" id="pCount"></span></div>
-            <div class="tw"><table class="dt"><thead><tr><th>Ngày lập</th><th>Mẫu</th><th>Lý do thanh toán</th><th>Đơn vị nhận tiền</th><th>Chứng từ</th><th class="r">Tổng tiền</th><th></th></tr></thead><tbody id="phieuBody"></tbody></table></div>
+            <div class="tk-row" style="margin-bottom:10px"><div class="tk-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input id="pSearch" placeholder="Tìm lý do, đơn vị, số HĐ…"></div>
+              <div class="seg" id="pLoc"><button type="button" data-loc="">Tất cả</button><button type="button" data-loc="chua">Chưa chi <span id="pLocChua"></span></button><button type="button" data-loc="da">Đã chi</button></div>
+              <span class="muted" id="pCount"></span></div>
+            <div class="tw"><table class="dt"><thead><tr><th class="chi" title="Tick khi phiếu đã được chi tiền">Đã chi</th><th>Ngày lập</th><th>Mẫu</th><th>Lý do thanh toán</th><th>Đơn vị nhận tiền</th><th>Chứng từ</th><th class="r">Tổng tiền</th><th></th></tr></thead><tbody id="phieuBody"></tbody></table></div>
           </div>
 
           <!-- ====================== NẠP MẪU ====================== -->
@@ -442,6 +454,6 @@
 <div id="printArea"></div>
 <script src="../assets/flows.js?v=20261113c"></script>
 <script src="../assets/layout.js?v=20261010a"></script>
-<script src="app.js?v=20261119a"></script>
+<script src="app.js?v=20261119b"></script>
 </body>
 </html>

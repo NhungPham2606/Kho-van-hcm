@@ -88,7 +88,7 @@
     try {
       const remote = await fetchRemote();
       if (remote) db = merge(db, remote);
-      persist(); renderAll();
+      donNhan(); persist(); renderAll();
       syncMsg = 'Đã đồng bộ với hệ thống — mở trên máy khác cũng thấy.';
       if (!remote || ['mau', 'phieu', 'cd', 'cfg'].some(k => JSON.stringify(remote[k] || null) !== JSON.stringify(db[k] || null))) save(0);
     } catch (e) { syncMsg = 'Không đồng bộ được với hệ thống: ' + e.message + '. Dữ liệu vẫn lưu trên máy này.'; }
@@ -419,21 +419,32 @@
     }
     return out;
   }
+  // nhãn tên người bán trên HĐ, vd "Tên đơn vị bán hàng (Company's Name):" — bỏ nhãn, giữ tên công ty
+  const NHAN_BAN = /^\s*(Tên đơn vị bán( hàng)?|Đơn vị bán( hàng)?|Tên người bán( hàng)?|Người bán( hàng)?)\s*(\([^)]*\))?\s*:/i;
+  const boNhan = s => clean(String(s || '').replace(NHAN_BAN, ''));
+  // phiếu/mẫu lập trước bản sửa nhãn còn dính "Tên đơn vị bán hàng (Company's Name):" ở tên mẫu / tên TK -> làm sạch 1 lần
+  function donNhan() {
+    let doi = false;
+    [...db.phieu, ...db.mau].forEach(x => ['mauTen', 'tenTK', 'ten'].forEach(k => {
+      if (typeof x[k] === 'string' && NHAN_BAN.test(x[k])) { x[k] = boNhan(x[k]); x.sua = nowIso(); doi = true; }
+    }));
+    return doi;
+  }
   function docHdPdf(lines) {
     const hd = {}, all = lines.join('\n');
     let m;
     if ((m = all.match(/Ký hiệu\s*(?:\(Serial\))?\s*:\s*([0-9A-Z]{5,9})/i))) hd.kyHieu = m[1];
     for (const l of lines) if ((m = l.match(/^Số\s*(?:\(No\.?\))?\s*:\s*(\d{1,10})\b/i))) { hd.so = m[1]; break; }
     if ((m = all.match(/Ngày\s*(?:\(Date\))?\s*(\d{1,2})\s*tháng\s*(?:\(month\))?\s*(\d{1,2})\s*năm\s*(?:\(year\))?\s*(\d{4})/i))) hd.ngay = `${m[3]}-${pad2(+m[2])}-${pad2(+m[1])}`;
-    let iBan = lines.findIndex(l => /^(Đơn vị bán( hàng)?|Tên người bán|Người bán( hàng)?|Tên đơn vị bán)\s*(\([^)]*\))?\s*:/i.test(l));
+    let iBan = lines.findIndex(l => NHAN_BAN.test(l));
     const iMua = lines.findIndex(l => /(người mua|Tên đơn vị\s*:|Đơn vị mua)/i.test(l));
-    if (iBan >= 0) hd.ban = clean(lines[iBan].replace(/^[^:]*:/, ''));
+    if (iBan >= 0) hd.ban = boNhan(lines[iBan]);
     else { // mẫu không ghi nhãn (vd MISA "Trần Quyên"): tên công ty in đầu trang, ngay trên "Mã số thuế" đầu tiên trước phần người mua
       const iMst = lines.findIndex((l, i) => (iMua < 0 || i < iMua) && /^Mã số thuế/i.test(l));
       if (iMst > 0) {
         let j = iMst - 1;
         for (let k = iMst - 1; k >= 0; k--) if (/CÔNG TY|\bCTY\b|DOANH NGHIỆP|HỘ KINH DOANH|CHI NHÁNH|HỢP TÁC XÃ|TẬP ĐOÀN/i.test(lines[k])) { j = k; break; }
-        iBan = j; hd.ban = clean(lines[j]);
+        iBan = j; hd.ban = boNhan(lines[j]);
       }
     }
     if (iBan >= 0) {
@@ -577,7 +588,8 @@
     rec.items = rec.items.filter(it => it.ngay || it.ct || it.tien || it.gc);
     rec.tong = tong(rec); rec.sua = nowIso(); rec.tao = rec.tao || rec.sua;
     const i = db.phieu.findIndex(p => p.id === rec.id);
-    if (i >= 0) { rec.tao = db.phieu[i].tao || rec.tao; db.phieu[i] = rec; } else db.phieu.push(rec);
+    // tick "đã chi" nằm ở danh sách — in/lưu lại phiếu không được làm mất (nháp có thể mở trước khi tick)
+    if (i >= 0) { rec.tao = db.phieu[i].tao || rec.tao; rec.daChi = db.phieu[i].daChi || ''; db.phieu[i] = rec; } else { rec.daChi = ''; db.phieu.push(rec); }
     const m = db.mau.find(x => x.id === d.mauId);
     if (m) { m.lastTien = rec.tong; m.lastCt = rec.items.map(it => it.ct).filter(Boolean).join(', '); m.lastNgay = (rec.items[0] || {}).ngay || ''; m.dung = rec.sua; m.sua = rec.sua; }
     saveDraft(); touch(); renderLists();
@@ -768,24 +780,50 @@
   });
 
   // ------------------------------------------------------------ tab Phiếu đã lập
+  // Theo dõi chi tiền: p.daChi = ngày đã chi (yyyy-mm-dd) hoặc '' = chưa chi. Lọc Tất cả / Chưa chi / Đã chi (nhớ theo máy).
+  const LS_LOC = 'kvh-dntt-loc';
+  let pLoc = ''; try { pLoc = localStorage.getItem(LS_LOC) || ''; } catch (e) {}
   function renderPhieu() {
     const q = $('pSearch').value.trim().toLowerCase();
-    const list = db.phieu.slice().sort((a, b) => (b.ngayLap || '').localeCompare(a.ngayLap || '') || (b.sua || '').localeCompare(a.sua || ''))
-      .filter(p => !q || [p.mauTen, p.lyDo, p.tenTK, p.nguoi, ...(p.items || []).map(it => it.ct)].join(' ').toLowerCase().includes(q));
-    $('pCount').textContent = `${db.phieu.length} phiếu · tổng ${vnd(list.reduce((s, p) => s + (p.tong || 0), 0))}đ (đang lọc ${list.length})`;
-    $('phieuBody').innerHTML = list.map(p => `<tr><td>${esc(isoToVN(p.ngayLap))}</td><td class="name">${esc(p.mauTen)}</td><td class="wrap">${esc(p.lyDo)}</td><td class="wrap">${esc(p.tenTK)}</td>
+    const timDuoc = db.phieu.filter(p => !q || [p.mauTen, p.lyDo, p.tenTK, p.nguoi, ...(p.items || []).map(it => it.ct)].join(' ').toLowerCase().includes(q));
+    const list = timDuoc.filter(p => !pLoc || (pLoc === 'da' ? !!p.daChi : !p.daChi))
+      .sort((a, b) => (b.ngayLap || '').localeCompare(a.ngayLap || '') || (b.sua || '').localeCompare(a.sua || ''));
+    const chua = db.phieu.filter(p => !p.daChi), tienChua = chua.reduce((s, p) => s + (p.tong || 0), 0);
+    document.querySelectorAll('#pLoc [data-loc]').forEach(b => b.classList.toggle('on', b.dataset.loc === pLoc));
+    $('pLocChua').textContent = chua.length ? `(${chua.length})` : '';
+    $('pCount').innerHTML = `${db.phieu.length} phiếu · <b class="chua-chi">chưa chi ${chua.length} phiếu = ${vnd(tienChua)}đ</b> · đang hiện ${list.length} (${vnd(list.reduce((s, p) => s + (p.tong || 0), 0))}đ)`;
+    $('phieuBody').innerHTML = list.map(p => `<tr class="${p.daChi ? 'da-chi' : ''}">
+      <td class="chi"><label title="${p.daChi ? 'Bỏ tick = chưa chi' : 'Tick khi đã chi tiền'}"><input type="checkbox" data-chi="${p.id}"${p.daChi ? ' checked' : ''}></label>${p.daChi ? `<a data-ngaychi="${p.id}" title="Sửa ngày chi">${esc(isoToVN(p.daChi).slice(0, 5))}</a>` : ''}</td>
+      <td>${esc(isoToVN(p.ngayLap))}</td><td class="name">${esc(p.mauTen)}</td><td class="wrap">${esc(p.lyDo)}</td><td class="wrap">${esc(p.tenTK)}</td>
       <td class="wrap" style="min-width:120px">${esc((p.items || []).map(it => it.ct).filter(Boolean).join(', '))}</td><td class="r money">${vnd(p.tong)}</td>
       <td class="act"><button class="b sm" type="button" data-open="${p.id}" title="Mở để sửa / in lại">Mở</button> <button class="b sm" type="button" data-copy="${p.id}" title="Tạo phiếu mới giống phiếu này">Lập lại</button> <button class="b del sm" type="button" data-delp="${p.id}">Xóa</button></td></tr>`).join('')
-      || '<tr><td colspan="7" class="muted">Chưa có phiếu nào. Phiếu tự lưu khi bấm In / Xuất Excel / Lưu phiếu.</td></tr>';
+      || `<tr><td colspan="8" class="muted">${db.phieu.length ? (pLoc === 'chua' ? 'Không còn phiếu nào chưa chi.' : 'Không có phiếu nào khớp.') : 'Chưa có phiếu nào. Phiếu tự lưu khi bấm In / Xuất Excel / Lưu phiếu.'}</td></tr>`;
   }
   $('pSearch').addEventListener('input', renderPhieu);
+  $('pLoc').addEventListener('click', e => {
+    const b = e.target.closest('[data-loc]'); if (!b) return;
+    pLoc = b.dataset.loc; try { localStorage.setItem(LS_LOC, pLoc); } catch (er) {}
+    renderPhieu();
+  });
+  $('phieuBody').addEventListener('change', e => {
+    const id = e.target.dataset.chi, p = id && db.phieu.find(x => x.id === id); if (!p) return;
+    p.daChi = e.target.checked ? today() : ''; p.sua = nowIso();
+    touch(); renderPhieu();
+  });
   $('phieuBody').addEventListener('click', e => {
+    const a = e.target.closest('[data-ngaychi]');
+    if (a) {
+      const p = db.phieu.find(x => x.id === a.dataset.ngaychi); if (!p) return;
+      const v = prompt('Ngày đã chi (dd/mm/yyyy):', isoToVN(p.daChi)); if (v === null) return;
+      const iso = vnToIso(v); if (!iso) { alert('Ngày không đúng dạng dd/mm/yyyy.'); return; }
+      p.daChi = iso; p.sua = nowIso(); touch(); renderPhieu(); return;
+    }
     const b = e.target.closest('button'); if (!b) return;
     const id = b.dataset.open || b.dataset.copy || b.dataset.delp, p = db.phieu.find(x => x.id === id); if (!p) return;
     if (b.dataset.delp) { if (confirm('Xóa phiếu này?')) { db.phieu = db.phieu.filter(x => x.id !== id); db.xoa[id] = nowIso(); touch(); renderAll(); } return; }
     d = Object.assign(newDraft(d), JSON.parse(JSON.stringify(p)));
     if (!d.items.length) d.items.push(blankItem());
-    if (b.dataset.copy) { d.id = ''; d.tao = ''; d.ngayLap = today(); d.ky = kyMacDinh(); d.lyDo = doiKy(d.lyDo, d.ky); d.items = d.items.map(it => ({ ngay: '', ct: '', tien: 0, gc: it.gc })); }
+    if (b.dataset.copy) { d.id = ''; d.tao = ''; d.daChi = ''; d.ngayLap = today(); d.ky = kyMacDinh(); d.lyDo = doiKy(d.lyDo, d.ky); d.items = d.items.map(it => ({ ngay: '', ct: '', tien: 0, gc: it.gc })); }
     saveDraft(); location.hash = '#lap-phieu'; renderForm();
     msg($('lpMsg'), b.dataset.copy ? 'Đã tạo phiếu mới giống phiếu cũ — điền số HĐ, ngày, số tiền.' : 'Đang mở phiếu đã lưu — sửa xong bấm In / Lưu phiếu để cập nhật.', true);
   });
@@ -1113,7 +1151,7 @@
       c.rows.filter(r => r.tien).forEach(r => {
         if (!r.ttId) r.ttId = newId();
         const t = buildTT(c, r); t.tong = tong(t); t.sua = nowIso();
-        const i = db.phieu.findIndex(p => p.id === t.id); if (i >= 0) { t.tao = db.phieu[i].tao; db.phieu[i] = t; } else { t.tao = t.sua; db.phieu.push(t); }
+        const i = db.phieu.findIndex(p => p.id === t.id); if (i >= 0) { t.tao = db.phieu[i].tao; t.daChi = db.phieu[i].daChi || ''; db.phieu[i] = t; } else { t.tao = t.sua; db.phieu.push(t); }
       });
       luuCd(); renderLists();
     }
@@ -1188,6 +1226,7 @@
   function renderLists() { renderChips(); renderMau(); renderPhieu(); }
   function renderAll() { renderLists(); renderForm(); renderCd(); renderMc(); renderSync(); }
   window.addEventListener('hashchange', renderTabs);
+  if (donNhan()) touch();
   renderTabs(); renderAll();
   pull();
 })();
