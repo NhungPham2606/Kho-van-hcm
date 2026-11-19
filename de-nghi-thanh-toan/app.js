@@ -304,6 +304,97 @@
     if (m) { e.target.value = ''; applyMau(m); }
   });
 
+  // ------------------------------------------------------------ danh bạ tài khoản: gõ tên -> có sẵn số TK + ngân hàng
+  // Gom từ mẫu, mọi phiếu đã lập/in và hồ sơ Công đoàn (nên luôn khớp dữ liệu, đồng bộ cùng du-lieu.json — kho riêng).
+  // Mỗi số TK 1 dòng, lấy tên/ngân hàng của lần dùng gần nhất. "Bỏ khỏi gợi ý" = mốc xoa['tk:<số>'];
+  // nếu sau đó lại lập phiếu với số TK đó thì tự hiện lại.
+  const boDau = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').toLowerCase().replace(/\s+/g, ' ').trim();
+  const soTKcua = s => String(s || '').replace(/\D/g, '');
+  function danhBaTK() {
+    const m = {};
+    const them = (ten, soTK, nh, luc) => {
+      const k = soTKcua(soTK); ten = clean(ten); nh = clean(nh); luc = luc || '';
+      if (k.length < 5 || !ten) return;
+      const o = m[k];
+      if (!o) m[k] = { ten, soTK: clean(soTK), nh, luc };
+      else if (luc >= o.luc) Object.assign(o, { ten, soTK: clean(soTK), nh: nh || o.nh, luc });
+      else if (!o.nh) o.nh = nh;
+    };
+    db.mau.forEach(x => them(x.tenTK, x.soTK, x.nh, x.dung || x.sua));
+    db.phieu.forEach(x => them(x.tenTK, x.soTK, x.nh, x.sua || x.tao));
+    (db.cd || []).forEach(x => (x.rows || []).forEach(r => them(r.ten, r.soTK, r.nh, x.sua)));
+    const an = db.xoa || {};
+    return Object.entries(m).filter(([k, a]) => !(an['tk:' + k] && an['tk:' + k] >= a.luc)).map(([, a]) => a)
+      .sort((a, b) => b.luc.localeCompare(a.luc));
+  }
+  const tkIn = $('fTenTK'), tkBox = $('tkGoiY');
+  let tkList = [], tkSel = -1;
+  function tkLoc(q) {
+    const v = boDau(q), so = soTKcua(q), all = danhBaTK();
+    if (!v) return all.slice(0, 8);
+    const w = v.split(' ');
+    return all.map(a => {
+      const t = boDau(a.ten);
+      if (w.every(x => t.includes(x))) return { a, d: t.startsWith(v) || t.split(' ').some(p => p.startsWith(w[0])) ? 0 : 1 };
+      if (so.length >= 3 && soTKcua(a.soTK).includes(so)) return { a, d: 2 };
+      return null;
+    }).filter(Boolean).sort((x, y) => x.d - y.d).slice(0, 12).map(x => x.a);
+  }
+  function tkMo() {
+    tkList = tkLoc(tkIn.value);
+    tkSel = tkList.length && clean(tkIn.value) ? 0 : -1;
+    if (!tkList.length) { tkBox.hidden = true; return; }
+    const ngay = s => s ? ' · <i>dùng ' + esc(isoToVN(String(s).slice(0, 10))) + '</i>' : '';
+    tkBox.innerHTML = `<div class="hd">${clean(tkIn.value) ? 'Tài khoản đã dùng — bấm chọn (hoặc ↓ ↑ Enter) để điền số TK + ngân hàng' : 'Tài khoản dùng gần đây'}</div>`
+      + tkList.map((a, i) => `<div class="o${i === tkSel ? ' on' : ''}" data-i="${i}"><span class="t"><b>${esc(a.ten)}</b>
+        <span class="s">${esc(a.soTK)}${a.nh ? ' · ' + esc(a.nh) : ''}${ngay(a.luc)}</span></span>
+        <button type="button" class="x" data-an="${i}" title="Bỏ khỏi gợi ý (tài khoản sai / không dùng nữa)">×</button></div>`).join('');
+    tkBox.hidden = false;
+  }
+  const tkDong = () => { tkBox.hidden = true; tkSel = -1; };
+  function tkChon(a) {
+    Object.assign(d, { tenTK: a.ten, soTK: a.soTK, nh: a.nh, ht: 'ck' });
+    tkDong(); saveDraft(); renderForm(); tkIn.value = a.ten;
+    msg($('lpMsg'), `Đã điền tài khoản <b>${esc(a.ten)}</b> — ${esc(a.soTK)}${a.nh ? ' · ' + esc(a.nh) : ''}.`, true);
+  }
+  tkIn.addEventListener('input', tkMo);
+  tkIn.addEventListener('focus', () => { if (!clean(tkIn.value)) tkMo(); });
+  tkIn.addEventListener('blur', () => setTimeout(tkDong, 150));
+  tkIn.addEventListener('keydown', e => {
+    if (tkBox.hidden) { if (e.key === 'ArrowDown') { tkMo(); e.preventDefault(); } return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      tkSel = (tkSel + (e.key === 'ArrowDown' ? 1 : -1) + tkList.length) % tkList.length;
+      tkBox.querySelectorAll('.o').forEach((o, i) => o.classList.toggle('on', i === tkSel));
+      const on = tkBox.querySelector('.o.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') { if (tkSel >= 0) { e.preventDefault(); tkChon(tkList[tkSel]); } }
+    else if (e.key === 'Escape') tkDong();
+  });
+  tkBox.addEventListener('mousedown', e => e.preventDefault()); // giữ con trỏ trong ô tên
+  tkBox.addEventListener('click', e => {
+    const x = e.target.closest('[data-an]');
+    if (x) {
+      const a = tkList[+x.dataset.an];
+      if (a && confirm(`Bỏ "${a.ten} – ${a.soTK}" khỏi danh sách gợi ý?\n(Phiếu cũ không bị xóa. Lần sau lập phiếu với số TK này thì nó tự hiện lại.)`)) {
+        db.xoa = db.xoa || {}; db.xoa['tk:' + soTKcua(a.soTK)] = nowIso(); touch(); tkMo();
+      }
+      return;
+    }
+    const o = e.target.closest('[data-i]'); if (o) tkChon(tkList[+o.dataset.i]);
+  });
+  // gõ tay đủ tên rồi rời ô (không chọn) mà chưa có số TK -> tự điền nếu tên đó chỉ có 1 tài khoản
+  tkIn.addEventListener('change', () => {
+    if (clean(d.soTK)) return;
+    const v = boDau(tkIn.value), hit = v ? danhBaTK().filter(a => boDau(a.ten) === v) : [];
+    if (hit.length === 1) tkChon(hit[0]);
+  });
+  // gõ số TK đã từng dùng mà chưa có tên -> điền tên + ngân hàng
+  $('fSoTK').addEventListener('change', () => {
+    const k = soTKcua(d.soTK); if (k.length < 5) return;
+    const a = danhBaTK().find(x => soTKcua(x.soTK) === k);
+    if (a && !clean(d.tenTK)) { d.tenTK = a.ten; if (!clean(d.nh)) d.nh = a.nh; saveDraft(); renderForm(); }
+  });
+
   // ------------------------------------------------------------ thả hóa đơn điện tử (PDF bản thể hiện / XML) -> tự điền phiếu
   const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
   const CPC1_MST = ['0104089394', '0101243150']; // MST bên mua (CPC1) + MISA (nhà phát hành) — không phải người bán
@@ -804,6 +895,9 @@
       if (!r.ten) return; const o = m[r.ma || r.ten] || {};
       m[r.ma || r.ten] = { ma: r.ma || o.ma || '', ten: r.ten, soTK: r.soTK || o.soTK || '', nh: r.nh || o.nh || '' };
     }));
+    // NV chưa có số TK trong hồ sơ Công đoàn -> lấy từ danh bạ tài khoản (phiếu thanh toán trước đây, cùng họ tên)
+    const tk = {}; danhBaTK().slice().reverse().forEach(a => { tk[boDau(a.ten)] = a; });
+    Object.values(m).forEach(e => { const a = tk[boDau(e.ten)]; if (a && !e.soTK) { e.soTK = a.soTK; e.nh = e.nh || a.nh; } });
     return Object.values(m).sort((a, b) => a.ten.localeCompare(b.ten, 'vi'));
   }
 

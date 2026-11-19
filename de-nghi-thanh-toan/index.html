@@ -82,6 +82,19 @@
   .tk .fg input:focus, .tk .fg select:focus, .tk .fg textarea:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 2px #1a56db22; }
   .tk .sec { font-size: 11px; font-weight: 700; color: #1a56db; text-transform: uppercase; letter-spacing: .05em; margin: 18px 0 8px; }
   .tk .sec:first-child { margin-top: 0; }
+  .tk .ac-wrap { position: relative; grid-column: 1 / -1; }
+  .tk .fg .ac-wrap > label { display: block; }
+  .tk .ac-tip { color: #9ca3af; }
+  .tk .ac { position: absolute; left: 0; right: 0; top: 100%; margin-top: 3px; z-index: 40; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 10px 28px #0f172a26; max-height: 320px; overflow-y: auto; padding: 4px; }
+  .tk .ac .hd { font-size: 11px; color: #6b7280; padding: 4px 8px 6px; }
+  .tk .ac .o { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; color: #1f2937; }
+  .tk .ac .o.on, .tk .ac .o:hover { background: #eff6ff; }
+  .tk .ac .o .t { flex: 1; min-width: 0; }
+  .tk .ac .o .t b { font-weight: 600; }
+  .tk .ac .o .s { display: block; font-size: 12px; color: #4b5563; margin-top: 1px; }
+  .tk .ac .o .s i { font-style: normal; color: #9ca3af; }
+  .tk .ac .o .x { border: 0; background: none; color: #9ca3af; font-size: 17px; cursor: pointer; padding: 2px 6px; line-height: 1; border-radius: 4px; }
+  .tk .ac .o .x:hover { color: #b5232a; background: #fee2e2; }
   .tk .mau-pick { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .tk .mau-pick input { flex: 1; min-width: 240px; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid #1a56db66; border-radius: 6px; background: #eff6ff; }
   .tk .mau-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
@@ -288,7 +301,9 @@
                   <label class="wide">Lý do thanh toán<textarea id="fLyDo" rows="2"></textarea></label>
                   <div class="fl wide">Hình thức nhận tiền
                     <div class="radio"><label><input type="radio" name="ht" value="ck" checked> Chuyển khoản</label><label><input type="radio" name="ht" value="tm"> Tiền mặt</label></div></div>
-                  <label class="wide">Tên tài khoản nhận tiền<input id="fTenTK"></label>
+                  <div class="fl wide ac-wrap"><label for="fTenTK">Tên tài khoản nhận tiền <span class="ac-tip">— gõ vài chữ của tên (hoặc số TK) để chọn tài khoản đã dùng</span></label>
+                    <input id="fTenTK" autocomplete="off" spellcheck="false" placeholder="vd: kiem, nhat tin, 2435…">
+                    <div class="ac" id="tkGoiY" hidden></div></div>
                   <label>Số tài khoản<input id="fSoTK"></label>
                   <label style="grid-column: span 2">Tại ngân hàng<input id="fNH"></label>
                 </div>
@@ -427,6 +442,6 @@
 <div id="printArea"></div>
 <script src="../assets/flows.js?v=20261113c"></script>
 <script src="../assets/layout.js?v=20261010a"></script>
-<script src="app.js?v=20261007a"></script>
+<script src="app.js?v=20261119a"></script>
 </body>
 </html>
